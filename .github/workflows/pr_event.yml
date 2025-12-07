@@ -15,7 +15,7 @@ on:
 
 # 워크플로우 실행 작업 정의
 jobs:
-  test:
+  pr_event:
     runs-on: ubuntu-latest
     steps: # name 한개한개가 task
       - name: ChatGPT codeReviewer
@@ -38,4 +38,3 @@ jobs:
             
             최고 수준의 코드만 승인하고, "잘 돌아가니까 괜찮아"는 수용하지 않음.
             응답 코드는 pr 코드 리뷰에 반드시 이모지를 항상 활용할 것(특히 상대방이 기분나쁘지 않게)
-
