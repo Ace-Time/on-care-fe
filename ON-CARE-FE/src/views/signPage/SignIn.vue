@@ -23,6 +23,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 
+
 const router = useRouter()
 
 const employeeTypes = [
@@ -40,6 +41,7 @@ const selectEmployee = (value) => {
 
 // 👇 지금은 그냥 구조만, 대시보드로만 이동
 const handleLogin = () => {
+  console.log('로그인 버튼 클릭됨, 선택 타입:', selectedEmployeeType.value)
   router.push({ name: 'dashboard' })
 }
 </script>

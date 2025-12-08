@@ -1,11 +1,10 @@
+<!-- src/views/dashboard/Dashboard.vue -->
 <template>
-    <HeaderBar />
-      대쉬보드
-  </template>
-  
-  <script setup>
-  import HeaderBar from '@/components/common/HeaderBar.vue'
-  </script>
-  
-  <style>
-  </style>
+  <div class="dashboard">
+    <h1>대시보드 화면</h1>
+    <p>여기는 임시 대시보드입니다.</p>
+  </div>
+</template>
+
+<script setup>
+</script>
