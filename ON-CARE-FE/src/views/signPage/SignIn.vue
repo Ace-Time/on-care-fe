@@ -1,47 +1,130 @@
 <template>
-    <div>
-      <h1>로그인 페이지</h1>
-  
-      <h3>직원 구분</h3>
-      <div>
-        <button
-          v-for="type in employeeTypes"
-          :key="type.value"
-          @click="selectEmployee(type.value)"
-        >
-          {{ type.label }}
-        </button>
+  <div class="login-page">
+    <div class="login-card">
+      <div class="logo-area">
+        <img src="@/assets/img/common/oncareIcon.png" alt="OnCare Logo" class="logo-image" />
       </div>
-  
-      <p>선택된 직원: {{ selectedEmployeeType }}</p>
-  
-      <button @click="handleLogin">로그인</button>
+
+      <!-- 이메일 -->
+      <div class="input-group">
+        <img src="@/assets/img/sign/email.png" class="input-icon" />
+        <input type="text" placeholder="이메일을 입력하세요" />
+      </div>
+
+      <!-- 비밀번호 -->
+      <div class="input-group">
+        <img src="@/assets/img/sign/password.png" class="input-icon" />
+        <input type="password" placeholder="비밀번호를 입력하세요" />
+      </div>
+
+      <button class="login-button" @click="handleLogin">
+        로그인
+      </button>
     </div>
-  </template>
-  
-  <script setup>
-import { ref } from 'vue'
+
+    <p class="copyright">
+      © 2024 OnCare. All rights reserved.
+    </p>
+  </div>
+</template>
+
+<script setup>
 import { useRouter } from 'vue-router'
-
-
 const router = useRouter()
 
-const employeeTypes = [
-  { label: '관리자', value: 'MANAGER' },
-  { label: '상담영업', value: 'SALES' },
-  { label: '자재팀', value: 'MATERIAL' },
-  { label: '요양보호사', value: 'CAREGIVER' },
-]
-
-const selectedEmployeeType = ref('MANAGER')
-
-const selectEmployee = (value) => {
-  selectedEmployeeType.value = value
-}
-
-// 👇 지금은 그냥 구조만, 대시보드로만 이동
 const handleLogin = () => {
-  console.log('로그인 버튼 클릭됨, 선택 타입:', selectedEmployeeType.value)
   router.push({ name: 'dashboard' })
 }
 </script>
+
+<style scoped>
+/* 전체 레이아웃 */
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #f6fbf8;
+  font-family: 'Noto Sans KR', sans-serif;
+}
+
+/* 카드 */
+.login-card {
+  width: 420px;
+  max-width: 92vw;
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 40px 48px 36px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.06);
+}
+
+/* 로고 */
+.logo-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 28px;
+}
+
+.logo-image {
+  width: 60px;
+  height: 60px;
+  margin-bottom: 8px;
+}
+
+/* 입력창 */
+.input-group {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-bottom: 14px;
+  background: #fafafa;
+  border-radius: 10px;
+  border: 1px solid #e4e4e4;
+  padding: 12px 14px;
+}
+
+.input-icon {
+  width: 20px;
+  margin-right: 10px;
+  opacity: 0.75;
+}
+
+.input-group input {
+  flex: 1;
+  border: none;
+  font-size: 14px;
+  background: transparent;
+  outline: none;
+}
+
+/* 로그인 버튼 */
+.login-button {
+  width: 100%;
+  padding: 12px 0;
+  border-radius: 30px;
+  border: none;
+  background: linear-gradient(90deg, #36b46b, #1a8b4c);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  margin-top: 18px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.login-button:hover {
+  opacity: 0.9;
+}
+
+.login-button:active {
+  transform: scale(0.98);
+}
+
+copyright {
+  margin-top: 16px;
+  font-size: 12px;
+  color: #999;
+}
+</style>

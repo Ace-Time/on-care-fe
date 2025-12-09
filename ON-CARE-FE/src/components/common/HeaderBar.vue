@@ -2,9 +2,10 @@
   <header class="global-header">
     <!-- 왼쪽 : 로고 -->
     <div class="header-left" @click="goHome">
-      <div class="logo-icon">📋</div>
+      <div class="logo-icon">
+        <img :src="logoIcon" alt="OnCare" />
+      </div>
       <div class="logo-text">
-        <div class="logo-title">OnCare</div>
         <div class="logo-sub">관리자</div>
       </div>
     </div>
@@ -18,20 +19,25 @@
         class="gnb-item"
         :class="{ active: isActive(item) }"
       >
-        <span class="gnb-icon">{{ item.icon }}</span>
+        <span class="gnb-icon">
+          <img :src="item.icon" :alt="item.label" />
+        </span>
         <span class="gnb-label">{{ item.label }}</span>
       </RouterLink>
     </nav>
 
-    <!-- 오른쪽 : 알림 + 사용자 + 로그아웃 -->
+    <!-- 오른쪽 : 알림 + 로그아웃 -->
     <div class="header-right">
       <button class="icon-button" type="button">
-        🔔
+        <img :src="notificationIcon" alt="알림" />
       </button>
 
       <div class="user-box">
         <button class="logout-button" type="button" @click="onLogout">
-          로그아웃
+          <span class="logout-icon">
+            <img :src="logoutIcon" alt="로그아웃" />
+          </span>
+          <span>로그아웃</span>
         </button>
       </div>
     </div>
@@ -43,6 +49,22 @@ import { computed } from 'vue'
 import { useRouter, useRoute, RouterLink } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 
+// 공통 로고
+import logoIcon from '@/assets/img/common/oncareIcon.png'
+
+// 대시보드/메뉴 아이콘 (파일명 정확히!)
+import businessIcon from '@/assets/img/dashboard/businessManagement.png'
+import scheduleIcon from '@/assets/img/dashboard/scheduleManagement.png'
+import employeeIcon from '@/assets/img/dashboard/employeeManagement.png'
+import recipientIcon from '@/assets/img/dashboard/recipientManagement.png'
+import inquiryIcon from '@/assets/img/dashboard/inquiryManagement.png'
+import suppliesIcon from '@/assets/img/dashboard/suppliesManagement.png'
+import homeIcon from '@/assets/img/dashboard/home.png'
+
+// 알림 / 로그아웃
+import notificationIcon from '@/assets/img/dashboard/notification.png'
+import logoutIcon from '@/assets/img/dashboard/logout.png'
+
 const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
@@ -50,28 +72,24 @@ const userStore = useUserStore()
 // 역할별 메뉴 정의
 const MENU_CONFIG = {
   MANAGER: [
-    { key: 'dashboard', label: '대시보드', routeName: 'dashboard', icon: '📊' },
-    { key: 'schedule', label: '일정 관리', routeName: 'schedule', icon: '📅' },
-    { key: 'employees', label: '직원 관리', routeName: 'employees', icon: '👥' },
-    { key: 'recipient', label: '수급자 관리', routeName: 'recipient', icon: '💚' },
-    { key: 'inquiry', label: '고객 관리', routeName: 'inquiry', icon: '💬' },
-    { key: 'product', label: '용품 관리', routeName: 'product', icon: '📦' },
-    { key: 'tasks', label: '업무 관리', routeName: 'tasks', icon: '📝' },
+    { key: 'schedule', label: '일정 관리', routeName: 'schedule', icon: scheduleIcon },
+    { key: 'employees', label: '직원 관리', routeName: 'employees', icon: employeeIcon },
+    { key: 'recipient', label: '수급자 관리', routeName: 'recipient', icon: recipientIcon },
+    { key: 'inquiry', label: '고객 관리', routeName: 'inquiry', icon: inquiryIcon },
+    { key: 'product', label: '용품 관리', routeName: 'product', icon: suppliesIcon },
+    { key: 'tasks', label: '업무 관리', routeName: 'tasks', icon: businessIcon },
   ],
   SALES: [
-    { key: 'dashboard', label: '대시보드', routeName: 'dashboard', icon: '📊' },
-    { key: 'inquiry', label: '고객 관리', routeName: 'inquiry', icon: '💬' },
+    { key: 'inquiry', label: '고객 관리', routeName: 'inquiry', icon: inquiryIcon },
   ],
   MATERIAL: [
-    { key: 'dashboard', label: '대시보드', routeName: 'dashboard', icon: '📊' },
-    { key: 'product', label: '용품 관리', routeName: 'product', icon: '📦' },
+    { key: 'product', label: '용품 관리', routeName: 'product', icon: suppliesIcon },
   ],
   CAREGIVER: [
-    { key: 'dashboard', label: '대시보드', routeName: 'dashboard', icon: '📊' },
-    { key: 'home', label: '홈', routeName: 'home', icon: '🏠' },
-    { key: 'activity', label: '활동일지', routeName: 'activity', icon: '📔' },
-    { key: 'workschedule', label: '근무일정', routeName: 'workschedule', icon: '🗓️' },
-    { key: 'recipient', label: '수급자 관리', routeName: 'recipient', icon: '💚' },
+    { key: 'home', label: '홈', routeName: 'home', icon: homeIcon },
+    { key: 'activity', label: '활동일지', routeName: 'activity', icon: businessIcon },
+    { key: 'workschedule', label: '근무일정', routeName: 'workschedule', icon: scheduleIcon },
+    { key: 'recipient', label: '수급자 관리', routeName: 'recipient', icon: recipientIcon },
   ],
 }
 
@@ -81,7 +99,7 @@ const currentRole = computed(() => {
     userStore.mainRole ??
     (Array.isArray(userStore.roles) ? userStore.roles[0] : null)
 
-  if (!r) return 'MANAGER'    //화면변경가능
+  if (!r) return 'MANAGER' // 임시 역할
   if (typeof r === 'string' && r.startsWith('ROLE_')) {
     return r.replace('ROLE_', '')
   }
@@ -90,7 +108,7 @@ const currentRole = computed(() => {
 
 // 역할별 메뉴
 const menuList = computed(() => {
-  return MENU_CONFIG[currentRole.value] || MENU_CONFIG.MANAGER    //화면변경가능
+  return MENU_CONFIG[currentRole.value] || MENU_CONFIG.MANAGER
 })
 
 // 현재 라우트 기준 활성 메뉴
@@ -110,18 +128,20 @@ const onLogout = () => {
 .global-header {
   position: sticky;
   top: 0;
+  left: 0;
+  right: 0;
   z-index: 50;
-  width: 100%;
+  margin: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
   height: 64px;
   padding: 0 32px;
   background: #ffffff;
-  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.06);
+  border-radius: 0;
+  border-bottom: 1px solid #e5e7eb;
 }
 
-/* 왼쪽 로고 */
 .header-left {
   display: flex;
   align-items: center;
@@ -133,11 +153,16 @@ const onLogout = () => {
   width: 36px;
   height: 36px;
   border-radius: 12px;
-  background: #e8f7ed;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 20px;
+  overflow: hidden;
+}
+
+.logo-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 .logo-text {
@@ -157,7 +182,6 @@ const onLogout = () => {
   color: #64748b;
 }
 
-/* 가운데 메뉴 */
 .header-center {
   flex: 1;
   display: flex;
@@ -174,17 +198,25 @@ const onLogout = () => {
   font-size: 14px;
   color: #64748b;
   text-decoration: none;
-  transition: background 0.15s ease, color 0.15s ease, transform 0.1s;
 }
 
 .gnb-icon {
-  font-size: 16px;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gnb-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 .gnb-item:hover {
   background: #f1f5f9;
   color: #111827;
-  transform: translateY(-1px);
 }
 
 .gnb-item.active {
@@ -193,7 +225,6 @@ const onLogout = () => {
   font-weight: 600;
 }
 
-/* 오른쪽 */
 .header-right {
   display: flex;
   align-items: center;
@@ -204,11 +235,14 @@ const onLogout = () => {
   border: none;
   background: transparent;
   cursor: pointer;
-  font-size: 18px;
+  font-size: 0;
+  padding: 0;
 }
 
-.icon-button:hover {
-  transform: translateY(-1px);
+.icon-button img {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
 }
 
 .user-box {
@@ -217,22 +251,32 @@ const onLogout = () => {
   gap: 8px;
 }
 
-.user-name {
-  font-size: 14px;
-  color: #334155;
-}
-
 .logout-button {
-  border: 1px solid #e2e8f0;
-  border-radius: 999px;
-  padding: 4px 10px;
-  font-size: 12px;
-  background: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: none;             
+  background: transparent;  
+  padding: 0;
+  font-size: 13px;
   cursor: pointer;
   color: #64748b;
 }
 
 .logout-button:hover {
-  background: #f1f5f9;
+  color: #111827;
+}
+
+.logout-icon {
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.logout-icon img {
+  width: 100%;
+  height: 100%;
 }
 </style>
