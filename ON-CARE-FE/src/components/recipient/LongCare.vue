@@ -1,5 +1,3 @@
-<!-- 장기요양등급 알림 컴포 -->
- <!-- src/components/recipient/LongCare.vue -->
 <template>
   <div class="card longcare-wrap">
     <header class="longcare-header">
@@ -57,8 +55,6 @@
         </tbody>
       </table>
     </div>
-
-    <!-- 오른쪽 안내 메시지 같은 영역은 여기서 따로 컴포넌트로 빼도 됨 -->
   </div>
 </template>
 

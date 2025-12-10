@@ -72,12 +72,12 @@ const userStore = useUserStore()
 // 역할별 메뉴 정의
 const MENU_CONFIG = {
   MANAGER: [
-    { key: 'schedule', label: '일정 관리', routeName: 'schedule', icon: scheduleIcon },
+    { key: 'schedule', label: '일정 관리', routeName: 'schedule-calendar', icon: scheduleIcon },
     { key: 'employees', label: '직원 관리', routeName: 'employees', icon: employeeIcon },
-    { key: 'recipient', label: '수급자 관리', routeName: 'recipient', icon: recipientIcon },
-    { key: 'inquiry', label: '고객 관리', routeName: 'inquiry', icon: inquiryIcon },
-    { key: 'product', label: '용품 관리', routeName: 'product', icon: suppliesIcon },
-    { key: 'tasks', label: '업무 관리', routeName: 'tasks', icon: businessIcon },
+    { key: 'recipient', label: '수급자 관리', routeName: 'recipient-list', icon: recipientIcon },
+    { key: 'inquiry', label: '고객 관리', routeName: 'inquiry-consult', icon: inquiryIcon },
+    { key: 'product', label: '용품 관리', routeName: 'product-master', icon: suppliesIcon },
+    { key: 'tasks', label: '업무 관리', routeName: 'tasks-approval', icon: businessIcon },
   ],
   SALES: [
     { key: 'inquiry', label: '고객 관리', routeName: 'inquiry', icon: inquiryIcon },
@@ -87,9 +87,9 @@ const MENU_CONFIG = {
   ],
   CAREGIVER: [
     { key: 'home', label: '홈', routeName: 'home', icon: homeIcon },
-    { key: 'activity', label: '활동일지', routeName: 'activity', icon: businessIcon },
+    { key: 'activity', label: '활동일지', routeName: 'activity-care', icon: businessIcon },
     { key: 'workschedule', label: '근무일정', routeName: 'workschedule', icon: scheduleIcon },
-    { key: 'recipient', label: '수급자 관리', routeName: 'recipient', icon: recipientIcon },
+    { key: 'recipient', label: '수급자 관리', routeName: 'recipient-list', icon: recipientIcon },
   ],
 }
 

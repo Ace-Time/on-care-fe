@@ -1,101 +1,225 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import SignIn from '@/views/signPage/SignIn.vue'
-import Dashboard from '@/views/dashboard/Dashboard.vue'
+
+import SignInPage from '@/views/signPage/SignInPage.vue'
+import DashboardPage from '@/views/dashboard/DashboardPage.vue'
+
+import SchedulePage from '@/views/schedule/SchedulePage.vue'
+import CalendarPage from '@/views/schedule/CalendarPage.vue'
+import MatchingPage from '@/views/schedule/MatchingPage.vue'
+
+import EmployeesPage from '@/views/employees/EmployeesPage.vue'
+
+import RecipientLayoutPage from '@/views/recipient/RecipientLayoutPage.vue'
+import RecipientListPage from '@/views/recipient/RecipientListPage.vue'
+import LongCarePage from '@/views/recipient/LongCarePage.vue'
+
+import InquiryPage from '@/views/inquiry/InquiryPage.vue'
+import ConsultManagePage from '@/views/inquiry/ConsultManagePage.vue'
+import CustomerManagePage from '@/views/inquiry/CustomerManagePage.vue'
+
+import ProductPage from '@/views/product/ProductPage.vue'
+import ProductMasterPage from '@/views/product/ProductMasterPage.vue'
+import ProductManagePage from '@/views/product/ProductManagePage.vue'
+import RentalContractPage from '@/views/product/RentalContractPage.vue'
+import InoutPlanPage from '@/views/product/InoutPlanPage.vue'
+
+import TasksPage from '@/views/tasks/TasksPage.vue'
+import ApprovalPage from '@/views/tasks/ApprovalPage.vue'
+import FacilityPage from '@/views/tasks/FacilityPage.vue'
+
+import HomePage from '@/views/careworker/home/HomePage.vue'
+
+import ActivityPage from '@/views/careworker/activity/ActivityPage.vue'
+import DailyCarePage from '@/views/careworker/activity/DailyCarePage.vue'
+import BasicEvalPage from '@/views/careworker/activity/BasicEvalPage.vue'
+import VisitCounselPage from '@/views/careworker/activity/VisitCounselPage.vue'
+
+import WorkschedulePage from '@/views/careworker/workschedule/WorkschedulePage.vue'
 
 const routes = [
-  // 로그인
   {
     path: '/',
     name: 'signin',
-    component: SignIn,
-    // component: () => import('@/pages/SingIn.vue'),  // 로그인 페이지에서 공통 헤더 빼고 싶을때
+    component: SignInPage,
   },
-  // 대시보드
   {
     path: '/dashboard',
     name: 'dashboard',
-    component: Dashboard,
+    component: DashboardPage,
     meta: { requiresAuth: true },
   },
-  
-   // 일정 관리
+
   {
     path: '/schedule',
     name: 'schedule',
-    component: () => import('@/views/schedule/Schedule.vue'),
+    component: SchedulePage,
     meta: { requiresAuth: true },
     children: [
       {
         path: '',
-        name: 'schedule-calendar',  
-        component: () => import('@/views/schedule/CalendarTab.vue'),
+        redirect: { name: 'schedule-calendar' },
+      },
+      {
+        path: 'calendar',
+        name: 'schedule-calendar',
+        component: CalendarPage,
       },
       {
         path: 'matching',
         name: 'schedule-matching',
-        component: () => import('@/views/schedule/MatchingTab.vue'),
+        component: MatchingPage,
       },
     ],
   },
 
-  // ✅ 직원 관리
   {
     path: '/employees',
     name: 'employees',
-    component: () => import('@/views/employees/Employees.vue'),
+    component: EmployeesPage,
     meta: { requiresAuth: true },
   },
 
-  // ✅ 수급자 관리
   {
     path: '/recipient',
     name: 'recipient',
-    component: () => import('@/views/recipient/Recipient.vue'),
+    component: RecipientLayoutPage,
     meta: { requiresAuth: true },
+    children: [
+      {
+        path: '',
+        redirect: { name: 'recipient-list' },
+      },
+      {
+        path: 'list',
+        name: 'recipient-list',
+        component: RecipientListPage,
+      },
+      {
+        path: 'longcare',
+        name: 'recipient-longcare',
+        component: LongCarePage,
+      },
+    ],
   },
 
-  // ✅ 고객 관리 (문의/CRM 등)
   {
     path: '/inquiry',
     name: 'inquiry',
-    component: () => import('@/views/inquiry/Inquiry.vue'),
+    component: InquiryPage,
     meta: { requiresAuth: true },
+    children: [
+      {
+        path: '',
+        redirect: { name: 'inquiry-consult' },
+      },
+      {
+        path: 'consult',
+        name: 'inquiry-consult',
+        component: ConsultManagePage,
+      },
+      {
+        path: 'customer',
+        name: 'inquiry-customer',
+        component: CustomerManagePage,
+      },
+    ],
   },
 
-  // ✅ 용품 관리
   {
     path: '/product',
     name: 'product',
-    component: () => import('@/views/product/Product.vue'),
+    component: ProductPage,
     meta: { requiresAuth: true },
+    children: [
+      {
+        path: '',
+        redirect: { name: 'product-master' },
+      },
+      {
+        path: 'master',
+        name: 'product-master',
+        component: ProductMasterPage,
+      },
+      {
+        path: 'manage',
+        name: 'product-manage',
+        component: ProductManagePage,
+      },
+      {
+        path: 'rental-contract',
+        name: 'product-rental-contract',
+        component: RentalContractPage,
+      },
+      {
+        path: 'inout-plan',
+        name: 'product-inout-plan',
+        component: InoutPlanPage,
+      },
+    ],
   },
 
-  // ✅ 업무 관리
   {
     path: '/tasks',
     name: 'tasks',
-    component: () => import('@/views/tasks/Tasks.vue'),
+    component: TasksPage,
     meta: { requiresAuth: true },
+    children: [
+      {
+        path: '',
+        redirect: { name: 'tasks-approval' },
+      },
+      {
+        path: 'approval',
+        name: 'tasks-approval',
+        component: ApprovalPage,
+      },
+      {
+        path: 'facility',
+        name: 'tasks-facility',
+        component: FacilityPage,
+      },
+    ],
   },
-  // 요양보호사 홈 관리
+
   {
     path: '/home',
     name: 'home',
-    component: () => import('@/views/careworker/home/Home.vue'),
+    component: HomePage,
     meta: { requiresAuth: true },
   },
-  // 요양보호사 활동일지 관리
+
   {
     path: '/activity',
     name: 'activity',
-    component: () => import('@/views/careworker/activity/Activity.vue'),
+    component: ActivityPage,
     meta: { requiresAuth: true },
+    children: [
+      {
+        path: '',
+        redirect: { name: 'activity-care' },
+      },
+      {
+        path: 'care',
+        name: 'activity-care',
+        component: DailyCarePage,
+      },
+      {
+        path: 'basic',
+        name: 'activity-basic',
+        component: BasicEvalPage,
+      },
+      {
+        path: 'counsel',
+        name: 'activity-counsel',
+        component: VisitCounselPage,
+      },
+    ],
   },
-  // 요양보호사 근무일정 관리
+
   {
     path: '/workschedule',
     name: 'workschedule',
-    component: () => import('@/views/careworker/workschedule/Workschedule.vue'),
+    component: WorkschedulePage,
     meta: { requiresAuth: true },
   },
 ]

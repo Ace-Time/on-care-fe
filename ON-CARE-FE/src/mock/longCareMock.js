@@ -1,0 +1,30 @@
+export const longCareMock = [
+    {
+      id: 1,
+      name: '김영희',
+      expiryDate: '2025-12-10',
+      worker: '김지은',
+      visitTime: '김상담',
+      dday: 0,
+      status: '완료',
+      statusCount: 2,
+    },
+    {
+      id: 2,
+      name: '오수연',
+      expiryDate: '2025-12-12',
+      worker: '정수진',
+      visitTime: '-',
+      dday: 2,
+      status: '미완료',
+    },
+    {
+      id: 3,
+      name: '정은지',
+      expiryDate: '2025-12-20',
+      worker: '김지은',
+      visitTime: '-',
+      dday: 10,
+      status: '미완료',
+    },
+  ];
