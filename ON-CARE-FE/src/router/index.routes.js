@@ -17,13 +17,25 @@ const routes = [
     component: Dashboard,
     meta: { requiresAuth: true },
   },
-
-  // ✅ 일정 관리
+  
+   // 일정 관리
   {
     path: '/schedule',
     name: 'schedule',
     component: () => import('@/views/schedule/Schedule.vue'),
     meta: { requiresAuth: true },
+    children: [
+      {
+        path: '',
+        name: 'schedule-calendar',  
+        component: () => import('@/views/schedule/CalendarTab.vue'),
+      },
+      {
+        path: 'matching',
+        name: 'schedule-matching',
+        component: () => import('@/views/schedule/MatchingTab.vue'),
+      },
+    ],
   },
 
   // ✅ 직원 관리

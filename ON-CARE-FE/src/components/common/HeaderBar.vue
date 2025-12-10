@@ -54,8 +54,8 @@ import logoIcon from '@/assets/img/common/oncareIcon.png'
 
 // 대시보드/메뉴 아이콘 (파일명 정확히!)
 import businessIcon from '@/assets/img/dashboard/businessManagement.png'
-import scheduleIcon from '@/assets/img/dashboard/scheduleManagement.png'
-import employeeIcon from '@/assets/img/dashboard/employeeManagement.png'
+import scheduleIcon from '@/assets/img/common/scheduleManagement.png'
+import employeeIcon from '@/assets/img/common/employeeManagement.png'
 import recipientIcon from '@/assets/img/dashboard/recipientManagement.png'
 import inquiryIcon from '@/assets/img/dashboard/inquiryManagement.png'
 import suppliesIcon from '@/assets/img/dashboard/suppliesManagement.png'
