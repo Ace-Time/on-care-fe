@@ -223,5 +223,66 @@ const handleBulkEduSubmit = ({ ids, data }) => {
   </div>
 </template>
 
-<script setup>
-</script>
+<style scoped>
+/* 공통 레이아웃 스타일 */
+* { box-sizing: border-box; }
+.app-container {
+  max-width: 90%; margin: 0 auto; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background-color: #f8f9fa; min-height: 100vh; color: #333;
+  width: 100%; max-width: 1440px;
+}
+
+.header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.header h1 { font-size: 24px; font-weight: 700; margin: 0; }
+.subtitle { color: #666; font-size: 14px; margin-top: 4px; }
+
+
+.main-grid { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 24px; height: calc(100vh - 200px); width: 100%; }
+@media (max-width: 768px) { .main-grid { grid-template-columns: 1fr; } }
+
+.btn { display: flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer; font-size: 14px; font-weight: 500; transition: 0.2s; color: white; }
+.btn-primary { background-color: #10b981; }
+.btn-primary:hover { background-color: #059669; }
+
+/* 통계 카드 스타일 */
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+.stat-card { display: flex; justify-content: space-between; align-items: center; padding: 16px; background: white; border-radius: 12px; border: 1px solid #e5e7eb; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+.stat-label { font-size: 12px; color: #666; }
+.stat-value { font-size: 24px; font-weight: 700; margin: 4px 0 0 0; }
+.stat-icon { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+.bg-gray { background-color: #f3f4f6; color: #4b5563; }
+.bg-green { background-color: #d1fae5; color: #059669; }
+.text-green { color: #059669; }
+.icon { width: 18px; height: 18px; }
+
+/* 추가된 버튼 색상 */
+.btn-purple { background-color: #a855f7; }
+.btn-purple:hover { background-color: #9333ea; }
+.btn-blue { background-color: #3b82f6; }
+.btn-blue:hover { background-color: #2563eb; }
+
+/* Flex 유틸리티 */
+.flex { display: flex; }
+.items-center { align-items: center; }
+.gap-2 { gap: 8px; }
+.relative { position: relative; }
+
+/* 알림 뱃지 */
+.badge-notification {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: bold;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+.bg-red { background-color: #ef4444; }
+.bg-orange { background-color: #f97316; }
+</style>
