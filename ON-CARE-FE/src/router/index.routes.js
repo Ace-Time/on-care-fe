@@ -3,9 +3,9 @@ import { createRouter, createWebHistory } from 'vue-router'
 import SignInPage from '@/views/signPage/SignInPage.vue'
 import DashboardPage from '@/views/dashboard/DashboardPage.vue'
 
-// import SchedulePage from '@/views/schedule/SchedulePage.vue'
-// import CalendarPage from '@/views/schedule/CalendarPage.vue'
-// import MatchingPage from '@/views/schedule/MatchingPage.vue'
+import SchedulePage from '@/views/schedule/SchedulePage.vue'
+import CalendarPage from '@/views/schedule/CalendarPage.vue'
+import MatchingPage from '@/views/schedule/MatchingPage.vue'
 
 import EmployeesPage from '@/views/employees/EmployeesPage.vue'
 
@@ -34,7 +34,7 @@ import DailyCarePage from '@/views/careworker/activity/DailyCarePage.vue'
 import BasicEvalPage from '@/views/careworker/activity/BasicEvalPage.vue'
 import VisitCounselPage from '@/views/careworker/activity/VisitCounselPage.vue'
 
-// import WorkschedulePage from '@/views/careworker/workschedule/WorkschedulePage.vue'
+import WorkschedulePage from '@/views/careworker/workschedule/WorkschedulePage.vue'
 
 const routes = [
   {
@@ -49,28 +49,28 @@ const routes = [
     meta: { requiresAuth: true },
   },
 
-  // {
-  //   path: '/schedule',
-  //   name: 'schedule',
-  //   component: SchedulePage,
-  //   meta: { requiresAuth: true },
-  //   children: [
-  //     {
-  //       path: '',
-  //       redirect: { name: 'schedule-calendar' },
-  //     },
-  //     {
-  //       path: 'calendar',
-  //       name: 'schedule-calendar',
-  //       component: CalendarPage,
-  //     },
-  //     {
-  //       path: 'matching',
-  //       name: 'schedule-matching',
-  //       component: MatchingPage,
-  //     },
-  //   ],
-  // },
+  {
+    path: '/schedule',
+    name: 'schedule',
+    component: SchedulePage,
+    meta: { requiresAuth: true },
+    children: [
+      {
+        path: '',
+        redirect: { name: 'schedule-calendar' },
+      },
+      {
+        path: 'calendar',
+        name: 'schedule-calendar',
+        component: CalendarPage,
+      },
+      {
+        path: 'matching',
+        name: 'schedule-matching',
+        component: MatchingPage,
+      },
+    ],
+  },
 
   {
     path: '/employees',
@@ -216,12 +216,12 @@ const routes = [
     ],
   },
 
-  // {
-  //   path: '/workschedule',
-  //   name: 'workschedule',
-  //   component: WorkschedulePage,
-  //   meta: { requiresAuth: true },
-  // },
+  {
+    path: '/workschedule',
+    name: 'workschedule',
+    component: WorkschedulePage,
+    meta: { requiresAuth: true },
+  },
 ]
 
 const router = createRouter({
