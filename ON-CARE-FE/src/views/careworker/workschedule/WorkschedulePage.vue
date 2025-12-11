@@ -7,7 +7,7 @@ import ScheduleHeader from '@/components/careworker/schedule/ScheduleHeader.vue'
 import CalendarView from '@/components/careworker/schedule/CalendarView.vue'; // 일간
 import WeekView from '@/components/careworker/schedule/WeekView.vue';         // 주간
 import MonthView from '@/components/careworker/schedule/MonthView.vue';       // 월간
-import ScheduleDetail from '@/components/careworker/schedule/ScheduleDetail.vue';
+import ScheduleDetail from '@/components/careworker/schedule/ScheduleDetail2.vue';
 
 // 선택된 일정 객체 (null이면 placeholder 표시)
 const selectedSchedule = ref(null);
