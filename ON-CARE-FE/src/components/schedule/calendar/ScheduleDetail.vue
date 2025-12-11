@@ -145,8 +145,8 @@
   
   <script setup>
   import { computed } from 'vue'
-  import { scheduleList } from '@/mock/scheduleMock'
-  import { alternateCaregivers } from '@/mock/alternateCaregiversMock'
+  import { scheduleList } from '@/mock/schedule/scheduleMock'
+  import { alternateCaregivers } from '@/mock/schedule/alternateCaregiversMock'
   
   const props = defineProps({
     scheduleId: {

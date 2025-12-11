@@ -86,7 +86,7 @@
   
   <script setup>
   import { ref, computed } from 'vue'
-  import { scheduleList } from '@/mock/scheduleMock'
+  import { scheduleList } from '@/mock/schedule/scheduleMock'
   
   const emit = defineEmits(['select-date'])
   
