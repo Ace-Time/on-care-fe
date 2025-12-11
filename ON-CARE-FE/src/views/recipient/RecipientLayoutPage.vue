@@ -1,28 +1,37 @@
 <template>
   <div class="recipient-page">
-    <!-- 상단 제목 / 버튼 -->
-    <header class="page-header">
-      <div class="title-wrap">
-        <h2>수급자 관리</h2>
-        <p>수급자 정보 및 서비스 이용 내역 관리</p>
+    <!-- 상단 헤더 -->
+    <div class="page-header">
+      <div class="title-area">
+        <h1 class="page-title">수급자 관리</h1>
+        <p class="page-desc">수급자 정보 및 서비스 이용 내역 관리</p>
       </div>
-      <button class="btn-primary" type="button" @click="showRegist = true">
+
+      <button class="add-button" type="button" @click="showRegist = true">
+        <!-- 아이콘 이미지가 있으면 여기에 넣으면 됨 -->
+        <!-- <img src="@/assets/img/recipient/addRecipient.png" alt="수급자 등록" /> -->
         + 수급자 등록
       </button>
-    </header>
+    </div>
 
-    <!-- 상단 탭 (라우터 기반) -->
-    <nav class="sub-tabs">
-      <RouterLink :to="{ name: 'recipient-list' }">
-        수급자 목록
-      </RouterLink>
-      <RouterLink :to="{ name: 'recipient-longcare' }">
-        장기요양등급만료알림
-      </RouterLink>
-    </nav>
+    <!-- 탭 박스 -->
+    <div class="tabs-box">
+      <div class="inner-tabs">
+        <RouterLink
+          v-for="tab in tabs"
+          :key="tab.key"
+          :to="{ name: tab.routeName }"
+          class="tab-item"
+          :class="{ active: isActive(tab) }"
+        >
+          <span class="tab-label">{{ tab.label }}</span>
+        </RouterLink>
+      </div>
 
-    <!-- 탭별 화면 -->
-    <router-view />
+      <div class="tab-content">
+        <RouterView />
+      </div>
+    </div>
 
     <!-- 수급자 등록 모달 -->
     <RecipientRegist
@@ -34,81 +43,132 @@
 </template>
 
 <script setup>
-  import { ref } from 'vue'
-  import RecipientRegist from '@/components/recipient/RecipientRegist.vue'
-  
-  const showRegist = ref(false)
-  
-  const handleRegist = (formData) => {
-    console.log('등록 데이터:', formData)
-    showRegist.value = false
-  }
+import { ref } from 'vue'
+import { useRoute } from 'vue-router'
+import RecipientRegist from '@/components/recipient/main/RecipientRegist.vue'
+
+const showRegist = ref(false)
+const route = useRoute()
+
+const handleRegist = (formData) => {
+  console.log('등록 데이터:', formData)
+  showRegist.value = false
+}
+
+// 상단 서브 탭 정의
+const tabs = [
+  {
+    key: 'list',
+    label: '수급자 목록',
+    routeName: 'recipient-list',
+  },
+  {
+    key: 'longcare',
+    label: '장기요양등급만료알림',
+    routeName: 'recipient-longcare',
+  },
+]
+
+const isActive = (tab) => route.name === tab.routeName
 </script>
 
 <style scoped>
 .recipient-page {
-  padding: 24px 32px;
-  background-color: #f7fafb;
-  min-height: calc(100vh - 80px);
-  box-sizing: border-box;
+  padding: 0 24px 24px;
 }
 
-/* 상단 */
+/* 상단 헤더 (일정 관리와 동일 스타일) */
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  padding: 28px 0 12px;
 }
-.title-wrap h2 {
+
+.title-area {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.page-title {
+  font-size: 30px;
+  font-weight: 600;
+  color: #1a5928;
   margin: 0;
-  font-size: 22px;
-  font-weight: 700;
 }
-.title-wrap p {
-  margin: 4px 0 0;
-  font-size: 13px;
-  color: #9ca3af;
+
+.page-desc {
+  font-size: 14px;
+  color: #4a5565;
+  margin: 0;
 }
-.btn-primary {
+
+/* 수급자 등록 버튼 (일정 추가 버튼과 톤 맞춤) */
+.add-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 18px;
+  border-radius: 10px;
   border: none;
-  border-radius: 999px;
-  padding: 8px 18px;
-  background: linear-gradient(90deg, #22c55e, #16a34a);
+  background-color: #00c950;
   color: #fff;
-  font-size: 13px;
+  font-size: 15px;
   cursor: pointer;
 }
 
-/* 상단 탭 (다른 탭들이랑 통일) */
-.sub-tabs {
+.add-button img {
+  width: 20px;
+  height: 20px;
+}
+
+/* 카드형 탭 박스 */
+.tabs-box {
+  background: #ffffff;
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
+  padding: 20px 24px;
+  margin-top: 16px;
+}
+
+/* 상단 탭 라인 */
+.inner-tabs {
   display: flex;
-  gap: 40px;
-  padding: 20px 0 12px;
-  border-bottom: 1px solid #e5e7eb;
+  gap: 24px;
+  border-bottom: 1px solid #e2e8f0;
+  margin-top: 8px;
 }
 
-.sub-tabs a {
-  font-size: 15px;
-  color: #505667;
+.tab-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 0;
+  font-size: 16px;
+  color: #4a5565;
   text-decoration: none;
-  padding-bottom: 8px;
-}
-
-.sub-tabs a.router-link-active {
-  color: #16a34a;
-  font-weight: 600;
   position: relative;
 }
 
-.sub-tabs a.router-link-active::after {
-  content: "";
+.tab-item.active {
+  color: #00a63e;
+  font-weight: 600;
+}
+
+.tab-item.active::after {
+  content: '';
   position: absolute;
   left: 0;
-  bottom: -4px;
+  bottom: -1px;
   width: 100%;
   height: 3px;
-  background-color: #16a34a;
-  border-radius: 4px;
+  background-color: #00a63e;
+  border-radius: 999px;
+}
+
+.tab-content {
+  padding-top: 16px;
 }
 </style>
