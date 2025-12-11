@@ -5,7 +5,7 @@ export const longCareMock = [
       expiryDate: '2025-12-10',
       worker: '김지은',
       visitTime: '김상담',
-      dday: 0,
+      dday: 40,
       status: '완료',
       statusCount: 2,
     },
@@ -15,7 +15,7 @@ export const longCareMock = [
       expiryDate: '2025-12-12',
       worker: '정수진',
       visitTime: '-',
-      dday: 2,
+      dday: 52,
       status: '미완료',
     },
     {
@@ -24,7 +24,7 @@ export const longCareMock = [
       expiryDate: '2025-12-20',
       worker: '김지은',
       visitTime: '-',
-      dday: 10,
+      dday: 81,
       status: '미완료',
     },
   ];
