@@ -1,3 +1,4 @@
+<!-- src/components/recipient/longcare/LongCare.vue -->
 <template>
   <div class="card longcare-wrap">
     <header class="longcare-header">
@@ -33,7 +34,12 @@
           <tr
             v-for="row in filteredItems"
             :key="row.id"
-            :class="ddayClass(row.dday)"
+            :class="[
+              'clickable-row',
+              ddayClass(row.dday),
+              row.id === selectedId ? 'is-active' : ''
+            ]"
+            @click="selectRow(row)"
           >
             <td>{{ row.name }}</td>
             <td>{{ row.expiryDate }}</td>
@@ -65,8 +71,15 @@ const props = defineProps({
   items: {
     type: Array,
     default: () => []
+  },
+  // 부모에서 v-model:selected-id 로 내려옴
+  selectedId: {
+    type: [Number, String, null],
+    default: null
   }
 })
+
+const emit = defineEmits(['update:selectedId'])
 
 const rangeButtons = [
   { key: 'all', label: '전체' },
@@ -77,15 +90,24 @@ const rangeButtons = [
 const activeRange = ref('all')
 
 const filteredItems = computed(() => {
-  if (activeRange.value === 'all') return props.items
+  // 1) 등급 연장 예정이 아닌 대상은 리스트에서 제외
+  let list = props.items.filter((i) => i.extendPlanned !== false)
+
+  // 2) 일수 필터 적용
+  if (activeRange.value === 'all') return list
   const limit = Number(activeRange.value)
-  return props.items.filter((i) => i.dday <= limit)
+  return list.filter((i) => i.dday <= limit)
 })
 
 const ddayClass = (dday) => {
-  if (dday <= 7) return 'row-red'
-  if (dday <= 30) return 'row-yellow'
-  return 'row-normal'
+  if (dday <= 45) return 'row-red'
+  if (dday <= 60) return 'row-yellow'
+  if (dday <= 90) return 'row-normal'
+  return ''
+}
+
+const selectRow = (row) => {
+  emit('update:selectedId', row.id)
 }
 </script>
 
@@ -152,6 +174,15 @@ tbody td {
 }
 .row-normal {
   background-color: #fefce8;
+}
+
+/* 선택 가능 행 */
+.clickable-row {
+  cursor: pointer;
+}
+.clickable-row.is-active {
+  outline: 2px solid rgba(34, 197, 94, 0.6);
+  outline-offset: -2px;
 }
 
 /* D-day / 상태 */

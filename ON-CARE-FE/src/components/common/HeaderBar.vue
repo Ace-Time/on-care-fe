@@ -114,6 +114,17 @@ const menuList = computed(() => {
 // 현재 라우트 기준 활성 메뉴
 const isActive = (item) => route.name === item.routeName
 
+// const isActive = (item) => {
+//   // 수급자 관리 메뉴: 부모 recipient 가 매칭되면 활성
+//   if (item.routeName === 'recipient') {
+//     return route.matched.some((m) => m.name === 'recipient')
+//   }
+
+//   // 다른 메뉴는 기존처럼
+//   return route.matched.some((m) => m.name === item.routeName)
+// }
+
+
 const goHome = () => {
   router.push({ name: 'dashboard' })
 }

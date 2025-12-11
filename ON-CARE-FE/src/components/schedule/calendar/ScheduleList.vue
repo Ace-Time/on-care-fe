@@ -66,7 +66,7 @@
   
   <script setup>
   import { computed } from 'vue'
-  import { scheduleList } from '@/mock/scheduleMock'
+  import { scheduleList } from '@/mock/schedule/scheduleMock.js'
   
   const props = defineProps({
     selectedDate: {

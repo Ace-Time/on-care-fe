@@ -166,6 +166,7 @@ const onClose = () => {
           </div>
         </div>
       </div>
+<<<<<<< HEAD:ON-CARE-FE/src/components/schedule/ScheduleDetail.vue
 
       <div class="detail-footer">
         <button class="primary-btn" type="button">
@@ -309,3 +310,324 @@ const onClose = () => {
 .primary-btn { flex: 1; height: 40px; border-radius: 999px; border: none; font-size: 14px; cursor: pointer; background: #22c55e; color: #ffffff; font-weight: 600; }
 .danger-btn { max-width: 80px; width: 100%; height: 40px; border-radius: 999px; border: none; font-size: 14px; cursor: pointer; background: #ef4444; color: #ffffff; font-weight: 600; }
 </style>
+=======
+    </section>
+  </template>
+  
+  <script setup>
+  import { computed } from 'vue'
+  import { scheduleList } from '@/mock/schedule/scheduleMock'
+  import { alternateCaregivers } from '@/mock/schedule/alternateCaregiversMock'
+  
+  const props = defineProps({
+    scheduleId: {
+      type: Number,
+      default: null,
+    },
+  })
+  
+  const schedule = computed(() =>
+    scheduleList.find((item) => item.id === props.scheduleId) || null,
+  )
+  
+  const alternatives = computed(() =>
+    alternateCaregivers.filter((item) => item.scheduleId === props.scheduleId),
+  )
+  </script>
+  
+  <style scoped>
+  .detail-panel {
+    box-sizing: border-box;
+    width: 100%;
+    height: 100%;
+    background: #ffffff;
+    border-radius: 24px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
+    padding: 18px 24px 24px;
+  }
+  
+  .placeholder {
+    height: 100%;
+    min-height: 360px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #9ca3af;
+  }
+  
+  .placeholder-icon {
+    margin-bottom: 16px;
+  }
+  
+  .calendar-icon-box {
+    width: 52px;
+    height: 52px;
+    border-radius: 16px;
+    border: 3px solid #e5e7eb;
+  }
+  
+  .placeholder-main {
+    font-size: 16px;
+    margin: 0;
+  }
+  
+  .placeholder-sub {
+    font-size: 14px;
+    margin: 4px 0 0;
+  }
+  
+  .detail-content {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  
+  .detail-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #e7fbe5;
+    border-radius: 16px;
+    padding: 12px 16px;
+  }
+  
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  
+  .detail-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #166534;
+    margin: 0;
+  }
+  
+  .type-pill {
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+  }
+  
+  .pill-care {
+    background: #dbeafe;
+    color: #1d4ed8;
+  }
+  
+  .pill-bath {
+    background: #ffe4ef;
+    color: #be185d;
+  }
+  
+  .close-btn {
+    border: none;
+    background: transparent;
+    font-size: 16px;
+    cursor: pointer;
+    color: #6b7280;
+  }
+  
+  .detail-body {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  
+  .section {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  
+  .section-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #4b5563;
+  }
+  
+  .section-title-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .section-sub {
+    font-size: 12px;
+    color: #6b7280;
+  }
+  
+  .section-card {
+    background: #f9fafb;
+    border-radius: 16px;
+    padding: 12px 16px;
+    border: 1px solid #e5e7eb;
+  }
+  
+  .info-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 14px;
+    color: #4b5563;
+  }
+  
+  .info-row + .info-row {
+    margin-top: 6px;
+  }
+  
+  .label {
+    color: #6b7280;
+  }
+  
+  .value {
+    color: #111827;
+  }
+  
+  .strong {
+    font-weight: 600;
+  }
+  
+  .caregiver-main-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  
+  .avatar-circle {
+    width: 40px;
+    height: 40px;
+    border-radius: 999px;
+    background: #22c55e;
+    color: #ffffff;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .avatar-circle.small {
+    width: 32px;
+    height: 32px;
+  }
+  
+  .avatar-disabled {
+    background: #e5e7eb;
+    color: #9ca3af;
+  }
+  
+  .caregiver-info .name {
+    font-weight: 600;
+    color: #111827;
+  }
+  
+  .caregiver-info .role {
+    font-size: 12px;
+    color: #6b7280;
+  }
+  
+  .alternate-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: #f0f9ff;
+    border-color: #bfdbfe;
+  }
+  
+  .alternate-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+  }
+  
+  .alternate-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .alternate-info .name {
+    font-size: 14px;
+    font-weight: 500;
+  }
+  
+  .alternate-info .distance {
+    font-size: 12px;
+    color: #6b7280;
+  }
+  
+  .assign-btn {
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: none;
+    font-size: 12px;
+    cursor: pointer;
+    background: #22c55e;
+    color: #ffffff;
+  }
+  
+  .assign-btn.disabled {
+    background: #e5e7eb;
+    color: #9ca3af;
+    cursor: default;
+  }
+  
+  .memo-card {
+    background: #fffbeb;
+    border-color: #facc15;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  
+  .memo-textarea {
+    width: 100%;
+    min-height: 80px;
+    border-radius: 12px;
+    border: 1px solid #fde68a;
+    padding: 8px 10px;
+    font-size: 14px;
+    resize: vertical;
+    outline: none;
+  }
+  
+  .memo-textarea::placeholder {
+    color: #9ca3af;
+  }
+  
+  .memo-hint {
+    font-size: 12px;
+    color: #6b7280;
+  }
+  
+  .detail-footer {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 8px;
+  }
+  
+  .primary-btn,
+  .danger-btn {
+    flex: 1;
+    height: 40px;
+    border-radius: 999px;
+    border: none;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  
+  .primary-btn {
+    background: #22c55e;
+    color: #ffffff;
+  }
+  
+  .danger-btn {
+    max-width: 80px;
+    background: #ef4444;
+    color: #ffffff;
+  }
+  </style>
+>>>>>>> 06290a3f82573a2d33df754b403a17bda6dc2d8b:ON-CARE-FE/src/components/schedule/calendar/ScheduleDetail.vue
