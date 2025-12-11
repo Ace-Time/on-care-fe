@@ -22,10 +22,10 @@
   
   <script setup>
   import { ref } from 'vue'
-  import SearchBar from '@/components/schedule/SearchBar.vue'
-  import Calendar from '@/components/schedule/Calendar.vue'
-  import ScheduleList from '@/components/schedule/ScheduleList.vue'
-  import ScheduleDetail from '@/components/schedule/ScheduleDetail.vue'
+  import SearchBar from '@/components/schedule/calendar/SearchBar.vue'
+  import Calendar from '@/components/schedule/calendar/Calendar.vue'
+  import ScheduleList from '@/components/schedule/calendar/ScheduleList.vue'
+  import ScheduleDetail from '@/components/schedule/calendar/ScheduleDetail.vue'
   
   const formatDateKey = (date) => {
     const y = date.getFullYear()
