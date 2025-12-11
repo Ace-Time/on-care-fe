@@ -2,13 +2,12 @@
 
 <script setup>
 import { ref } from 'vue';
-import DashboardHeader from '@/components/careworker/home/DashboardHeader.vue'; 
-// 경로 확인: 실제 파일 위치가 'careworker/schedule'이라면 경로를 수정해주세요.
-import ScheduleHeader from '@/components/schedule/ScheduleHeader.vue';
-import CalendarView from '@/components/schedule/CalendarView.vue'; // 일간
-import WeekView from '@/components/schedule/WeekView.vue';         // 주간 (연결됨)
-import MonthView from '@/components/schedule/MonthView.vue';       // 월간
-import ScheduleDetail from '@/components/schedule/ScheduleDetail.vue';
+import SimpleHeader from '@/components/common/SimpleHeader.vue';
+import ScheduleHeader from '@/components/careworker/schedule/ScheduleHeader.vue';
+import CalendarView from '@/components/careworker/schedule/CalendarView.vue'; // 일간
+import WeekView from '@/components/careworker/schedule/WeekView.vue';         // 주간
+import MonthView from '@/components/careworker/schedule/MonthView.vue';       // 월간
+import ScheduleDetail from '@/components/careworker/schedule/ScheduleDetail.vue';
 
 // 선택된 일정 객체 (null이면 placeholder 표시)
 const selectedSchedule = ref(null);
@@ -34,7 +33,10 @@ const onViewChange = (viewType) => {
 
 <template>
   <div class="workschedule">
-    <DashboardHeader />
+    <SimpleHeader
+      title="근무 일정"
+      subtitle="나의 근무 일정을 확인합니다"
+    />
 
     <div class="main-content">
       <ScheduleHeader />
