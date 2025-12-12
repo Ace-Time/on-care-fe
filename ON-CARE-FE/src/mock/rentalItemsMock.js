@@ -1,0 +1,30 @@
+export const rentalItemsMock = [
+  {
+    code: 'RT001',
+    name: '전동 침대',
+    period: '2024-12',
+    amount: 430000,
+    count: 1,
+    status: '계약완료',
+  },
+  {
+  code: 'MC-2024-0115',
+  name: '휠체어',
+  status: '계약중',
+  startDate: '2024-01-15',
+  amount: 25000,
+  durationMonths: 13,
+  memo: '1년 계약',
+},
+
+// ✅ 과거 렌탈
+{
+  code: 'MC-2023-0601',
+  name: '보행보조기',
+  status: '계약완료',
+  startDate: '2023-06-01',
+  amount: 15000,
+  durationMonths: 7,
+  memo: '6개월 사용 후 반납',
+},
+]
