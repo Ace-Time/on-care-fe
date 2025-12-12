@@ -1,6 +1,7 @@
 export const rentalItemsMock = [
   {
     code: 'RT001',
+    recipientId: 1,
     name: '전동 침대',
     period: '2024-12',
     amount: 430000,
@@ -9,6 +10,7 @@ export const rentalItemsMock = [
   },
   {
   code: 'MC-2024-0115',
+  recipientId: 1,
   name: '휠체어',
   status: '계약중',
   startDate: '2024-01-15',
@@ -16,10 +18,9 @@ export const rentalItemsMock = [
   durationMonths: 13,
   memo: '1년 계약',
 },
-
-// ✅ 과거 렌탈
 {
   code: 'MC-2023-0601',
+  recipientId: 2,
   name: '보행보조기',
   status: '계약완료',
   startDate: '2023-06-01',
