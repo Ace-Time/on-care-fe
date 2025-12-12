@@ -21,8 +21,9 @@
         <RecipientInformation :recipient="selectedRecipient" />
 
         <RecipientCategory
-          :service-history="serviceHistory"
-          :rental-items="rentalItems"
+          :recipient="selectedRecipient"
+          :service-history="filteredServiceHistory"
+          :rental-items="filteredRentalItems"
         />
       </template>
     </section>
@@ -36,9 +37,9 @@ import RecipientList from '@/components/recipient/main/RecipientList.vue'
 import RecipientInformation from '@/components/recipient/main/RecipientInformation.vue'
 import RecipientCategory from '@/components/recipient/main/RecipientCategory.vue'
 
-import { recipientsMock } from '@/mock/recipientMock'
-import { serviceHistoryMock } from '@/mock/serviceHistoryMock'
-import { rentalItemsMock } from '@/mock/rentalItemsMock'
+import { recipientsMock } from '@/mock/recipient/recipientMock'
+import { serviceHistoryMock } from '@/mock/recipient/serviceHistoryMock'
+import { rentalItemsMock } from '@/mock/recipient/rentalItemsMock'
 
 const recipients = ref(recipientsMock)
 const serviceHistory = ref(serviceHistoryMock)
@@ -50,6 +51,29 @@ const selectedId = ref(null)
 const selectedRecipient = computed(
   () => recipients.value.find((r) => r.id === selectedId.value) || null
 )
+
+/**
+ * 🔥 선택한 수급자 기준으로 서비스 이력 필터링
+ *  - serviceHistoryMock 안에 들어있는 "수급자 식별자" 필드명에 맞춰서
+ *    recipientId 부분만 바꿔주면 됨.
+ */
+const filteredServiceHistory = computed(() => {
+  if (!selectedId.value) return []
+  return serviceHistory.value.filter(
+    (h) => h.recipientId === selectedId.value // 👈 필드명 맞게 변경
+  )
+})
+
+/**
+ * 🔥 선택한 수급자 기준으로 렌탈 이력 필터링
+ *  - 마찬가지로 rentalItemsMock 에 있는 수급자 FK 필드명으로 수정
+ */
+const filteredRentalItems = computed(() => {
+  if (!selectedId.value) return []
+  return rentalItems.value.filter(
+    (r) => r.recipientId === selectedId.value // 👈 필드명 맞게 변경
+  )
+})
 </script>
 
 <style scoped>
