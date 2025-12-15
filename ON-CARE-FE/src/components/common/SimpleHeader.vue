@@ -17,20 +17,6 @@ defineProps({
       <h1 class="title">{{ title }}</h1>
       <p v-if="subtitle" class="subtitle">{{ subtitle }}</p>
     </div>
-
-    <div class="header-actions">
-      <div class="notification-badge">
-        <span class="bell-icon">🔔</span>
-        <div class="noti-text">
-          <span class="noti-name">김지은 요양보호사</span>
-          <span class="noti-email">caregiving@welfare.com</span>
-        </div>
-        <div class="profile-circle">김</div>
-      </div>
-      <button class="logout-btn">
-        <span class="logout-icon">↪</span> 로그아웃
-      </button>
-    </div>
   </header>
 </template>
 

@@ -99,7 +99,7 @@ const currentRole = computed(() => {
     userStore.mainRole ??
     (Array.isArray(userStore.roles) ? userStore.roles[0] : null)
 
-  if (!r) return 'MANAGER' // 임시 역할
+  if (!r) return 'CAREGIVER' // 임시 역할
   if (typeof r === 'string' && r.startsWith('ROLE_')) {
     return r.replace('ROLE_', '')
   }
@@ -108,7 +108,7 @@ const currentRole = computed(() => {
 
 // 역할별 메뉴
 const menuList = computed(() => {
-  return MENU_CONFIG[currentRole.value] || MENU_CONFIG.MANAGER
+  return MENU_CONFIG[currentRole.value] || MENU_CONFIG.CAREGIVER
 })
 
 // 현재 라우트 기준 활성 메뉴
