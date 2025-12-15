@@ -4,6 +4,7 @@ import FallRiskAssessmentForm from '@/components/careworker/activity/FallRiskAss
 import BedsoreAssessmentForm from '@/components/careworker/activity/BedsoreAssessmentForm.vue';
 import CognitiveAssessmentForm from '@/components/careworker/activity/CognitiveAssessmentForm.vue';
 import NeedsAssessmentForm from '@/components/careworker/activity/NeedsAssessmentForm.vue';
+import { evalHistoryMock } from '@/mock/careworker/activityHistory';
 
 // 메인 탭 상태 (작성 / 내역)
 const mainTab = ref('write');
@@ -23,36 +24,8 @@ const subTabs = [
   { key: 'needs', label: '욕구사정', subtitle: '(연 1회)', icon: '📋' }
 ];
 
-// 임시 내역 데이터 (연도별로 구성)
-const evalHistory = ref([
-  // 2024년 데이터
-  { id: 1, year: '2024년', date: '2024-06-15', recipientName: '김영희', type: 'fallRisk', typeLabel: '낙상위험도', status: '완료' },
-  { id: 2, year: '2024년', date: '2024-07-20', recipientName: '박철수', type: 'fallRisk', typeLabel: '낙상위험도', status: '완료' },
-  { id: 3, year: '2024년', date: '2024-05-10', recipientName: '이철수', type: 'bedsore', typeLabel: '욕창위험도', status: '완료' },
-  { id: 4, year: '2024년', date: '2024-08-15', recipientName: '정민희', type: 'bedsore', typeLabel: '욕창위험도', status: '완료' },
-  { id: 5, year: '2024년', date: '2024-04-20', recipientName: '박민수', type: 'cognitive', typeLabel: '인지기능', status: '완료' },
-  { id: 6, year: '2024년', date: '2024-09-05', recipientName: '최수정', type: 'cognitive', typeLabel: '인지기능', status: '완료' },
-  { id: 7, year: '2024년', date: '2024-03-12', recipientName: '강태호', type: 'needs', typeLabel: '욕구사정', status: '완료' },
-  { id: 8, year: '2024년', date: '2024-10-08', recipientName: '윤서연', type: 'needs', typeLabel: '욕구사정', status: '완료' },
-
-  // 2023년 데이터
-  { id: 9, year: '2023년', date: '2023-06-10', recipientName: '김영희', type: 'fallRisk', typeLabel: '낙상위험도', status: '완료' },
-  { id: 10, year: '2023년', date: '2023-07-15', recipientName: '박철수', type: 'fallRisk', typeLabel: '낙상위험도', status: '완료' },
-  { id: 11, year: '2023년', date: '2023-05-05', recipientName: '이철수', type: 'bedsore', typeLabel: '욕창위험도', status: '완료' },
-  { id: 12, year: '2023년', date: '2023-08-20', recipientName: '정민희', type: 'bedsore', typeLabel: '욕창위험도', status: '완료' },
-  { id: 13, year: '2023년', date: '2023-04-18', recipientName: '박민수', type: 'cognitive', typeLabel: '인지기능', status: '완료' },
-  { id: 14, year: '2023년', date: '2023-09-12', recipientName: '최수정', type: 'cognitive', typeLabel: '인지기능', status: '완료' },
-
-  // 2025년 데이터 (현재년도)
-  { id: 15, year: '2025년', date: '2025-12-10', recipientName: '김영희', type: 'fallRisk', typeLabel: '낙상위험도', status: '완료' },
-  { id: 16, year: '2025년', date: '2025-12-12', recipientName: '박철수', type: 'fallRisk', typeLabel: '낙상위험도', status: '임시저장' },
-  { id: 17, year: '2025년', date: '2025-12-08', recipientName: '이철수', type: 'bedsore', typeLabel: '욕창위험도', status: '완료' },
-  { id: 18, year: '2025년', date: '2025-12-09', recipientName: '정민희', type: 'bedsore', typeLabel: '욕창위험도', status: '완료' },
-  { id: 19, year: '2025년', date: '2025-12-05', recipientName: '박민수', type: 'cognitive', typeLabel: '인지기능', status: '임시저장' },
-  { id: 20, year: '2025년', date: '2025-12-11', recipientName: '최수정', type: 'cognitive', typeLabel: '인지기능', status: '완료' },
-  { id: 21, year: '2025년', date: '2025-12-07', recipientName: '강태호', type: 'needs', typeLabel: '욕구사정', status: '완료' },
-  { id: 22, year: '2025년', date: '2025-12-13', recipientName: '윤서연', type: 'needs', typeLabel: '욕구사정', status: '임시저장' }
-]);
+// 임시 내역 데이터 (Mock에서 가져옴)
+const evalHistory = ref([...evalHistoryMock]);
 
 // 아코디언 상태 관리 (연도별 열림/닫힘)
 const openYears = ref(['2025년']); // 기본적으로 2025년만 열림
