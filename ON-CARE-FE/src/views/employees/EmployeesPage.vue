@@ -1,82 +1,29 @@
 <script setup>
-import { ref } from 'vue';
-import EmployeeList from '../../components/employee/EmployeeList.vue';
-import EmployeeDetail from '../../components/employee/EmployeeDetail.vue';
-import EmployeeEditModal from '../../components/employee/EmployeeEditModal.vue';
-import CertificationApprovalModal from '../../components/employee/CertificationApprovalModal.vue';
-import BulkEducationModal from '../../components/employee/BulkEducationModal.vue';
-import EmployeeRegisterModal from '../../components/employee/EmployeeRegisterModal.vue';
+import { ref, onMounted, watch } from 'vue';
+// API 함수 import
+import { 
+  getEmployeeList,
+  getEmployeeDetail,
+  registerEmployee,
+  updateEmployee,
+  registerEducation,
+  updateCertificateStatus,
+  getPendingCertifications // Changed from getPendingCertificates
+} from '@/api/employeeApi';
 
-// --- 1. Mock Data ---
-const employees = ref([
-  {
-    id: 1,
-    name: '김미영',
-    role: '요양보호사',
-    phone: '010-1234-5678',
-    email: 'kim@example.com',
-    status: '활동중',
-    serviceCount: 150,
-    rating: 4.8,
-    hireDate: '2023-01-15',
-    address: '서울시 강남구 테헤란로 2100',
-    emergencyContact: '010-1111-2222',
-    career: '8년',
-    workHistory: [
-      { company: '삼성요양원', startDate: '2016-01-01', endDate: '2020-12-31' },
-      { company: '서울시니어케어센터', startDate: '2020-02-01', endDate: '2022-12-31' }
-    ],
-    certifications: ['요양보호사 1급', '치매전문교육 수료'],
-    specialties: ['치매 케어', '신체활동 지원'],
-    schedules: [
-      { type: 'rental', title: '전동침대', startDate: '2024-11-15', endDate: '2025-02-15' },
-      { type: 'rental', title: '보행기', startDate: '2024-12-01', endDate: '2025-03-01' },
-      { type: 'care', date: '2024-12-04', time: '09:00 - 12:00', recipient: '김영희' },
-      { type: 'care', date: '2024-12-07', time: '09:00 - 12:00', recipient: '김영희' },
-      { type: 'care', date: '2024-12-14', time: '14:00 - 17:00', recipient: '이철수' }
-    ]
-  },
-  {
-    id: 2,
-    name: '박서준',
-    role: '센터장',
-    phone: '010-9876-5432',
-    email: 'park@example.com',
-    status: '활동중',
-    serviceCount: 0,
-    rating: 5.0,
-    hireDate: '2020-03-01',
-    address: '서울시 송파구',
-    emergencyContact: '010-3333-4444',
-    certifications: ['사회복지사 1급'],
-    specialties: ['운영관리'],
-    schedules: []
-  },
-  {
-    id: 3,
-    name: '최지우',
-    role: '요양보호사',
-    phone: '010-5555-6666',
-    email: 'choi@example.com',
-    status: '휴가',
-    serviceCount: 80,
-    rating: 4.5,
-    hireDate: '2023-06-20',
-    address: '서울시 강동구',
-    emergencyContact: '010-7777-8888',
-    certifications: ['요양보호사', '간호조무사'],
-    specialties: ['와상환자케어'],
-    schedules: []
-  }
-]);
+// 컴포넌트 import
+import EmployeeList from '@/components/employee/EmployeeList.vue';
+import EmployeeDetail from '@/components/employee/EmployeeDetail.vue';
+import EmployeeEditModal from '@/components/employee/EmployeeEditModal.vue';
+import CertificationApprovalModal from '@/components/employee/CertificationApprovalModal.vue';
+import BulkEducationModal from '@/components/employee/BulkEducationModal.vue';
+import EmployeeRegisterModal from '@/components/employee/EmployeeRegisterModal.vue';
 
-const pendingCertifications = ref([
-  { id: 1, name: '요양보호사', number: 'YB-123', status: '대기중', employeeName: '김미영', requestDate: '2024-12-08', issueDate: '2024-11-01', issuer: '복지부', fileName: '자격증사본.pdf' },
-  { id: 2, name: '사회복지사 1급', number: 'SW-456', status: '대기중', employeeName: '박서준', requestDate: '2024-12-09', issueDate: '2024-10-15', issuer: '협회', fileName: '사회복지사자격증.pdf' }
-]);
-
-// --- 2. State & Handlers ---
+// --- State ---
+const employees = ref([]); // 서버에서 받아올 직원 목록
 const selectedEmployee = ref(null);
+const searchTerm = ref(''); // 검색어
+const filterRole = ref(''); // 직군 필터
 
 // 모달 상태
 const isRegisterModalOpen = ref(false);
@@ -84,62 +31,279 @@ const isEditModalOpen = ref(false);
 const showCertApprovalModal = ref(false);
 const showBulkEduModal = ref(false);
 
-const handleSelect = (emp) => { selectedEmployee.value = emp; };
-const handleEditClick = () => { if (selectedEmployee.value) isEditModalOpen.value = true; };
+// 자격증 승인 대기 목록
+const pendingCertifications = ref([]);
 
-// 직원 수정 완료
-const handleUpdateEmployee = (updatedData) => {
-  const index = employees.value.findIndex(e => e.id === updatedData.id);
-  if (index !== -1) {
-    employees.value[index] = updatedData;
-    selectedEmployee.value = updatedData;
+const fetchPendingCertifications = async () => {
+  try {
+    const data = await getPendingCertifications();
+    pendingCertifications.value = data.map(item => ({
+      id: item.id,
+      name: item.certificateName,
+      number: item.licenseNo,
+      status: '대기중', // 목록 자체가 대기 목록이므로 강제 설정
+      employeeName: item.employeeName,
+      requestDate: item.issueDate, // [Data Spec] issueDate 필드가 신청일을 의미함
+      issueDate: item.issueDate,
+      issuer: item.organization,
+      fileName: item.fileName || '첨부파일'
+    }));
+  } catch (error) {
+    console.error('승인 대기 목록 로딩 실패:', error);
   }
-  isEditModalOpen.value = false;
-  alert('정보가 수정되었습니다.');
 };
 
-// 직원 등록 완료
-const handleRegisterEmployee = (newEmployeeData) => {
-  const newId = Math.max(...employees.value.map(e => e.id), 0) + 1;
-  const newEmployee = {
-    id: newId,
-    ...newEmployeeData,
-    serviceCount: 0,
-    rating: 0,
-    schedules: [],
-    certifications: [],
-  };
-  employees.value.push(newEmployee);
-  alert(`${newEmployee.name}님이 등록되었습니다.`);
-  isRegisterModalOpen.value = false;
+// --- 1. 데이터 조회 (Read) ---
+const fetchEmployees = async () => {
+  try {
+    const params = {
+      keyword: searchTerm.value,
+      jobCode: filterRole.value
+    };
+
+    const data = await getEmployeeList(params);
+
+    // [매핑 수정] 백엔드 DTO -> 프론트엔드 형식 변환
+    employees.value = data.map(emp => ({
+      id: emp.empId || emp.id,
+      name: emp.empName || emp.name,
+      role: emp.jobName || emp.role,
+      phone: emp.tel || emp.phone,
+      email: emp.email,
+      status: emp.status || '활동중',
+      hireDate: emp.hireDate,
+      address: emp.address,
+      emergencyContact: emp.emergencyContact,
+      career: emp.career || '1년 미만',
+      
+      // ▼▼▼ [수정 1] 목록 조회 시에도 careers와 certificates 매핑 ▼▼▼
+      workHistory: emp.careers || [],       // 백엔드: careers -> 프론트: workHistory
+      certificates: emp.certificates || [], // 백엔드: certificates -> 프론트: certificates
+      
+      specialties: emp.specialties || [],
+      schedules: [] 
+    }));
+    
+  } catch (error) {
+    console.error('직원 목록 로딩 실패:', error);
+  }
 };
 
-// 자격증/교육 핸들러
-const handleCertApprove = (id) => {
-  const target = pendingCertifications.value.find(c => c.id === id);
-  if (target) { target.status = '승인'; alert(`${target.employeeName}님의 자격증이 승인되었습니다.`); }
+// 검색어/필터 변경 시 자동 조회
+watch([searchTerm, filterRole], () => {
+  fetchEmployees();
+});
+
+// 대기 중인 자격증 목록 조회
+const fetchPendingCerts = async () => {
+  try {
+    const data = await getPendingCertifications(); // Changed to getPendingCertifications()
+    // 백엔드 데이터 매핑 (Modal에서 기대하는 필드로 변환)
+    pendingCertifications.value = data.map(cert => ({
+      ...cert,
+      id: cert.id || cert.certificateId, 
+      // Modal은 name, number, employeeName 등을 기대함.
+      // 백엔드가 employeeName을 안 줄 수도 있음. (확인 필요)
+      // 일단 있는 그대로 + 매핑
+      name: cert.certificateName || cert.name,
+      number: cert.licenseNo || cert.number,
+      status: '대기중', // API 호출 시 PENDING만 가져오므로
+      employeeName: cert.employeeName || '이름 미제공', // 백엔드 수정 필요할 수 있음
+      requestDate: cert.createdDate || '-', // 생성일 등
+      issueDate: cert.issueDate,
+      issuer: cert.organization,
+      fileName: '-' // 파일명 등
+    }));
+  } catch (error) {
+    console.error('승인 대기 목록 로딩 실패:', error);
+  }
 };
-const handleCertReject = (id) => {
-  const target = pendingCertifications.value.find(c => c.id === id);
-  if (target) { target.status = '반려'; alert(`${target.employeeName}님의 자격증이 반려되었습니다.`); }
+
+// 초기 로딩
+onMounted(() => {
+  fetchEmployees();
+  fetchPendingCerts(); // 추가
+});
+
+// 매핑
+const handleSelect = async (emp) => {
+  try {
+    const detailData = await getEmployeeDetail(emp.id);
+
+    selectedEmployee.value = {
+      ...detailData,
+      name: detailData.empName || detailData.name,
+      role: detailData.jobName || detailData.role,
+      phone: detailData.tel || detailData.phone,
+      
+      // 1. 자격증 및 경력
+      workHistory: detailData.careers || [],
+      certificates: detailData.certificates || [],
+      
+      // ▼▼▼ [수정] 보수교육 데이터 매핑 ▼▼▼
+      educations: detailData.educations || [], 
+
+      // ▼▼▼ [수정] 서비스 타입(객체 배열)을 전문 분야(문자열 배열)로 변환 ▼▼▼
+      // 예: [{id:1, name:'방문요양'}] -> ['방문요양']
+      specialties: detailData.serviceTypes 
+        ? detailData.serviceTypes.map(service => service.name) 
+        : (detailData.specialties || []),
+        
+      schedules: detailData.schedules || []
+    };
+  } catch (error) {
+    console.error('상세 정보 로딩 실패:', error);
+    selectedEmployee.value = emp; 
+  }
 };
-const handleBulkEduSubmit = ({ ids, data }) => {
-  alert(`${ids.length}명의 직원에게 ${data.year}년 보수교육 등록이 완료되었습니다.`);
+
+const refreshSelectedEmployee = async () => {
+  if (!selectedEmployee.value?.id) return;
+  await handleSelect({ id: selectedEmployee.value.id });
+};
+
+const handleEditClick = () => { 
+  if (selectedEmployee.value) isEditModalOpen.value = true; 
+};
+
+// 직원 등록
+const handleRegisterEmployee = async (payload) => {
+  try {
+    // 1. 데이터 정제 (Frontend 전용 필드 제거 등)
+    const submitData = {
+      ...payload,
+      
+      // careers 배열에서 계산용으로 썼던 start, end 날짜는 제거하고 보냄
+      careers: payload.careers.map(c => ({
+        companyName: c.companyName,
+        workPeriod: c.workPeriod, // "2020.01 - 2022.12"
+        task: c.task
+      })),
+      
+      // 'career' (총 경력 텍스트)는 백엔드에서 저장 안 한다면 제외
+      // career: payload.career 
+    };
+
+    console.log('서버로 전송할 데이터:', submitData);
+
+    // 2. API 호출
+    await registerEmployee(submitData);
+
+    // 3. 성공 처리
+    alert('직원이 성공적으로 등록되었습니다.');
+    isRegisterModalOpen.value = false; // 모달 닫기
+    await fetchEmployees(); // 목록 새로고침
+
+  } catch (error) {
+    console.error('직원 등록 실패:', error);
+    alert('등록 중 오류가 발생했습니다.');
+  }
+};
+
+// --- 4. 직원 수정 (Update) ---
+const handleUpdateEmployee = async (updatedData) => {
+  try {
+    await updateEmployee(updatedData.id, updatedData);
+    alert('정보가 수정되었습니다.');
+    isEditModalOpen.value = false;
+    
+    await fetchEmployees(); // 목록 새로고침
+    
+    // 선택된 상세 정보도 업데이트 (API 다시 호출해서 최신화)
+    await handleSelect({ id: updatedData.id });
+  } catch (error) {
+    console.error('수정 실패:', error);
+    alert('수정 중 오류가 발생했습니다.');
+  }
+};
+
+// --- 5. 기타 핸들러 ---
+// --- 5. 기타 핸들러 (승인/반려 - 실제 API 연동) ---
+const handleCertApprove = async (id) => {
+  if (!confirm('승인하시겠습니까?')) return;
+  try {
+    await updateCertificateStatus(id, 'APPROVED');
+    alert('승인되었습니다.');
+    await fetchPendingCerts(); // 목록 갱신
+    await fetchEmployees(); // 전체 직원 목록도 혹시 모르니 갱신
+  } catch (e) {
+    console.error(e);
+    alert('오류가 발생했습니다.');
+  }
+};
+
+const handleCertReject = async (id) => {
+  const reason = prompt('반려 사유를 입력하세요:');
+  if (reason === null) return;
+  
+  try {
+    await updateCertificateStatus(id, 'REJECTED', reason);
+    alert('반려되었습니다.');
+    await fetchPendingCerts();
+    await fetchEmployees();
+  } catch (e) {
+    console.error(e);
+    alert('오류가 발생했습니다.');
+  }
+};
+
+const handleBulkEduSubmit = async ({ ids, data }) => {
+  const { targetCertName, ...eduPayload } = data;
+  
+  if (!targetCertName) {
+    alert('대상 자격증 이름을 입력해주세요.');
+    return;
+  }
+
+  let successCount = 0;
+  let failCount = 0;
+
+  for (const empId of ids) {
+    try {
+      // 직원 찾기
+      const employee = employees.value.find(e => e.id === empId);
+      if (!employee) continue;
+
+      // 자격증 찾기 (이름 부분 일치)
+      const targetCert = employee.certificates.find(c => 
+        (c.certificateName || c.name || '').includes(targetCertName)
+      );
+
+      if (targetCert && (targetCert.id || targetCert.certificateId)) {
+        // 이미 eduName 등이 eduPayload에 포함되어 있으므로 그대로 전달
+        await registerEducation(targetCert.id || targetCert.certificateId, eduPayload);
+        successCount++;
+      } else {
+        console.warn(`[Bulk] ${employee.name}님에게 '${targetCertName}' 자격증이 없습니다.`);
+        failCount++;
+      }
+    } catch (err) {
+      console.error(err);
+      failCount++;
+    }
+  }
+
+  alert(`총 ${ids.length}명 중 ${successCount}명 성공, ${failCount}명 실패 (자격증 미보유 등).`);
   showBulkEduModal.value = false;
+  
+  // 현재 보고 있는 직원 정보 갱신
+  if (selectedEmployee.value && ids.includes(selectedEmployee.value.id)) {
+    refreshSelectedEmployee();
+  }
 };
 </script>
 
 <template>
   <div class="app-container">
     <header class="header">
-      <div>
-        <h1>직원 관리</h1>
+      <div class="title-area">
+        <h1 class="page-title">직원 관리</h1>
         <p class="subtitle">요양보호사 및 센터 직원 통합 관리 시스템</p>
       </div>
       
       <div class="flex items-center gap-2">
         <button class="btn btn-purple relative" @click="showCertApprovalModal = true">
-          <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>
+          <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>
           자격증 승인
           <span v-if="pendingCertifications.filter(c => c.status === '대기중').length > 0" class="badge-notification bg-red">
             {{ pendingCertifications.filter(c => c.status === '대기중').length }}
@@ -147,19 +311,19 @@ const handleBulkEduSubmit = ({ ids, data }) => {
         </button>
 
         <button class="btn btn-blue" @click="showBulkEduModal = true">
-          <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           보수교육 일괄등록
         </button>
 
         <button class="btn btn-primary" @click="isRegisterModalOpen = true">
-          <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+          <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
           직원 등록
         </button>
       </div>
     </header>
 
     <div class="stats-grid">
-      <div class="card stat-card">
+      <div class="stat-card">
         <div>
           <span class="stat-label">전체 직원</span>
           <p class="stat-value">{{ employees.length }}명</p>
@@ -168,7 +332,7 @@ const handleBulkEduSubmit = ({ ids, data }) => {
           <svg class="icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
         </div>
       </div>
-      <div class="card stat-card">
+      <div class="stat-card">
         <div>
           <span class="stat-label text-green">활동중</span>
           <p class="stat-value text-green">{{ employees.filter(e => e.status === '활동중').length }}명</p>
@@ -189,6 +353,7 @@ const handleBulkEduSubmit = ({ ids, data }) => {
       <EmployeeDetail 
         :employee="selectedEmployee" 
         @edit="handleEditClick"
+        @refresh="refreshSelectedEmployee"
       />
     </div>
 
@@ -224,65 +389,42 @@ const handleBulkEduSubmit = ({ ids, data }) => {
 </template>
 
 <style scoped>
-/* 공통 레이아웃 스타일 */
-* { box-sizing: border-box; }
-.app-container {
-  max-width: 90%; margin: 0 auto; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  background-color: #f8f9fa; min-height: 100vh; color: #333;
-  width: 100%; max-width: 1440px;
+.app-container { padding: 0 24px 24px; background-color: #fcfcfc; min-height: 100vh; color: #333; }
+.header { display: flex; justify-content: space-between; align-items: center; padding: 28px 0 12px; }
+.title-area { display: flex; flex-direction: column; gap: 4px; }
+.page-title { font-size: 30px; font-weight: 600; color: #1a5928; margin: 0; }
+.subtitle { font-size: 14px; color: #4a5565; margin: 0; }
+
+/* 메인 그리드 높이 설정 (스크롤 적용을 위해 중요) */
+.main-grid { 
+  display: grid; 
+  grid-template-columns: 340px minmax(0, 1fr); 
+  gap: 24px; 
+  height: calc(100vh - 220px); 
+  width: 100%; 
 }
 
-.header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-.header h1 { font-size: 24px; font-weight: 700; margin: 0; }
-.subtitle { color: #666; font-size: 14px; margin-top: 4px; }
+@media (max-width: 768px) { .main-grid { grid-template-columns: 1fr; height: auto; } }
 
-
-.main-grid { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 24px; height: calc(100vh - 200px); width: 100%; }
-@media (max-width: 768px) { .main-grid { grid-template-columns: 1fr; } }
-
-.btn { display: flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer; font-size: 14px; font-weight: 500; transition: 0.2s; color: white; }
-.btn-primary { background-color: #10b981; }
-.btn-primary:hover { background-color: #059669; }
-
-/* 통계 카드 스타일 */
-.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
-.stat-card { display: flex; justify-content: space-between; align-items: center; padding: 16px; background: white; border-radius: 12px; border: 1px solid #e5e7eb; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
-.stat-label { font-size: 12px; color: #666; }
-.stat-value { font-size: 24px; font-weight: 700; margin: 4px 0 0 0; }
-.stat-icon { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
-.bg-gray { background-color: #f3f4f6; color: #4b5563; }
-.bg-green { background-color: #d1fae5; color: #059669; }
-.text-green { color: #059669; }
-.icon { width: 18px; height: 18px; }
-
-/* 추가된 버튼 색상 */
+.btn { display: flex; align-items: center; gap: 6px; padding: 10px 18px; border-radius: 10px; border: none; font-size: 15px; cursor: pointer; transition: opacity 0.2s; color: white; font-weight: 500; }
+.btn:hover { opacity: 0.9; }
+.btn-primary { background-color: #00c950; }
 .btn-purple { background-color: #a855f7; }
-.btn-purple:hover { background-color: #9333ea; }
 .btn-blue { background-color: #3b82f6; }
-.btn-blue:hover { background-color: #2563eb; }
-
-/* Flex 유틸리티 */
+.icon { width: 20px; height: 20px; }
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+.stat-card { display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; background: white; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05); }
+.stat-label { font-size: 14px; color: #64748b; font-weight: 500; }
+.stat-value { font-size: 24px; font-weight: 700; margin-top: 4px; color: #1e293b; }
+.text-green { color: #00a63e; }
+.stat-icon { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; }
+.bg-gray { background-color: #f1f5f9; color: #64748b; }
+.bg-green { background-color: #dcfce7; color: #166534; }
 .flex { display: flex; }
 .items-center { align-items: center; }
 .gap-2 { gap: 8px; }
 .relative { position: relative; }
-
-/* 알림 뱃지 */
-.badge-notification {
-  position: absolute;
-  top: -6px;
-  right: -6px;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  font-size: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-weight: bold;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-}
+.badge-notification { position: absolute; top: -6px; right: -6px; width: 20px; height: 20px; border-radius: 50%; font-size: 11px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border: 2px solid white; }
 .bg-red { background-color: #ef4444; }
 .bg-orange { background-color: #f97316; }
 </style>

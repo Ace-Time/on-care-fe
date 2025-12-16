@@ -13,14 +13,15 @@ const filterRole = ref('');
 const filterStatus = ref('');
 const filterCert = ref('');
 const currentPage = ref(1);
-const itemsPerPage = 5;
+
+// 페이징 처리 부분
+const itemsPerPage = 8;
 
 const filteredEmployees = computed(() => {
   return props.employees.filter(emp => {
     const matchesSearch = emp.name.includes(searchTerm.value) || emp.phone.includes(searchTerm.value);
     const matchesRole = !filterRole.value || emp.role === filterRole.value;
     const matchesStatus = !filterStatus.value || emp.status === filterStatus.value;
-    // 자격증 필터 (배열인 경우 includes 확인)
     const matchesCert = !filterCert.value || (emp.certifications && emp.certifications.includes(filterCert.value));
     
     return matchesSearch && matchesRole && matchesStatus && matchesCert;
