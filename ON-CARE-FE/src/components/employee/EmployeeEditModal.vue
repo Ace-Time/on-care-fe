@@ -1,111 +1,147 @@
 <script setup>
-import { ref, watch, computed } from 'vue';
+import { ref, watch } from 'vue';
 
 const props = defineProps({
-  employee: { type: Object, required: true },
+  employee: { type: Object, required: true }, 
   isOpen: { type: Boolean, required: true }
 });
 
 const emit = defineEmits(['close', 'submit']);
 
-// 폼 데이터 초기화
-const form = ref({
-  ...props.employee,
-  specialties: props.employee.specialties ? [...props.employee.specialties] : [],
-  // workHistory가 객체 배열이라고 가정 (없으면 빈 배열)
-  workHistory: props.employee.workHistory ? JSON.parse(JSON.stringify(props.employee.workHistory)) : []
+// [설정] 서비스 목록 (문자열 전문분야와 매핑하기 위한 메뉴판)
+const serviceOptions = [
+  { id: 1, name: '방문요양' },
+  { id: 2, name: '방문목욕' },
+  { id: 3, name: '방문간호' }
+];
+
+// 폼 데이터
+const form = ref({});
+// 체크박스 상태 (ID 배열)
+const selectedServiceIds = ref([]); 
+
+// 경력 입력용 임시 변수
+const newCareer = ref({
+  companyName: '', start: '', end: '', task: ''
 });
 
-// 전문분야 입력용 임시 변수
-const newSpecialty = ref('');
-
-// 근무 이력 입력용 임시 변수 (객체 형태)
-const newHistory = ref({
-  company: '',
-  startDate: '',
-  endDate: ''
-});
-
-// 모달 열릴 때 데이터 동기화
-watch(() => props.employee, (newVal) => {
-  form.value = {
-    ...newVal,
-    specialties: newVal.specialties ? [...newVal.specialties] : [],
-    workHistory: newVal.workHistory ? JSON.parse(JSON.stringify(newVal.workHistory)) : []
-  };
-  // 열릴 때 경력 자동 계산 한 번 실행
-  updateCareerString();
-}, { deep: true });
-
-// --- 로직: 경력 자동 계산 ---
-const updateCareerString = () => {
+// --- [1] 총 경력 계산 함수 ---
+const calculateTotalCareer = () => {
   let totalMonths = 0;
+  if (form.value.careers) {
+    form.value.careers.forEach(item => {
+      // API 응답 필드명 대응 (start/end 또는 startDate/endDate)
+      const sDate = item.start || item.startDate;
+      const eDate = item.end || item.endDate;
 
-  form.value.workHistory.forEach(item => {
-    if (item.startDate && item.endDate) {
-      const start = new Date(item.startDate);
-      const end = new Date(item.endDate);
-      // 월 차이 계산
-      const months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
-      // 최소 1개월 보장
-      totalMonths += Math.max(0, months);
-    }
-  });
-
+      if (sDate && eDate) {
+        const [sY, sM] = sDate.split('-').map(Number);
+        const [eY, eM] = eDate.split('-').map(Number);
+        const startDate = new Date(sY, sM - 1);
+        const endDate = new Date(eY, eM - 1);
+        const months = (endDate.getFullYear() - startDate.getFullYear()) * 12 + (endDate.getMonth() - startDate.getMonth()) + 1;
+        if (months > 0) totalMonths += months;
+      }
+    });
+  }
   const years = Math.floor(totalMonths / 12);
   const months = totalMonths % 12;
-
-  let careerStr = '';
-  if (years > 0) careerStr += `${years}년 `;
-  if (months > 0) careerStr += `${months}개월`;
-  if (totalMonths === 0) careerStr = '신입';
-
-  form.value.career = careerStr;
+  
+  let result = '';
+  if (years > 0) result += `${years}년 `;
+  if (months > 0) result += `${months}개월`;
+  if (totalMonths === 0) result = '신입';
+  
+  form.value.career = result.trim();
 };
 
-// --- 핸들러 ---
+// --- [2] 데이터 동기화 (모달 열릴 때 실행) ---
+watch(() => props.employee, (newVal) => {
+  if (!newVal) return;
 
-// 전문분야 추가
-const addSpecialty = () => {
-  if (newSpecialty.value.trim()) {
-    form.value.specialties.push(newSpecialty.value.trim());
-    newSpecialty.value = '';
+  // 1. 기본 정보 복사 (Basic Info 탭 내용 반영)
+  form.value = {
+    ...newVal,
+    
+    // [중요] null 방지 처리
+    gender: newVal.gender || 'F', 
+    hireDate: newVal.hireDate || '',
+    birth: newVal.birth || '',
+    deptCode: newVal.deptCode || 1, // 없으면 영업팀 기본
+    jobCode: newVal.jobCode || 5,   // 없으면 요양보호사 기본
+    
+    // 배열 데이터 깊은 복사 (수정 시 원본 오염 방지)
+    careers: newVal.careers ? JSON.parse(JSON.stringify(newVal.careers)) : [],
+    certificates: newVal.certificates ? JSON.parse(JSON.stringify(newVal.certificates)) : [],
+    // specialties는 문자열 배열로 옴 (예: ["방문요양"])
+    specialties: Array.isArray(newVal.specialties) ? [...newVal.specialties] : []
+  };
+
+  // 2. 전문 분야 매핑 로직 (문자열 -> ID 체크박스)
+  selectedServiceIds.value = []; 
+
+  // Case A: 서버가 문자열 배열(["방문요양"])로 줄 때 -> 이름으로 ID 찾기
+  if (newVal.specialties && Array.isArray(newVal.specialties)) {
+    newVal.specialties.forEach(name => {
+      const found = serviceOptions.find(opt => opt.name === name);
+      if (found) selectedServiceIds.value.push(found.id);
+    });
   }
-};
-const removeSpecialty = (index) => {
-  form.value.specialties.splice(index, 1);
-};
+  // Case B: 혹시 객체 배열([{id:1...}])로 줄 때 -> ID 추출
+  else if (newVal.serviceTypes && Array.isArray(newVal.serviceTypes)) {
+    selectedServiceIds.value = newVal.serviceTypes.map(item => item.id);
+  }
 
-// 근무 이력 추가
-const addHistory = () => {
-  if (!newHistory.value.company || !newHistory.value.startDate || !newHistory.value.endDate) {
-    alert('회사명, 시작일, 종료일을 모두 입력해주세요.');
-    return;
+  // 3. 경력 재계산
+  calculateTotalCareer();
+}, { deep: true, immediate: true });
+
+
+// --- [3] 핸들러 ---
+const addCareer = () => {
+  if (!newCareer.value.companyName || !newCareer.value.start || !newCareer.value.end) {
+    alert('필수 정보를 입력해주세요.'); return;
+  }
+  if (newCareer.value.start > newCareer.value.end) {
+    alert('종료일 오류'); return;
   }
   
-  // 날짜 유효성 체크
-  if (newHistory.value.startDate > newHistory.value.endDate) {
-    alert('종료일이 시작일보다 빠를 수 없습니다.');
-    return;
-  }
-
-  form.value.workHistory.push({ ...newHistory.value });
+  const workPeriod = `${newCareer.value.start.replace('-', '.')} - ${newCareer.value.end.replace('-', '.')}`;
   
-  // 입력창 초기화
-  newHistory.value = { company: '', startDate: '', endDate: '' };
-  
-  // 경력 재계산
-  updateCareerString();
+  if (!form.value.careers) form.value.careers = [];
+  form.value.careers.push({
+    companyName: newCareer.value.companyName,
+    workPeriod: workPeriod,
+    task: newCareer.value.task,
+    start: newCareer.value.start,
+    end: newCareer.value.end
+  });
+  calculateTotalCareer();
+  newCareer.value = { companyName: '', start: '', end: '', task: '' };
 };
 
-// 근무 이력 삭제
-const removeHistory = (index) => {
-  form.value.workHistory.splice(index, 1);
-  updateCareerString();
+const removeCareer = (index) => {
+  form.value.careers.splice(index, 1);
+  calculateTotalCareer();
 };
 
 const handleSubmit = () => {
-  emit('submit', form.value);
+  const payload = {
+    ...form.value,
+    
+    // 1. 체크된 서비스 ID 배열 전송 ([1, 2] 형태)
+    serviceTypeIds: selectedServiceIds.value,
+    
+    // 2. 배열 데이터 전송
+    careers: form.value.careers,
+    certificates: form.value.certificates
+  };
+
+  // 백엔드 전송 시 불필요한 필드 제거
+  delete payload.specialties; 
+  delete payload.serviceTypes; 
+  
+  emit('submit', payload);
 };
 </script>
 
@@ -115,85 +151,116 @@ const handleSubmit = () => {
       <div class="modal-header">
         <h3>직원 정보 수정</h3>
         <button class="close-btn" @click="$emit('close')">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
         </button>
       </div>
       
       <div class="modal-body custom-scrollbar">
         
-        <section class="form-section green-theme">
+        <div class="form-section green-theme">
           <h4 class="section-title">기본 정보</h4>
           <div class="grid-2">
-            <div class="form-group"><label>이름 *</label><input v-model="form.name" type="text" class="input" /></div>
+            <div class="form-group"><label>이름</label><input v-model="form.name" type="text" class="input" /></div>
+            
             <div class="form-group">
-              <label>역할 *</label>
-              <select v-model="form.role" class="input">
-                <option>요양보호사</option><option>센터장</option><option>사회복지사</option>
+              <label>성별</label>
+              <select v-model="form.gender" class="input">
+                <option value="F">여성</option>
+                <option value="M">남성</option>
               </select>
             </div>
-            <div class="form-group"><label>전화번호 *</label><input v-model="form.phone" type="text" class="input" /></div>
-            <div class="form-group"><label>이메일 *</label><input v-model="form.email" type="email" class="input" /></div>
+            
+            <div class="form-group"><label>생년월일</label><input v-model="form.birth" type="date" class="input" /></div>
+            <div class="form-group"><label>연락처</label><input v-model="form.phone" type="text" class="input" /></div>
+            <div class="form-group"><label>이메일</label><input v-model="form.email" type="email" class="input" /></div>
             <div class="form-group full-width"><label>주소</label><input v-model="form.address" type="text" class="input" /></div>
+          </div>
+        </div>
+
+        <div class="form-section blue-theme">
+          <h4 class="section-title">직무 정보</h4>
+          <div class="grid-2">
             <div class="form-group"><label>입사일</label><input v-model="form.hireDate" type="date" class="input" /></div>
-            <div class="form-group"><label>비상 연락처</label><input v-model="form.emergencyContact" type="text" class="input" /></div>
+            
             <div class="form-group">
-              <label>활동 상태</label>
-              <select v-model="form.status" class="input">
-                <option>활동중</option><option>휴가</option><option>퇴사</option>
+              <label>부서</label>
+              <select v-model="form.deptCode" class="input">
+                <option :value="1">영업팀</option>
+                <option :value="2">자재팀</option>
               </select>
             </div>
+
             <div class="form-group">
-              <label>총 경력 (자동 계산)</label>
-              <input v-model="form.career" type="text" class="input readonly-input" readonly placeholder="근무 이력을 추가하면 계산됩니다" />
+              <label>직급 (Job)</label>
+              <select v-model="form.jobCode" class="input">
+                <option :value="1">센터장</option>
+                <option :value="2">관리자</option>
+                <option :value="3">사원</option>
+                <option :value="4">영업상담</option>
+                <option :value="5">요양보호사</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label>상태</label>
+               <select v-model="form.statusId" class="input">
+                <option :value="1">재직</option>
+                <option :value="2">휴직</option>
+                <option :value="3">퇴사</option>
+              </select>
+            </div>
+            
+            <div class="form-group">
+              <label>총 경력</label>
+              <input v-model="form.career" type="text" class="input readonly-input" readonly />
             </div>
           </div>
-        </section>
+        </div>
 
-        <section class="form-section blue-theme">
-          <h4 class="section-title">전문분야 및 태그</h4>
-          <div class="form-group">
-            <div class="input-with-button">
-              <input v-model="newSpecialty" type="text" class="input" placeholder="전문분야 입력" @keyup.enter="addSpecialty" />
-              <button class="btn-add blue-btn" @click="addSpecialty">추가</button>
-            </div>
-          </div>
-          <div class="tags-list">
-            <span v-for="(tag, index) in form.specialties" :key="index" class="tag-item blue-tag">
-              {{ tag }}
-              <button class="btn-remove" @click="removeSpecialty(index)">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-              </button>
-            </span>
-          </div>
-        </section>
-
-        <section class="form-section purple-theme">
-          <h4 class="section-title">근무 이력 관리</h4>
+        <div class="form-section purple-theme">
+          <h4 class="section-title">제공 서비스 및 경력</h4>
           
-          <div class="history-input-box">
+          <div class="form-group">
+            <label class="sub-label">제공 서비스 (선택)</label>
+            <div class="checkbox-group">
+              <label v-for="service in serviceOptions" :key="service.id" class="checkbox-label">
+                <input type="checkbox" :value="service.id" v-model="selectedServiceIds" />
+                {{ service.name }}
+              </label>
+            </div>
+          </div>
+
+          <div class="career-input-box mt-4">
+            <label class="sub-label">경력 사항 관리</label>
             <div class="form-group">
-              <input v-model="newHistory.company" type="text" class="input" placeholder="회사명 (예: 삼성요양원)" />
+              <input v-model="newCareer.companyName" type="text" class="input" placeholder="회사명" />
             </div>
             <div class="grid-2-mini">
-              <input v-model="newHistory.startDate" type="date" class="input" title="시작일" />
-              <input v-model="newHistory.endDate" type="date" class="input" title="종료일" />
+              <input v-model="newCareer.start" type="month" class="input" title="시작년월" />
+              <input v-model="newCareer.end" type="month" class="input" title="종료년월" />
             </div>
-            <button class="btn-full purple-btn" @click="addHistory">이력 추가 (+)</button>
+             <div class="form-group">
+              <input v-model="newCareer.task" type="text" class="input" placeholder="담당 업무" />
+            </div>
+            <button class="btn-full purple-btn" @click="addCareer">경력 추가</button>
           </div>
 
           <div class="history-list">
-            <div v-for="(item, index) in form.workHistory" :key="index" class="history-item purple-item">
+            <div v-for="(career, idx) in form.careers" :key="idx" class="history-item purple-item">
               <div class="history-content">
-                <span class="history-company">{{ item.company }}</span>
-                <span class="history-date">{{ item.startDate }} ~ {{ item.endDate }}</span>
+                <span class="history-company">{{ career.companyName }}</span>
+                <span class="history-date">{{ career.workPeriod }}</span>
+                <span class="history-task">{{ career.task }}</span>
               </div>
-              <button class="btn-remove" @click="removeHistory(index)">
+              <button class="btn-remove" @click="removeCareer(idx)">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
               </button>
             </div>
-            <div v-if="form.workHistory.length === 0" class="empty-text">등록된 이력이 없습니다.</div>
+            <div v-if="!form.careers || form.careers.length === 0" class="empty-text">
+              등록된 경력이 없습니다.
+            </div>
           </div>
-        </section>
+        </div>
 
       </div>
 
@@ -206,64 +273,51 @@ const handleSubmit = () => {
 </template>
 
 <style scoped>
-/* 기존 스타일 유지 + 추가 스타일 */
+/* 기존 스타일 그대로 유지 (변경 없음) */
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 100; }
-.modal-box { background: white; width: 600px; border-radius: 16px; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); display: flex; flex-direction: column; max-height: 90vh; }
-.modal-header { padding: 20px 24px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f0f0f0; }
-.modal-header h3 { margin: 0; font-size: 20px; font-weight: 700; color: #111; }
-.close-btn { background: none; border: none; cursor: pointer; color: #9ca3af; }
+.modal-box { background: white; width: 600px; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.1); max-height: 90vh; display: flex; flex-direction: column; }
+.modal-header { padding: 20px 24px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+.modal-header h3 { font-size: 20px; font-weight: 700; color: #166534; margin: 0; }
+.close-btn { background: none; border: none; cursor: pointer; color: #999; }
 .modal-body { padding: 24px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 24px; }
-.custom-scrollbar::-webkit-scrollbar { width: 6px; }
-.custom-scrollbar::-webkit-scrollbar-thumb { background-color: #d1d5db; border-radius: 3px; }
-
-/* 폼 스타일 */
-.form-section { padding: 20px; border-radius: 12px; border: 1px solid transparent; }
-.section-title { margin: 0 0 16px 0; font-size: 16px; font-weight: 700; }
+.form-section { padding: 20px; border-radius: 8px; border: 1px solid transparent; }
 .green-theme { background-color: #f0fdf4; border-color: #dcfce7; }
 .green-theme .section-title { color: #166534; }
 .blue-theme { background-color: #eff6ff; border-color: #dbeafe; }
 .blue-theme .section-title { color: #1e40af; }
 .purple-theme { background-color: #faf5ff; border-color: #f3e8ff; }
 .purple-theme .section-title { color: #6b21a8; }
-
+.section-title { margin: 0 0 16px 0; font-size: 16px; font-weight: 700; }
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .full-width { grid-column: 1 / -1; }
 .form-group { display: flex; flex-direction: column; gap: 6px; }
-.form-group label { font-size: 13px; font-weight: 600; color: #374151; }
-.input { width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; outline: none; box-sizing: border-box; }
-.readonly-input { background-color: #f3f4f6; color: #6b7280; cursor: not-allowed; }
-
-/* 근무 이력 입력 박스 */
-.history-input-box { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.form-group label { font-size: 13px; font-weight: 600; color: #4b5563; }
+.sub-label { font-size: 13px; font-weight: 600; color: #4b5563; display: block; margin-bottom: 4px; }
+.input { width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px; outline: none; box-sizing: border-box; background: white; }
+.input:focus { border-color: #22c55e; }
+.readonly-input { background-color: #f3f4f6; color: #6b7280; cursor: not-allowed; border-color: #e5e7eb; }
+.checkbox-group { display: flex; gap: 15px; flex-wrap: wrap; padding: 12px; background-color: white; border: 1px solid #e5e7eb; border-radius: 6px; }
+.checkbox-label { display: flex; align-items: center; gap: 6px; font-size: 14px; cursor: pointer; user-select: none; color: #4b5563; }
+.checkbox-label input[type="checkbox"] { width: 16px; height: 16px; accent-color: #a855f7; }
+.career-input-box { display: flex; flex-direction: column; gap: 8px; }
 .grid-2-mini { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.btn-full { width: 100%; padding: 8px; border-radius: 8px; border: none; color: white; font-weight: 600; cursor: pointer; font-size: 13px; }
-
-/* 리스트 아이템 */
-.history-list { display: flex; flex-direction: column; gap: 8px; }
+.mt-4 { margin-top: 16px; }
+.history-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
 .history-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-radius: 8px; font-size: 14px; }
-.history-content { display: flex; flex-direction: column; gap: 2px; }
-.history-company { font-weight: bold; font-size: 14px; }
-.history-date { font-size: 12px; color: #666; }
 .purple-item { background-color: #f3e8ff; color: #6b21a8; }
-.empty-text { font-size: 13px; color: #9ca3af; text-align: center; padding: 10px; }
-
-/* 버튼 및 태그 */
-.input-with-button { display: flex; gap: 8px; }
-.input-with-button .input { flex: 1; }
-.btn-add { padding: 0 20px; border-radius: 8px; font-size: 14px; font-weight: 600; border: none; cursor: pointer; color: white; }
+.history-content { display: flex; flex-direction: column; gap: 2px; }
+.history-company { font-weight: bold; }
+.history-date { font-size: 12px; color: #666; }
+.history-task { font-size: 12px; color: #555; font-style: italic; }
 .btn-remove { background: none; border: none; cursor: pointer; color: currentColor; opacity: 0.6; }
-.btn-remove:hover { opacity: 1; }
-.blue-btn { background-color: #3b82f6; }
-.blue-btn:hover { background-color: #2563eb; }
+.empty-text { font-size: 13px; color: #999; text-align: center; }
+.btn-full { width: 100%; padding: 10px; border-radius: 6px; border: none; font-weight: 600; cursor: pointer; color: white; margin-top: 8px; }
 .purple-btn { background-color: #a855f7; }
 .purple-btn:hover { background-color: #9333ea; }
-
-.tags-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-.tag-item { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 6px; font-size: 13px; font-weight: 500; }
-.blue-tag { background-color: #dbeafe; color: #1e40af; }
-
 .modal-footer { padding: 20px 24px; border-top: 1px solid #f0f0f0; display: flex; gap: 12px; background: #fff; }
 .btn-lg { flex: 1; padding: 12px; border-radius: 8px; font-size: 15px; font-weight: 700; cursor: pointer; text-align: center; }
 .btn-green { background-color: #22c55e; color: white; border: none; }
 .btn-white { background-color: white; color: #374151; border: 1px solid #d1d5db; }
+.custom-scrollbar::-webkit-scrollbar { width: 6px; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background-color: #d1d5db; border-radius: 3px; }
 </style>
