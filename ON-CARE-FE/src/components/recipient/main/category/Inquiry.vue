@@ -36,6 +36,7 @@ const selectedInquiry = ref(null)
 const inquiryList = ref([
   {
     id: 1,
+    recipient:1,
     type: '전화문의',
     typeClass: 'type-phone',
     typeLabel: '정기상담',
@@ -48,6 +49,7 @@ const inquiryList = ref([
   },
   {
     id: 2,
+    recipient:2,
     type: '가정방문',
     typeClass: 'type-home',
     typeLabel: '추가문의',
@@ -60,6 +62,7 @@ const inquiryList = ref([
   },
   {
     id: 3,
+    recipient:3,
     type: '문자문의',
     typeClass: 'type-sms',
     typeLabel: '사전문의',

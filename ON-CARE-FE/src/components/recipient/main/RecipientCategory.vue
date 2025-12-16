@@ -18,26 +18,42 @@
     <!-- 탭 컨텐츠 -->
     <div class="bottom-content">
       <!-- 일정 관리 -->
-      <Calender v-if="activeTab === 'schedule'" />
+      <Calender
+        v-if="activeTab === 'schedule'"
+        :recipient="recipient"
+      />
 
       <!-- 서비스 / 렌탈 -->
       <ServiceRental
         v-else-if="activeTab === 'service'"
+        :recipient="recipient"
         :service-history="serviceHistory"
         :rental-items="rentalItems"
       />
 
       <!-- 기록 관리 -->
-      <Record v-else-if="activeTab === 'record'" />
+      <Record
+        v-else-if="activeTab === 'record'"
+        :recipient="recipient"
+      />
 
       <!-- 상담 -->
-      <Counsel v-else-if="activeTab === 'counsel'" />
+      <Counsel
+        v-else-if="activeTab === 'counsel'"
+        :recipient="recipient"
+      />
 
       <!-- 문의 이력 -->
-      <Inquiry v-else-if="activeTab === 'inquiry'" />
+      <Inquiry
+        v-else-if="activeTab === 'inquiry'"
+        :recipient="recipient"
+      />
 
       <!-- 서류 관리 -->
-      <Document v-else-if="activeTab === 'files'" />
+      <Document
+        v-else-if="activeTab === 'files'"
+        :recipient="recipient"
+      />
     </div>
   </div>
 </template>
@@ -53,6 +69,11 @@ import Inquiry from '@/components/recipient/main/category/Inquiry.vue'
 import Document from '@/components/recipient/main/category/Document.vue'
 
 const props = defineProps({
+  // 🔥 선택된 수급자 객체
+  recipient: {
+    type: Object,
+    default: null
+  },
   serviceHistory: {
     type: Array,
     default: () => []

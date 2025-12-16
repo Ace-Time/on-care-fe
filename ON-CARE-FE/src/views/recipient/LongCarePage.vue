@@ -33,7 +33,7 @@
 import { ref, computed } from 'vue'
 import LongCare from '@/components/recipient/longcare/LongCare.vue'
 import LongCareDetail from '@/components/recipient/longcare/LongCareDetail.vue'
-import { longCareMock } from '@/mock/longCareMock'
+import { longCareMock } from '@/mock/recipient/longCareMock'
 
 const longCareItems = ref(longCareMock)
 

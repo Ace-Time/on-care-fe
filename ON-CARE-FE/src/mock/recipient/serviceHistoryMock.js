@@ -1,6 +1,7 @@
 export const serviceHistoryMock = [
     {
       code: 'SV001',
+      recipientId: 1,
       name: '방문요양',
       period: '2024-12',
       amount: 1500000,
@@ -9,6 +10,7 @@ export const serviceHistoryMock = [
     },
     {
       code: 'SV002',
+      recipientId: 1,
       name: '방문요양',
       period: '2024-11',
       amount: 1500000,
@@ -17,6 +19,7 @@ export const serviceHistoryMock = [
     },
     {
       code: 'SV003',
+      recipientId: 2,
       name: '렌탈료',
       period: '2024-10',
       amount: 60000,
@@ -25,6 +28,7 @@ export const serviceHistoryMock = [
     },
     {
       code: 'SV004',
+      recipientId: 2,
       name: '방문요양',
       period: '2024-10',
       amount: 1430000,
