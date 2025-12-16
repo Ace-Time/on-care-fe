@@ -24,7 +24,7 @@
       </div>
 
       <div class="right-col">
-        <ScheduleDetail :schedule-id="selectedScheduleId" />
+        <ScheduleDetail :schedule="selectedSchedule" @close="onCloseDetail" />
       </div>
     </div>
   </div>
@@ -45,18 +45,22 @@ const formatDateKey = (date) => {
 };
 
 const keyword = ref('');
-const searchScope = ref('ALL'); 
+const searchScope = ref('ALL');
 
 const selectedDate = ref(formatDateKey(new Date()));
-const selectedScheduleId = ref(null);
+const selectedSchedule = ref(null);
 
 const onSelectDate = (dateKey) => {
   selectedDate.value = dateKey;
-  selectedScheduleId.value = null;
+  selectedSchedule.value = null;
 };
 
-const onSelectSchedule = (payload) => {
-  selectedScheduleId.value = payload;
+const onSelectSchedule = (item) => {
+  selectedSchedule.value = item || null;
+};
+
+const onCloseDetail = () => {
+  selectedSchedule.value = null;
 };
 </script>
 
@@ -68,7 +72,7 @@ const onSelectSchedule = (payload) => {
 }
 
 .search-row {
-  width: 49.3%; 
+  width: 49.3%;
 }
 
 .main-row {

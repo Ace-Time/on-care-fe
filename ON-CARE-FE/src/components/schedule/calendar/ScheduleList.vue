@@ -27,11 +27,13 @@
         <tbody>
           <tr
             v-for="(item, idx) in dailySchedules"
-            :key="item.id ?? idx"
+            :key="item.matchingId ?? idx"
             class="table-row"
             @click="onRowClick(item)"
           >
-            <td class="col-time">{{ item.startTime }} - {{ item.endTime }}</td>
+            <td class="col-time">
+              {{ formatTimeHM(item.startTime) }} - {{ formatTimeHM(item.endTime) }}
+            </td>
             <td>{{ item.careWorkerName }}</td>
             <td>{{ item.beneficiaryName }}</td>
             <td>
@@ -46,7 +48,7 @@
                 {{ item.serviceTypeName }}
               </span>
             </td>
-            <td class="col-duration">{{ item.durationMinutes }}분</td>
+            <td class="col-duration">{{ formatDuration(item.durationMinutes) }}</td>
           </tr>
         </tbody>
       </table>
@@ -92,6 +94,26 @@ const summary = computed(() => {
   return result;
 });
 
+const formatTimeHM = (t) => {
+  const s = String(t ?? '');
+  if (!s) return '';
+  if (s.includes('T')) {
+    const timePart = s.split('T')[1] || '';
+    return timePart.slice(0, 5);
+  }
+  return s.slice(0, 5);
+};
+
+const formatDuration = (minutes) => {
+  const m = Number(minutes);
+  if (!Number.isFinite(m) || m <= 0) return '0분';
+  const h = Math.floor(m / 60);
+  const r = m % 60;
+  if (h <= 0) return `${r}분`;
+  if (r === 0) return `${h}시간`;
+  return `${h}시간 ${r}분`;
+};
+
 const loadDay = async () => {
   if (!props.selectedDate) {
     dailySchedules.value = [];
@@ -123,7 +145,10 @@ watch(
 );
 
 const onRowClick = (item) => {
-  emit('select-schedule', item);
+  emit('select-schedule', {
+    ...item,
+    matchingId: item.matchingId,
+  });
 };
 </script>
 
