@@ -40,24 +40,23 @@ const selectFallRisk = (itemCode, choice) => {
   formData.value.fallRisk[itemCode] = choice.score;
 };
 
+// 선택된 항목인지 확인
+const isSelected = (itemCode, score) => {
+  return formData.value.fallRisk[itemCode] === score;
+};
+
 // 폼 제출
 const handleSubmit = () => {
   console.log('요양일지 제출:', formData.value);
   alert('요양일지가 저장되었습니다.');
 };
-
-// 선택된 항목인지 확인
-const isSelected = (itemCode, score) => {
-  return formData.value.fallRisk[itemCode] === score;
-};
 </script>
 
 <template>
   <div class="care-log-form">
-    <!-- 기본 정보 -->
     <section class="form-section basic-info">
       <div class="section-header">
-        <h2>경기요양보호 제공기록지</h2>
+        <h2>장기요양보호 제공기록지</h2>
       </div>
 
       <div class="info-grid">
@@ -99,7 +98,6 @@ const isSelected = (itemCode, score) => {
       </div>
     </section>
 
-    <!-- 1. 신체활동 지원 -->
     <section class="form-section">
       <h3 class="section-title">{{ careLogFormData.physicalSupport.title }}</h3>
 
@@ -120,7 +118,6 @@ const isSelected = (itemCode, score) => {
       </div>
     </section>
 
-    <!-- 2. 인지 및 정서 지원 -->
     <section class="form-section">
       <h3 class="section-title">{{ careLogFormData.cognitiveSupport.title }}</h3>
 
@@ -141,7 +138,6 @@ const isSelected = (itemCode, score) => {
       </div>
     </section>
 
-    <!-- 3. 신체 관찰 및 돌이상태 -->
     <section class="form-section">
       <h3 class="section-title">{{ careLogFormData.physicalObservation.title }}</h3>
 
@@ -171,7 +167,6 @@ const isSelected = (itemCode, score) => {
       </div>
     </section>
 
-    <!-- 낙상위험도 평가 -->
     <section class="form-section fall-risk-section">
       <h3 class="section-title">{{ fallRiskAssessment.title }}</h3>
 
@@ -206,7 +201,6 @@ const isSelected = (itemCode, score) => {
           </div>
         </div>
 
-        <!-- 총점 및 결과 -->
         <div class="risk-result">
           <div class="result-score">
             <strong>총점:</strong> {{ totalFallRiskScore }}점
@@ -227,7 +221,6 @@ const isSelected = (itemCode, score) => {
       </div>
     </section>
 
-    <!-- 제출 버튼 -->
     <div class="form-actions">
       <button type="button" class="btn-secondary">임시저장</button>
       <button type="button" class="btn-primary" @click="handleSubmit">제출하기</button>
