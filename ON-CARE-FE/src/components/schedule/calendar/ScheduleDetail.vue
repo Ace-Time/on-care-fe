@@ -3,7 +3,7 @@
     <div v-if="!schedule" class="placeholder">
       <div class="placeholder-icon">
         <img
-          src="@/assets/img/common/scheduleManagement.png"
+          :src="scheduleManagementIcon"
           alt="일정 선택"
           class="calendar-icon-img"
         />
@@ -75,7 +75,10 @@
         </div>
 
         <AlternateCareWorkers />
-        <ScheduleMemo />
+        <ScheduleMemo
+          :matching-id="schedule.matchingId"
+          :memo-date="formatDate(schedule.date)"
+        />
       </div>
     </div>
   </section>
@@ -90,6 +93,7 @@ import ScheduleMemo from '@/components/schedule/calendar/detail/ScheduleMemo.vue
 import detailClockIcon from '@/assets/img/schedule/detailClock.png';
 import memberIcon from '@/assets/img/schedule/member.png';
 import closeIcon from '@/assets/img/common/closeButton.png';
+import scheduleManagementIcon from '@/assets/img/common/scheduleManagement.png';
 
 const props = defineProps({
   schedule: {
@@ -296,12 +300,12 @@ const onClose = () => emit('close');
 }
 
 .label {
-  color: #4A5565;
+  color: #4a5565;
   font-weight: 600;
 }
 
 .value {
-  color: #4A5565;
+  color: #4a5565;
   font-weight: 600;
 }
 
@@ -333,11 +337,5 @@ const onClose = () => emit('close');
   font-size: 14px;
   font-weight: 500;
   color: #101828;
-}
-
-@media (max-width: 920px) {
-  .top-grid {
-    grid-template-columns: 1fr;
-  }
 }
 </style>

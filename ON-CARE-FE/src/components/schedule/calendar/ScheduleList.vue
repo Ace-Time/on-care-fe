@@ -29,6 +29,7 @@
             v-for="(item, idx) in dailySchedules"
             :key="item.matchingId ?? idx"
             class="table-row"
+            :class="{ selected: item.matchingId === selectedMatchingId }"
             @click="onRowClick(item)"
           >
             <td class="col-time">
@@ -71,6 +72,8 @@ const props = defineProps({
 const emit = defineEmits(['select-schedule']);
 
 const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
+
+const selectedMatchingId = ref(null);
 
 const headerTitle = computed(() => {
   if (!props.selectedDate) return '일정을 선택해주세요';
@@ -145,6 +148,8 @@ watch(
 );
 
 const onRowClick = (item) => {
+  selectedMatchingId.value = item.matchingId;
+
   emit('select-schedule', {
     ...item,
     matchingId: item.matchingId,
@@ -250,5 +255,8 @@ const onRowClick = (item) => {
   font-size: 13px;
   color: #9ca3af;
   background: #f9fafb;
+}
+.table-row.selected {
+  background: #d7f3dd;       
 }
 </style>
