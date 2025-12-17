@@ -19,16 +19,7 @@
           :class="{ active: isActive('tasks-approval') }"
         >
           전자 결재
-        </RouterLink>
-
-        <RouterLink
-          :to="{ name: 'tasks-facility' }"
-          class="tab-item"
-          :class="{ active: isActive('tasks-facility') }"
-        >
-          시설 관리
-        </RouterLink>
-
+      </RouterLink>
       </div>
 
       <div class="tab-content">

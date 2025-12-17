@@ -25,7 +25,6 @@ import InoutPlanPage from '@/views/product/InoutPlanPage.vue'
 
 import TasksPage from '@/views/tasks/TasksPage.vue'
 import ApprovalPage from '@/views/tasks/ApprovalPage.vue'
-import FacilityPage from '@/views/tasks/FacilityPage.vue'
 
 import HomePage from '@/views/careworker/home/HomePage.vue'
 
@@ -172,11 +171,6 @@ const routes = [
         path: 'approval',
         name: 'tasks-approval',
         component: ApprovalPage,
-      },
-      {
-        path: 'facility',
-        name: 'tasks-facility',
-        component: FacilityPage,
       },
     ],
   },

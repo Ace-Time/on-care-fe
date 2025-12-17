@@ -11,11 +11,11 @@ import axios from 'axios';                  // axios 본체를 가져온다.
 import { useUserStore } from '@/stores/user'; // Pinia의 사용자 스토어(액세스 토큰을 꺼내오기 위함)
 import { useToast } from '@/lib/toast'
 import router from '@/router/index.routes';
-import {isTokenExpired} from '@/lib/jwtUtil';
+import { isTokenExpired } from '@/lib/jwtUtil';
 
-const {success, error : toastError , info} = useToast();
+const { success, error: toastError, info } = useToast();
 // 날짜 한국 시간으로 출력하기
-const formattedTimeForKor =  () => {
+const formattedTimeForKor = () => {
   const now = new Date();
   const formatted = now.toLocaleString('ko-KR', {
     year: 'numeric',
@@ -41,7 +41,7 @@ const api = axios.create({
   baseURL: 'http://localhost:5000',          // 모든 상대 경로 요청은 '/localhost:80'를 기준으로 보낸다. (Vite dev proxy로 백엔드 연결 가정)
   // baseURL: 'http://localhost:8081',          // 모든 상대 경로 요청은 '/localhost:80'를 기준으로 보낸다. (Vite dev proxy로 백엔드 연결 가정)
   withCredentials: true,    // ✅ 브라우저가 HttpOnly 쿠키(리프레시 토큰)를 자동으로 전송하도록 허용
-  timeout: 15000,           // 네트워크 요청 타임아웃(ms). 필요에 따라 조정 가능.
+  meout: 15000,           // 네트워크 요청 타임아웃(ms). 필요에 따라 조정 가능.
 });
 
 
@@ -72,9 +72,9 @@ const refreshUrl = '/member/refresh';
 api.interceptors.request.use((config) => {
   // 매 요청마다 Pinia 스토어에서 최신 토큰을 읽는다. (앱이 createPinia() 된 뒤라면 안전)
   // const user = useUserStore();              // 현재 활성화된 Pinia 인스턴스에서 user 스토어를 가져온다.
-  const user = useUserStore();   
+  const user = useUserStore();
   const token = user.token;                 // 스토어가 들고 있는 액세스 토큰 문자열을 읽는다.
-  console.log(`[${formattedTimeForKor()}] 백엔드 요청:`,`[${config.method}]`,`${api.defaults.baseURL + config.url}`,config);
+  console.log(`[${formattedTimeForKor()}] 백엔드 요청:`, `[${config.method}]`, `${api.defaults.baseURL + config.url}`, config);
   // 토큰이 존재하면 Authorization 헤더를 표준 Bearer 스킴으로 세팅한다.
   if (token) {
     config.headers = config.headers || {};  // headers 객체가 없을 수도 있으므로 보장한다.
@@ -101,7 +101,7 @@ api.interceptors.response.use(
     // 4-2-1) 실패한 "원 요청"의 설정 객체를 가져온다.
     const original = error && error.config; // ✔ 실패 요청의 axios config (재시도에 필요)
     const status = error && error.response && error.response.status; // ✔ HTTP 상태 코드
-          console.log(`error 값: `, error);
+    console.log(`error 값: `, error);
 
     // 4-2-2) 설정 객체가 없으면(아주 특이 케이스) 더 할 수 있는 게 없으므로 그대로 던진다.
     if (!original) {
@@ -115,7 +115,7 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    console.log(`original._retry 값 : ` ,original?._retry);
+    console.log(`original._retry 값 : `, original?._retry);
     // 4-2-4) 401 또는 403을 만났고, 아직 이 요청에 대해 재시도 마크를 안 달았다면 처리 시작
     if ((status === 401 || status === 403) && !original._retry) {
 
@@ -123,8 +123,7 @@ api.interceptors.response.use(
       // console.log('토큰 값::::::', user.token);
       // console.log('토큰 만료 유무', isTokenExpired(user.token));
 
-      if(!isTokenExpired(user.token))
-      {
+      if (!isTokenExpired(user.token)) {
         return Promise.reject(error);
       }
 
@@ -150,68 +149,68 @@ api.interceptors.response.use(
       original._retry = true;
 
       try {
-          // console.log('리프래시 시도?')
-          // ─────────────────────────────────────────────────────────
-          // (A) 현재 진행 중인 리프레시가 없다면 "지금" 하나 만든다.
-          //     있으면 새로 만들지 않고 그 Promise를 그대로 기다린다.
-          //     → 이렇게 하면 동시 다발적인 401에도 리프레시가 1번만 일어난다.
-          // ─────────────────────────────────────────────────────────
-          // console.log(`original 값 : ` ,original);
-          // console.log(`refreshPromise 값: `, refreshPromise);
-          // console.log(`isRefreshing 값: `, isRefreshing);
-          if (!refreshPromise) {
-            isRefreshing = true;                                       // ✔ (선택) 플래그 on
+        // console.log('리프래시 시도?')
+        // ─────────────────────────────────────────────────────────
+        // (A) 현재 진행 중인 리프레시가 없다면 "지금" 하나 만든다.
+        //     있으면 새로 만들지 않고 그 Promise를 그대로 기다린다.
+        //     → 이렇게 하면 동시 다발적인 401에도 리프레시가 1번만 일어난다.
+        // ─────────────────────────────────────────────────────────
+        // console.log(`original 값 : ` ,original);
+        // console.log(`refreshPromise 값: `, refreshPromise);
+        // console.log(`isRefreshing 값: `, isRefreshing);
+        if (!refreshPromise) {
+          isRefreshing = true;                                       // ✔ (선택) 플래그 on
 
-            // 4-2-4-2) 새 리프레시 Promise 생성
-            refreshPromise = (async () => {
-              // 4-2-4-2-1) /refresh 호출: withCredentials로 HttpOnly 쿠키 자동 전송
-              const refreshRes = await api.post(
-                refreshUrl,                                            // ✔ baseURL('/member') + '/refresh' = '/member/refresh'
-                {},                                                    // ✔ 보통 바디는 비움 (쿠키 기준 식별)
-                {
-                  withCredentials: true,                               // ✔ 쿠키 전송 필수
-                  headers: {
-                    // (선택) 서버가 UA/디바이스 바인딩 검증을 한다면 간단한 힌트로 디바이스 지문을 보낼 수 있다.
-                    'X-Device-Fp': sessionStorage.getItem('device_fp') || '',
-                  },
-                }
-              );
-
-              // 4-2-4-2-2) 서버가 새 액세스 토큰을 JSON 바디로 내려준다고 가정
-              const newAccessToken = refreshRes && refreshRes.data && refreshRes.data.accessToken;
-
-              // 4-2-4-2-3) 토큰이 없다면 에러로 간주
-              if (!newAccessToken) {
-                throw new Error('No accessToken in refresh response');
+          // 4-2-4-2) 새 리프레시 Promise 생성
+          refreshPromise = (async () => {
+            // 4-2-4-2-1) /refresh 호출: withCredentials로 HttpOnly 쿠키 자동 전송
+            const refreshRes = await api.post(
+              refreshUrl,                                            // ✔ baseURL('/member') + '/refresh' = '/member/refresh'
+              {},                                                    // ✔ 보통 바디는 비움 (쿠키 기준 식별)
+              {
+                withCredentials: true,                               // ✔ 쿠키 전송 필수
+                headers: {
+                  // (선택) 서버가 UA/디바이스 바인딩 검증을 한다면 간단한 힌트로 디바이스 지문을 보낼 수 있다.
+                  'X-Device-Fp': sessionStorage.getItem('device_fp') || '',
+                },
               }
+            );
 
-              // 4-2-4-2-4) Pinia 스토어에 새 토큰 반영 (요청 인터셉터가 이후부터 자동 부착)
-              const user = useUserStore();                             // ✔ 스토어 접근
-              user.setToken(newAccessToken);                           // ✔ 토큰 갱신(Pinia 상태 업데이트)
-              info('토큰 재 발급',{description: '엑세스 토큰이 재 발급 되었습니다.' });
-              // 4-2-4-2-5) 이 Promise의 결과값으로 새 토큰을 반환 (동시에 기다리는 요청들이 이 값을 받는다)
-              return newAccessToken;
+            // 4-2-4-2-2) 서버가 새 액세스 토큰을 JSON 바디로 내려준다고 가정
+            const newAccessToken = refreshRes && refreshRes.data && refreshRes.data.accessToken;
+
+            // 4-2-4-2-3) 토큰이 없다면 에러로 간주
+            if (!newAccessToken) {
+              throw new Error('No accessToken in refresh response');
+            }
+
+            // 4-2-4-2-4) Pinia 스토어에 새 토큰 반영 (요청 인터셉터가 이후부터 자동 부착)
+            const user = useUserStore();                             // ✔ 스토어 접근
+            user.setToken(newAccessToken);                           // ✔ 토큰 갱신(Pinia 상태 업데이트)
+            info('토큰 재 발급', { description: '엑세스 토큰이 재 발급 되었습니다.' });
+            // 4-2-4-2-5) 이 Promise의 결과값으로 새 토큰을 반환 (동시에 기다리는 요청들이 이 값을 받는다)
+            return newAccessToken;
           })()
-            .catch(async(e) => {
-              console.log('api에서 catch빠짐 :' ,e);
+            .catch(async (e) => {
+              console.log('api에서 catch빠짐 :', e);
               // 4-2-4-3) 리프레시 자체가 실패한 경우: 더 이상의 자동 복구가 불가
               console.log('api에서 catch빠짐2 ');
               const user = useUserStore();                           // ✔ 스토어 접근
               console.log('api에서 catch빠짐3 ');
               user.logOut();                                         // ✔ 로그인 상태 초기화/세션 정리
               console.log('api에서 catch빠짐4');
-              toastError('이상 접근 감지',{description: '비정상 접근이 갑지 되어 재 로그인 시도 부탁 드립니다.' });
+              toastError('이상 접근 감지', { description: '비정상 접근이 갑지 되어 재 로그인 시도 부탁 드립니다.' });
               console.log('api에서 catch빠짐5');
-              
-                 
-              await router.push('/') 
+
+
+              await router.push('/')
               throw e;                                           // ✔ 상위로 에러 전파
             })
             .finally(() => {
               isRefreshing = false;                                  // ✔ (선택) 플래그 off
               refreshPromise = null;                                 // ✔ 다음 401을 위해 promise 슬롯 비우기
             });
-          }
+        }
 
         // ─────────────────────────────────────────────────────────
         // (B) 여기서는 "이미 있거나 방금 만든" 공용 refreshPromise를 기다린다.

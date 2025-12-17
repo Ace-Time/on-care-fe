@@ -8,7 +8,8 @@ import {
   updateEmployee,
   registerEducation,
   updateCertificateStatus,
-  getPendingCertifications // Changed from getPendingCertificates
+  getPendingCertifications,
+  getEmployeeSchedules
 } from '@/api/employeeApi';
 
 // 컴포넌트 import
@@ -149,8 +150,16 @@ const handleSelect = async (emp) => {
         ? detailData.serviceTypes.map(service => service.name) 
         : (detailData.specialties || []),
         
-      schedules: detailData.schedules || []
+      schedules: []
     };
+
+    // [수정] 일정 데이터 별도 조회 및 병합 (API 분리됨)
+    try {
+      const scheduleData = await getEmployeeSchedules(emp.id);
+      selectedEmployee.value.schedules = scheduleData;
+    } catch (scheduleError) {
+      console.error('일정 로딩 실패:', scheduleError);
+    }
   } catch (error) {
     console.error('상세 정보 로딩 실패:', error);
     selectedEmployee.value = emp; 
