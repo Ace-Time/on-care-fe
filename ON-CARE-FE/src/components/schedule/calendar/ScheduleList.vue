@@ -27,9 +27,9 @@
         <tbody>
           <tr
             v-for="(item, idx) in dailySchedules"
-            :key="item.matchingId ?? idx"
+            :key="item.matchingId ?? item.vsId ?? idx"
             class="table-row"
-            :class="{ selected: item.matchingId === selectedMatchingId }"
+            :class="{ selected: (item.matchingId ?? item.vsId) === selectedMatchingId }"
             @click="onRowClick(item)"
           >
             <td class="col-time">
@@ -60,101 +60,166 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue';
-import { getScheduleDayList } from '@/api/schedule/scheduleApi';
-
-const props = defineProps({
-  selectedDate: { type: String, default: '' },
-  keyword: { type: String, default: '' },
-  searchScope: { type: String, default: 'ALL' },
-});
-
-const emit = defineEmits(['select-schedule']);
-
-const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
-
-const selectedMatchingId = ref(null);
-
-const headerTitle = computed(() => {
-  if (!props.selectedDate) return '일정을 선택해주세요';
-  const d = new Date(props.selectedDate);
-  if (Number.isNaN(d.getTime())) return '일정을 선택해주세요';
-  const month = d.getMonth() + 1;
-  const date = d.getDate();
-  const weekday = weekdays[d.getDay()];
-  return `${month}월 ${date}일 (${weekday}) 일정`;
-});
-
-const dailySchedules = ref([]);
-
-const summary = computed(() => {
-  const result = { care: 0, bath: 0, nurse: 0 };
-  dailySchedules.value.forEach((item) => {
-    if (item.serviceTypeId === 1) result.care += 1;
-    if (item.serviceTypeId === 2) result.bath += 1;
-    if (item.serviceTypeId === 3) result.nurse += 1;
+  import { computed, ref, watch } from 'vue';
+  import { getScheduleDayList } from '@/api/schedule/scheduleApi';
+  import { getConfirmedScheduleDayList } from '@/api/schedule/confirmedScheduleApi';
+  
+  const props = defineProps({
+    selectedDate: { type: String, default: '' }, // "YYYY-MM-DD"
+    keyword: { type: String, default: '' },
+    searchScope: { type: String, default: 'ALL' }, // BENEFICIARY | CAREWORKER | SERVICE | ALL
   });
-  return result;
-});
-
-const formatTimeHM = (t) => {
-  const s = String(t ?? '');
-  if (!s) return '';
-  if (s.includes('T')) {
-    const timePart = s.split('T')[1] || '';
-    return timePart.slice(0, 5);
-  }
-  return s.slice(0, 5);
-};
-
-const formatDuration = (minutes) => {
-  const m = Number(minutes);
-  if (!Number.isFinite(m) || m <= 0) return '0분';
-  const h = Math.floor(m / 60);
-  const r = m % 60;
-  if (h <= 0) return `${r}분`;
-  if (r === 0) return `${h}시간`;
-  return `${h}시간 ${r}분`;
-};
-
-const loadDay = async () => {
-  if (!props.selectedDate) {
-    dailySchedules.value = [];
-    return;
-  }
-
-  const searchField =
-    props.searchScope && props.searchScope !== 'ALL'
-      ? props.searchScope
-      : null;
-
-  const data = await getScheduleDayList({
-    date: props.selectedDate,
-    keyword: props.keyword,
-    searchField,
+  
+  const emit = defineEmits(['select-schedule']);
+  
+  const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
+  const selectedMatchingId = ref(null);
+  
+  const headerTitle = computed(() => {
+    if (!props.selectedDate) return '일정을 선택해주세요';
+    const d = new Date(props.selectedDate);
+    if (Number.isNaN(d.getTime())) return '일정을 선택해주세요';
+    const month = d.getMonth() + 1;
+    const date = d.getDate();
+    const weekday = weekdays[d.getDay()];
+    return `${month}월 ${date}일 (${weekday}) 일정`;
   });
-
-  dailySchedules.value = Array.isArray(data) ? data : [];
-};
-
-let timer = null;
-watch(
-  () => [props.selectedDate, props.keyword, props.searchScope],
-  () => {
-    clearTimeout(timer);
-    timer = setTimeout(loadDay, 250);
-  },
-  { immediate: true }
-);
-
-const onRowClick = (item) => {
-  selectedMatchingId.value = item.matchingId;
-
-  emit('select-schedule', {
-    ...item,
-    matchingId: item.matchingId,
+  
+  const dailySchedules = ref([]);
+  
+  const summary = computed(() => {
+    const result = { care: 0, bath: 0, nurse: 0 };
+    dailySchedules.value.forEach((item) => {
+      if (item.serviceTypeId === 1) result.care += 1;
+      if (item.serviceTypeId === 2) result.bath += 1;
+      if (item.serviceTypeId === 3) result.nurse += 1;
+    });
+    return result;
   });
-};
+  
+  const formatTimeHM = (t) => {
+    const s = String(t ?? '');
+    if (!s) return '';
+    if (s.includes('T')) {
+      const timePart = s.split('T')[1] || '';
+      return timePart.slice(0, 5);
+    }
+    return s.slice(0, 5);
+  };
+  
+  const formatDuration = (minutes) => {
+    const m = Number(minutes);
+    if (!Number.isFinite(m) || m <= 0) return '0분';
+    const h = Math.floor(m / 60);
+    const r = m % 60;
+    if (h <= 0) return `${r}분`;
+    if (r === 0) return `${h}시간`;
+    return `${h}시간 ${r}분`;
+  };
+  
+  const today = new Date();
+  const monthIndex = (y, m) => y * 12 + m;
+  
+  /**
+   * ✅ N월 기준 규칙 적용
+   * - N 전달 이전(view <= N-1): 무조건 Confirmed
+   * - 25일 기준 분기:
+   *    <25:  N월 confirmed, N+1월 normal
+   *    >=25: N월, N+1월 confirmed, N+2월 normal
+   */
+  const getDayListFetcherBySelectedDate = (selectedDateStr) => {
+    if (!selectedDateStr) return getScheduleDayList;
+  
+    const d = new Date(selectedDateStr);
+    if (Number.isNaN(d.getTime())) return getScheduleDayList;
+  
+    const base = monthIndex(today.getFullYear(), today.getMonth()); // N월
+    const view = monthIndex(d.getFullYear(), d.getMonth());
+  
+    if (view <= base - 1) return getConfirmedScheduleDayList;
+  
+    const isBefore25 = today.getDate() < 25;
+  
+    if (isBefore25) {
+      if (view === base) return getConfirmedScheduleDayList;
+      if (view === base + 1) return getScheduleDayList;
+    } else {
+      if (view === base || view === base + 1) return getConfirmedScheduleDayList;
+      if (view === base + 2) return getScheduleDayList;
+    }
+  
+    return getScheduleDayList;
+  };
+  
+  /** ✅ 현재 선택 날짜 기준으로 confirmed 여부 판단 (emit에 같이 전달용) */
+  const isConfirmedMonthBySelectedDate = (selectedDateStr) => {
+    if (!selectedDateStr) return false;
+  
+    const d = new Date(selectedDateStr);
+    if (Number.isNaN(d.getTime())) return false;
+  
+    const base = monthIndex(today.getFullYear(), today.getMonth()); // N월
+    const view = monthIndex(d.getFullYear(), d.getMonth());
+  
+    if (view <= base - 1) return true;
+  
+    const isBefore25 = today.getDate() < 25;
+  
+    if (isBefore25) {
+      if (view === base) return true;
+      if (view === base + 1) return false;
+    } else {
+      if (view === base || view === base + 1) return true;
+      if (view === base + 2) return false;
+    }
+  
+    return false;
+  };
+  
+  const loadDay = async () => {
+    selectedMatchingId.value = null;
+  
+    if (!props.selectedDate) {
+      dailySchedules.value = [];
+      return;
+    }
+  
+    const searchField =
+      props.searchScope && props.searchScope !== 'ALL'
+        ? props.searchScope
+        : null;
+  
+    const fetcher = getDayListFetcherBySelectedDate(props.selectedDate);
+  
+    const data = await fetcher({
+      date: props.selectedDate,
+      keyword: props.keyword,
+      searchField,
+    });
+  
+    dailySchedules.value = Array.isArray(data) ? data : [];
+  };
+  
+  let timer = null;
+  watch(
+    () => [props.selectedDate, props.keyword, props.searchScope],
+    () => {
+      clearTimeout(timer);
+      timer = setTimeout(loadDay, 250);
+    },
+    { immediate: true }
+  );
+  
+  const onRowClick = (item) => {
+    selectedMatchingId.value = item.matchingId ?? item.vsId ?? null;
+  
+    const confirmed = isConfirmedMonthBySelectedDate(props.selectedDate);
+  
+    emit('select-schedule', {
+      ...item,
+      source: confirmed ? 'CONFIRMED' : 'NORMAL',
+    });
+  };
 </script>
 
 <style scoped>
@@ -256,7 +321,8 @@ const onRowClick = (item) => {
   color: #9ca3af;
   background: #f9fafb;
 }
+
 .table-row.selected {
-  background: #d7f3dd;       
+  background: #d7f3dd;
 }
 </style>
