@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue';
 // API 함수 import
-import { registerCertificate, registerEducation, getCertificates, updateCertificateStatus } from '@/api/employeeApi';
+import { registerCertificate, registerEducation, getCertificates, updateCertificateStatus } from '@/api/employee/employeeApi';
 import { useUserStore } from '@/stores/user'; // 유저 스토어 import
 
 // 모달들 import

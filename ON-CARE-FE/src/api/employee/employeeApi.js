@@ -2,16 +2,8 @@ import api from '@/lib/api';
 
 // 직원 목록 조회
 export const getEmployeeList = async (params) => {
-  try {
-    const response = await api.get('/api/employees', { params });
-    return response.data;
-  } catch (error) {
-    if (error.response && error.response.status === 500) {
-      console.warn('[Mock API] getEmployeeList fallback triggered (500). Returning mock employees.');
-      return mockEmployees;
-    }
-    throw error;
-  }
+  const response = await api.get('/api/employees', { params });
+  return response.data;
 };
 
 // 직원 상세 조회
@@ -86,13 +78,13 @@ export const updateCertificateStatus = async (certId, status, reason = null) => 
   return response.data;
 };
 
-// [신규] 특정 요양보호사의 일정 조회
+// 특정 요양보호사의 일정 조회
 export const getEmployeeSchedules = async (employeeId) => {
-  const response = await api.get(`/api/schedules/employees/${employeeId}`);
+  const response = await api.get(`/api/schedules/employees/beneficiary/${employeeId}`);
   return response.data;
 };
 
-// [신규] 특정 요양보호사의 담당 수급자 조회
+// 특정 요양보호사의 담당 수급자 조회
 export const getAssignedBeneficiaries = async (courseWorkerId) => {
   const response = await api.get(`/api/assignedBeneficiary/care-workers/${courseWorkerId}/beneficiaries`);
   return response.data;

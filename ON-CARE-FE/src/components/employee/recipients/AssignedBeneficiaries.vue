@@ -1,6 +1,6 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue';
-import { getAssignedBeneficiaries } from '@/api/employeeApi';
+import { getAssignedBeneficiaries } from '@/api/employee/employeeApi';
 
 const props = defineProps({
   employeeId: {

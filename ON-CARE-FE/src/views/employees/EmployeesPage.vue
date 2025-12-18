@@ -10,7 +10,7 @@ import {
   updateCertificateStatus,
   getPendingCertifications,
   getEmployeeSchedules
-} from '@/api/employeeApi';
+} from '@/api/employee/employeeApi';
 
 // 컴포넌트 import
 import EmployeeList from '@/components/employee/EmployeeList.vue';
@@ -38,19 +38,30 @@ const pendingCertifications = ref([]);
 const fetchPendingCertifications = async () => {
   try {
     const data = await getPendingCertifications();
-    pendingCertifications.value = data.map(item => ({
-      id: item.id,
-      name: item.certificateName,
-      number: item.licenseNo,
-      status: '대기중', // 목록 자체가 대기 목록이므로 강제 설정
-      employeeName: item.employeeName,
-      requestDate: item.issueDate, // [Data Spec] issueDate 필드가 신청일을 의미함
+    
+    let list = [];
+    if (Array.isArray(data)) {
+      list = data;
+    } else if (data && Array.isArray(data.content)) {
+      list = data.content;
+    } else if (data && Array.isArray(data.data)) {
+      list = data.data;
+    }
+
+    pendingCertifications.value = list.map(item => ({
+      id: item.id || item.certificateId,
+      name: item.certificateName || item.name,
+      number: item.licenseNo || item.number,
+      status: '대기중', 
+      employeeName: item.employeeName || '이름없음',
+      requestDate: item.issueDate || item.createdDate || '-', 
       issueDate: item.issueDate,
       issuer: item.organization,
       fileName: item.fileName || '첨부파일'
     }));
   } catch (error) {
     console.error('승인 대기 목록 로딩 실패:', error);
+    // 에러 발생 시에도 그냥 빈 배열 유지 (화면이 터지지 않게)
   }
 };
 
@@ -64,22 +75,31 @@ const fetchEmployees = async () => {
 
     const data = await getEmployeeList(params);
 
+    let list = [];
+    if (Array.isArray(data)) {
+      list = data;
+    } else if (data && Array.isArray(data.content)) {
+      list = data.content; // Spring Page
+    } else if (data && Array.isArray(data.data)) {
+      list = data.data; // Common wrapper
+    }
+
     // [매핑 수정] 백엔드 DTO -> 프론트엔드 형식 변환
-    employees.value = data.map(emp => ({
+    employees.value = list.map(emp => ({
       id: emp.empId || emp.id,
       name: emp.empName || emp.name,
-      role: emp.jobName || emp.role,
+      role: emp.jobName || emp.role || '직책미정',
       phone: emp.tel || emp.phone,
-      email: emp.email,
-      status: emp.status || '활동중',
-      hireDate: emp.hireDate,
-      address: emp.address,
-      emergencyContact: emp.emergencyContact,
+      email: emp.email || '-',
+      status: emp.statusField || emp.status || '활동중', // [Fix] statusField from Postman
+      hireDate: emp.hireDate || '-',
+      address: emp.address || '-',
+      emergencyContact: emp.emergencyContact || '-',
       career: emp.career || '1년 미만',
       
-      // ▼▼▼ [수정 1] 목록 조회 시에도 careers와 certificates 매핑 ▼▼▼
-      workHistory: emp.careers || [],       // 백엔드: careers -> 프론트: workHistory
-      certificates: emp.certificates || [], // 백엔드: certificates -> 프론트: certificates
+      // ▼▼▼ [수정] Postman 응답에는 careers/certificates가 안 보임. 없으면 빈 배열.
+      workHistory: emp.careers || [],       
+      certificates: emp.certificates || [], 
       
       specialties: emp.specialties || [],
       schedules: [] 
@@ -99,21 +119,30 @@ watch([searchTerm, filterRole], () => {
 const fetchPendingCerts = async () => {
   try {
     const data = await getPendingCertifications(); // Changed to getPendingCertifications()
+
+    
+    let list = [];
+    if (Array.isArray(data)) {
+      list = data;
+    } else if (data && Array.isArray(data.content)) {
+      list = data.content;
+    } else if (data && Array.isArray(data.data)) {
+      list = data.data;
+    }
+    
     // 백엔드 데이터 매핑 (Modal에서 기대하는 필드로 변환)
-    pendingCertifications.value = data.map(cert => ({
+    pendingCertifications.value = list.map(cert => ({
       ...cert,
       id: cert.id || cert.certificateId, 
       // Modal은 name, number, employeeName 등을 기대함.
-      // 백엔드가 employeeName을 안 줄 수도 있음. (확인 필요)
-      // 일단 있는 그대로 + 매핑
       name: cert.certificateName || cert.name,
       number: cert.licenseNo || cert.number,
       status: '대기중', // API 호출 시 PENDING만 가져오므로
-      employeeName: cert.employeeName || '이름 미제공', // 백엔드 수정 필요할 수 있음
-      requestDate: cert.createdDate || '-', // 생성일 등
+      employeeName: cert.employeeName || '이름 미제공', 
+      requestDate: cert.createdDate || '-', 
       issueDate: cert.issueDate,
       issuer: cert.organization,
-      fileName: '-' // 파일명 등
+      fileName: '-' 
     }));
   } catch (error) {
     console.error('승인 대기 목록 로딩 실패:', error);
@@ -192,8 +221,6 @@ const handleRegisterEmployee = async (payload) => {
       // 'career' (총 경력 텍스트)는 백엔드에서 저장 안 한다면 제외
       // career: payload.career 
     };
-
-    console.log('서버로 전송할 데이터:', submitData);
 
     // 2. API 호출
     await registerEmployee(submitData);
@@ -351,6 +378,8 @@ const handleBulkEduSubmit = async ({ ids, data }) => {
         </div>
       </div>
     </div>
+
+
 
     <div class="main-grid">
       <EmployeeList 

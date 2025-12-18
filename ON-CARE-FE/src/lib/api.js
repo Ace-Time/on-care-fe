@@ -11,7 +11,7 @@ import axios from 'axios';                  // axios 본체를 가져온다.
 import { useUserStore } from '@/stores/user'; // Pinia의 사용자 스토어(액세스 토큰을 꺼내오기 위함)
 import { useToast } from '@/lib/toast'
 import router from '@/router/index.routes';
-import { parseJwt, getTokenExpiryDate, isTokenExpired, isTokenExpiringSoon } from '@/lib/jwtUtil';
+import {isTokenExpired} from '@/lib/jwtUtil';
 
 const {success, error : toastError , info} = useToast();
 // 날짜 한국 시간으로 출력하기
@@ -38,7 +38,7 @@ const API_BASE_URL = (import.meta.env?.VITE_API_BASE_URL || 'http://localhost:80
 const api = axios.create({
   // baseURL: API_BASE_URL,          // 모든 상대 경로 요청은 '/localhost:80'를 기준으로 보낸다. (Vite dev proxy로 백엔드 연결 가정)
   // baseURL: 'http://localhost:80/back',          // 모든 상대 경로 요청은 '/localhost:80'를 기준으로 보낸다. (Vite dev proxy로 백엔드 연결 가정)
-  baseURL: '/back',          // 모든 상대 경로 요청은 '/localhost:80'를 기준으로 보낸다. (Vite dev proxy로 백엔드 연결 가정)
+  baseURL: 'http://localhost:5000',          // 모든 상대 경로 요청은 '/localhost:80'를 기준으로 보낸다. (Vite dev proxy로 백엔드 연결 가정)
   // baseURL: 'http://localhost:8081',          // 모든 상대 경로 요청은 '/localhost:80'를 기준으로 보낸다. (Vite dev proxy로 백엔드 연결 가정)
   withCredentials: true,    // ✅ 브라우저가 HttpOnly 쿠키(리프레시 토큰)를 자동으로 전송하도록 허용
   timeout: 15000,           // 네트워크 요청 타임아웃(ms). 필요에 따라 조정 가능.
