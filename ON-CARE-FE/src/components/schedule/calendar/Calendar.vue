@@ -1,7 +1,11 @@
 <template>
   <section class="calendar-panel">
     <div class="calendar-header">
-      <h2 class="month-title">{{ monthTitle }}</h2>
+      <div class="calendar-title-group">
+        <h2 class="month-title">{{ monthTitle }}</h2>
+        <h4 class="calendar-mode-text">{{ calendarModeText }}</h4>
+      </div>
+
       <div class="month-controls">
         <button class="arrow-btn" type="button" @click="goPrevMonth">‹</button>
         <button class="arrow-btn" type="button" @click="goNextMonth">›</button>
@@ -60,149 +64,271 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue';
-import { getScheduleRangeCounts } from '@/api/schedule/scheduleApi';
+  import { ref, computed, watch } from 'vue';
+  import { getScheduleRangeCounts } from '@/api/schedule/scheduleApi';
+  import { getConfirmedScheduleRangeCounts } from '@/api/schedule/confirmedScheduleApi';
+  
+  const props = defineProps({
+    keyword: { type: String, default: '' },
+    searchScope: { type: String, default: 'ALL' }, // BENEFICIARY | CAREWORKER | SERVICE | ALL
+  });
+  
+  const emit = defineEmits(['select-date']);
+  
+  const weekdayLabels = ['일', '월', '화', '수', '목', '금', '토'];
+  
+  const today = new Date();
+  const year = ref(today.getFullYear());
+  const month = ref(today.getMonth());
+  
+  /* -------------------- util -------------------- */
+  const formatDateKey = (date) => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
+  
+  const parseDateKey = (key) => {
+    // key: YYYY-MM-DD
+    const [y, m, d] = key.split('-').map((v) => Number(v));
+    return new Date(y, m - 1, d);
+  };
+  
+  const monthIndex = (y, m) => y * 12 + m;
+  
+  /* -------------------- state -------------------- */
+  const summaryByDate = ref(new Map());
+  const selectedDateKey = ref(formatDateKey(today));
+  
+  const monthTitle = computed(() => `${year.value}년 ${month.value + 1}월`);
 
-const props = defineProps({
-  keyword: { type: String, default: '' },
-  searchScope: { type: String, default: 'ALL' },
-});
+  const isViewMonthConfirmed = computed(() => {
+    const base = monthIndex(today.getFullYear(), today.getMonth()); // N월(오늘 월)
+    const view = monthIndex(year.value, month.value);               // 현재 달력에서 보고 있는 월
 
-const emit = defineEmits(['select-date']);
+    if (view <= base - 1) return true;
 
-const weekdayLabels = ['일', '월', '화', '수', '목', '금', '토'];
+    const isBefore25 = today.getDate() < 25;
 
-const today = new Date();
-const year = ref(today.getFullYear());
-const month = ref(today.getMonth());
-
-const formatDateKey = (date) => {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
-};
-
-const summaryByDate = ref(new Map());
-const selectedDateKey = ref(formatDateKey(today));
-
-const monthTitle = computed(() => `${year.value}년 ${month.value + 1}월`);
-
-const gridRange = computed(() => {
-  const first = new Date(year.value, month.value, 1);
-  const startDay = first.getDay();
-  const start = new Date(year.value, month.value, 1 - startDay);
-  const end = new Date(start);
-  end.setDate(start.getDate() + 41);
-  return { start, end };
-});
-
-const calendarDays = computed(() => {
-  const first = new Date(year.value, month.value, 1);
-  const startDay = first.getDay();
-  const daysInThis = new Date(year.value, month.value + 1, 0).getDate();
-  const daysInPrev = new Date(year.value, month.value, 0).getDate();
-
-  const days = [];
-  for (let i = 0; i < 42; i += 1) {
-    const offset = i - startDay + 1;
-    let date;
-    let inCurrent = true;
-
-    if (offset <= 0) {
-      date = new Date(year.value, month.value - 1, daysInPrev + offset);
-      inCurrent = false;
-    } else if (offset > daysInThis) {
-      date = new Date(year.value, month.value + 1, offset - daysInThis);
-      inCurrent = false;
-    } else {
-      date = new Date(year.value, month.value, offset);
-      inCurrent = true;
+    if (isBefore25) {
+      return view === base; // N월만 confirmed
     }
 
-    const key = formatDateKey(date);
-    const summary = summaryByDate.value.get(key) || null;
-
-    days.push({
-      key,
-      date,
-      inCurrentMonth: inCurrent,
-      isToday: date.toDateString() === today.toDateString(),
-      isSunday: date.getDay() === 0,
-      isSaturday: date.getDay() === 6,
-      summary,
-    });
-  }
-  return days;
-});
-
-const isSelected = (day) =>
-  formatDateKey(day.date) === selectedDateKey.value;
-
-const goPrevMonth = () => {
-  if (month.value === 0) {
-    month.value = 11;
-    year.value -= 1;
-  } else {
-    month.value -= 1;
-  }
-};
-
-const goNextMonth = () => {
-  if (month.value === 11) {
-    month.value = 0;
-    year.value += 1;
-  } else {
-    month.value += 1;
-  }
-};
-
-const onDayClick = (day) => {
-  const key = formatDateKey(day.date);
-  selectedDateKey.value = key;
-  emit('select-date', key);
-};
-
-const loadRangeCounts = async () => {
-  const { start, end } = gridRange.value;
-
-  const searchField =
-    props.searchScope && props.searchScope !== 'ALL'
-      ? props.searchScope
-      : null;
-
-  const data = await getScheduleRangeCounts({
-    start: formatDateKey(start),
-    end: formatDateKey(end),
-    keyword: props.keyword,
-    searchField,
+    return view === base || view === base + 1; // 25일 이후: N월, N+1월 confirmed
   });
 
-  const map = new Map();
-  data.forEach((row) => {
-    map.set(row.date, {
-      care: row.careCount || 0,
-      bath: row.bathCount || 0,
-      nurse: row.nurseCount || 0,
-    });
+const calendarModeText = computed(() => (isViewMonthConfirmed.value ? '' : '예정 스케줄'));
+
+  const displayRange = computed(() => {
+    const first = new Date(year.value, month.value, 1);
+    const startPad = first.getDay(); // 0~6
+    const start = new Date(year.value, month.value, 1 - startPad);
+  
+    const last = new Date(year.value, month.value + 1, 0); // 말일
+    const endPad = 6 - last.getDay(); // 토요일까지 채우기
+    const end = new Date(year.value, month.value + 1, 0 + endPad);
+  
+    return { start, end };
   });
+  
+  const calendarDays = computed(() => {
+    const { start, end } = displayRange.value;
+  
+    const days = [];
+    const cur = new Date(start);
+  
+    while (cur <= end) {
+      const date = new Date(cur);
+      const key = formatDateKey(date);
+      const summary = summaryByDate.value.get(key) || null;
+  
+      days.push({
+        key,
+        date,
+        inCurrentMonth:
+          date.getFullYear() === year.value && date.getMonth() === month.value,
+        isToday: date.toDateString() === today.toDateString(),
+        isSunday: date.getDay() === 0,
+        isSaturday: date.getDay() === 6,
+        summary,
+      });
+  
+      cur.setDate(cur.getDate() + 1);
+    }
+  
+    return days;
+  });
+  
+  const isSelected = (day) => formatDateKey(day.date) === selectedDateKey.value;
+  
+  /* -------------------- month navigation -------------------- */
+  const goPrevMonth = () => {
+    if (month.value === 0) {
+      month.value = 11;
+      year.value -= 1;
+    } else {
+      month.value -= 1;
+    }
+  };
+  
+  const goNextMonth = () => {
+    if (month.value === 11) {
+      month.value = 0;
+      year.value += 1;
+    } else {
+      month.value += 1;
+    }
+  };
+  
+  const onDayClick = (day) => {
+    const key = formatDateKey(day.date);
+    selectedDateKey.value = key;
+    emit('select-date', key);
+  };
+  
+  const shouldUseConfirmedByDate = (dateObj) => {
+    const base = monthIndex(today.getFullYear(), today.getMonth()); // N월
+    const view = monthIndex(dateObj.getFullYear(), dateObj.getMonth());
+  
+    // N 전달 이전은 무조건 confirmed
+    if (view <= base - 1) return true;
+  
+    const isBefore25 = today.getDate() < 25;
+  
+    if (isBefore25) {
+      if (view === base) return true;       // N월 confirmed
+      if (view === base + 1) return false;  // N+1월 normal
+    } else {
+      if (view === base || view === base + 1) return true; // N월, N+1월 confirmed
+      if (view === base + 2) return false;                 // N+2월 normal
+    }
+  
+    return false; // 그 외는 normal
+  };
+  
+  /**
+   * ✅ displayRange를 "confirmed 구간" / "normal 구간"으로 나누기
+   * - 날짜가 섞여 있어도 구간별로 API를 다르게 호출 가능
+   */
+  const buildSegments = (startDate, endDate, predicate) => {
+    const segments = [];
+    const cur = new Date(startDate);
+  
+    let segStart = null;
+    let segFlag = null;
+  
+    while (cur <= endDate) {
+      const d = new Date(cur);
+      const flag = Boolean(predicate(d));
+  
+      if (segStart == null) {
+        segStart = new Date(d);
+        segFlag = flag;
+      } else if (flag !== segFlag) {
+        const prev = new Date(d);
+        prev.setDate(prev.getDate() - 1);
+        segments.push({
+          flag: segFlag, // true=confirmed, false=normal
+          start: new Date(segStart),
+          end: new Date(prev),
+        });
+        segStart = new Date(d);
+        segFlag = flag;
+      }
+  
+      cur.setDate(cur.getDate() + 1);
+    }
+  
+    if (segStart != null) {
+      segments.push({
+        flag: segFlag,
+        start: new Date(segStart),
+        end: new Date(endDate),
+      });
+    }
+  
+    return segments;
+  };
+  
+  /* -------------------- load -------------------- */
+  const loadRangeCounts = async () => {
+    const { start, end } = displayRange.value;
+  
+    const searchField =
+      props.searchScope && props.searchScope !== 'ALL'
+        ? props.searchScope
+        : null;
+  
+    const baseParams = {
+      keyword: props.keyword,
+      searchField,
+    };
 
-  summaryByDate.value = map;
-};
+    const isInVisibleMonthForBadges = (dateKey) => {
+      // dateKey: 'YYYY-MM-DD'
+      const [y, m, d] = dateKey.split('-').map(Number);
+      const dt = new Date(y, m - 1, d);
+      return dt.getFullYear() === year.value && dt.getMonth() === month.value;
+    };
 
-let timer = null;
-watch(
-  () => [year.value, month.value, props.keyword, props.searchScope],
-  () => {
-    clearTimeout(timer);
-    timer = setTimeout(loadRangeCounts, 250);
-  },
-  { immediate: true }
-);
-</script>
+    // ✅ displayRange 내부 날짜를 기준으로 confirmed/normal 구간 분리
+    const segments = buildSegments(start, end, shouldUseConfirmedByDate);
+  
+    const map = new Map();
+  
+    for (const seg of segments) {
+      const params = {
+        ...baseParams,
+        start: formatDateKey(seg.start),
+        end: formatDateKey(seg.end),
+      };
+  
+      // seg.flag === true -> confirmed, false -> normal
+      const preferredFetcher = seg.flag
+        ? getConfirmedScheduleRangeCounts
+        : getScheduleRangeCounts;
+  
+      let data = [];
+      try {
+        data = await preferredFetcher(params);
+      } catch (e) {
+        // ✅ confirmed가 500이면 해당 구간만 normal로 폴백
+        if (seg.flag) {
+          console.warn('[calendar] confirmed segment failed → fallback normal', params, e);
+          data = await getScheduleRangeCounts(params);
+        } else {
+          throw e;
+        }
+      }
+  
+      (Array.isArray(data) ? data : []).forEach((row) => {
+        if (!isInVisibleMonthForBadges(row.date)) return;
+
+        map.set(row.date, {
+          care: row.careCount || 0,
+          bath: row.bathCount || 0,
+          nurse: row.nurseCount || 0,
+        });
+      });
+    }
+  
+    summaryByDate.value = map;
+  };
+
+  let timer = null;
+  watch(
+    () => [year.value, month.value, props.keyword, props.searchScope],
+    () => {
+      clearTimeout(timer);
+      timer = setTimeout(loadRangeCounts, 250);
+    },
+    { immediate: true }
+  );
+  </script>
 
 <style scoped>
-.calendar-panel {
+  .calendar-panel {
   box-sizing: border-box;
   width: 100%;
   background: #ffffff;
@@ -219,6 +345,13 @@ watch(
   margin-bottom: 6px;
 }
 
+.calendar-title-group {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+
 .month-title {
   font-size: 22px;
   font-weight: 700;
@@ -226,10 +359,19 @@ watch(
   margin: 0;
 }
 
+.calendar-mode-text {
+  font-size: 18px;
+  font-weight: 600;
+  color: #16a34a;
+  margin: 0;
+  white-space: nowrap;
+}
+
 .month-controls {
   display: flex;
   align-items: center;
   gap: 6px;
+  flex-shrink: 0;
 }
 
 .arrow-btn {

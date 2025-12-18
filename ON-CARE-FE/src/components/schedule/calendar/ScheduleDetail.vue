@@ -1,6 +1,7 @@
 <template>
   <section class="detail-panel">
-    <div v-if="!schedule" class="placeholder">
+    <!-- placeholder -->
+    <div v-if="!viewModel" class="placeholder">
       <div class="placeholder-icon">
         <img
           :src="scheduleManagementIcon"
@@ -12,6 +13,7 @@
       <p class="placeholder-sub">상세 정보가 표시됩니다</p>
     </div>
 
+    <!-- content -->
     <div v-else class="detail-content">
       <div class="detail-header">
         <div class="header-top">
@@ -24,19 +26,16 @@
         <div class="header-bottom">
           <span
             class="type-pill"
-            :class="{
-              'pill-care': schedule.serviceTypeId === 1,
-              'pill-bath': schedule.serviceTypeId === 2,
-              'pill-nurse': schedule.serviceTypeId === 3,
-            }"
+            :class="typePillClass(viewModel.serviceTypeId)"
           >
-            {{ schedule.serviceTypeName }}
+            {{ viewModel.serviceTypeName }}
           </span>
         </div>
       </div>
 
       <div class="detail-body">
         <div class="top-grid">
+          <!-- schedule box -->
           <div class="schedule-box">
             <div class="schedule-box-title">
               <img :src="detailClockIcon" alt="clock" class="schedule-icon" />
@@ -45,39 +44,61 @@
 
             <div class="info-row">
               <span class="label">날짜:</span>
-              <span class="value">{{ formatDate(schedule.date) }}</span>
+              <span class="value">{{ formatDate(viewModel.date) }}</span>
             </div>
             <div class="info-row">
               <span class="label">시작:</span>
-              <span class="value">{{ formatTimeHM(schedule.startTime) }}</span>
+              <span class="value">{{ formatTimeHM(viewModel.startTime) }}</span>
             </div>
             <div class="info-row">
               <span class="label">종료:</span>
-              <span class="value">{{ formatTimeHM(schedule.endTime) }}</span>
+              <span class="value">{{ formatTimeHM(viewModel.endTime) }}</span>
             </div>
             <div class="info-row">
               <span class="label">소요시간:</span>
-              <span class="value strong">{{ formatDuration(schedule.durationMinutes) }}</span>
+              <span class="value strong">{{ formatDuration(viewModel.durationMinutes) }}</span>
             </div>
           </div>
 
+          <!-- people -->
           <div class="person-col">
             <div class="person-card">
               <img :src="memberIcon" alt="member" class="member-icon" />
-              <div class="person-text">수급자&nbsp;&nbsp;{{ schedule.beneficiaryName }}</div>
+              <div class="person-text">
+                수급자&nbsp;&nbsp;{{ viewModel.beneficiaryName }}
+              </div>
             </div>
 
             <div class="person-card">
               <img :src="memberIcon" alt="member" class="member-icon" />
-              <div class="person-text">요양보호사&nbsp;&nbsp;{{ schedule.careWorkerName }}</div>
+              <div class="person-text-wrap">
+                <div class="person-text">
+                  요양보호사&nbsp;&nbsp;{{ viewModel.careWorkerName }}
+                </div>
+              </div>
+            </div>
+
+            <!-- status -->
+            <div class="person-card status-card">
+              <div
+                v-if="viewModel.status"
+                class="status-text"
+                :class="statusClass(viewModel.status)"
+              >
+                {{ statusLabel(viewModel.status) }}
+              </div>
+              <div v-else class="status-text status-empty">-</div>
             </div>
           </div>
         </div>
 
         <AlternateCareWorkers />
+
         <ScheduleMemo
-          :matching-id="schedule.matchingId"
-          :memo-date="formatDate(schedule.date)"
+          :source="schedule?.source || 'NORMAL'"
+          :matching-id="viewModel?.matchingId ?? null"
+          :vs-id="viewModel?.vsId ?? schedule?.vsId ?? null"
+          :memo-date="formatDate(viewModel?.date)"
         />
       </div>
     </div>
@@ -85,10 +106,13 @@
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 import AlternateCareWorkers from '@/components/schedule/calendar/detail/AlternateCareWorkers.vue';
 import ScheduleMemo from '@/components/schedule/calendar/detail/ScheduleMemo.vue';
+
+import { getScheduleDetail } from '@/api/schedule/scheduleApi';
+import { getConfirmedScheduleDetail } from '@/api/schedule/confirmedScheduleApi';
 
 import detailClockIcon from '@/assets/img/schedule/detailClock.png';
 import memberIcon from '@/assets/img/schedule/member.png';
@@ -96,15 +120,16 @@ import closeIcon from '@/assets/img/common/closeButton.png';
 import scheduleManagementIcon from '@/assets/img/common/scheduleManagement.png';
 
 const props = defineProps({
-  schedule: {
-    type: Object,
-    default: null,
-  },
+  schedule: { type: Object, default: null },
 });
 
 const emit = defineEmits(['close']);
 
+const loading = ref(false);
+const detail = ref(null);
+
 const schedule = computed(() => props.schedule || null);
+const viewModel = computed(() => detail.value || schedule.value || null);
 
 const formatDate = (v) => {
   const s = String(v ?? '');
@@ -127,10 +152,79 @@ const formatDuration = (minutes) => {
   if (!Number.isFinite(m) || m <= 0) return '0분';
   const h = Math.floor(m / 60);
   const r = m % 60;
+
   if (h <= 0) return `${r}분`;
   if (r === 0) return `${h}시간`;
-  return `${h}시간`;
+  return `${h}시간 ${r}분`;
 };
+
+const typePillClass = (serviceTypeId) => {
+  const n = Number(serviceTypeId);
+  if (n === 1) return 'pill-care';
+  if (n === 2) return 'pill-bath';
+  if (n === 3) return 'pill-nurse';
+  return '';
+};
+
+const statusLabel = (status) => {
+  const s = String(status ?? '').toUpperCase();
+  if (s === 'SCHEDULED' || s === 'PLANNED') return '방문 예정';
+  if (s === 'IN_PROGRESS') return '방문 진행중';
+  if (s === 'DONE') return '방문 완료';
+  return '';
+};
+
+const statusClass = (status) => {
+  const s = String(status ?? '').toUpperCase();
+  if (s === 'SCHEDULED' || s === 'PLANNED') return 'status-planned';
+  if (s === 'IN_PROGRESS') return 'status-progress';
+  if (s === 'DONE') return 'status-done';
+  return '';
+};
+
+const loadDetail = async () => {
+  detail.value = null;
+  if (!schedule.value) return;
+
+  loading.value = true;
+  try {
+    const src = schedule.value.source;
+
+    if (src === 'CONFIRMED') {
+      const vsId = schedule.value.vsId ?? schedule.value.matchingId;
+      if (!vsId) {
+        detail.value = schedule.value;
+        return;
+      }
+      detail.value = await getConfirmedScheduleDetail({ vsId });
+      return;
+    }
+
+    detail.value = await getScheduleDetail({
+      matchingId: schedule.value.matchingId,
+      date: formatDate(schedule.value.date),
+      serviceTypeId: schedule.value.serviceTypeId,
+      startTime: schedule.value.startTime,
+    });
+  } catch (e) {
+    detail.value = schedule.value;
+    console.error('[ScheduleDetail] loadDetail failed:', e);
+  } finally {
+    loading.value = false;
+  }
+};
+
+watch(
+  () => schedule.value,
+  () => loadDetail(),
+  { immediate: true }
+);
+
+const memoMatchingId = computed(() => {
+  const vm = viewModel.value;
+  if (!vm) return null;
+  return vm.matchingId ?? vm.vsId ?? null;
+});
 
 const onClose = () => emit('close');
 </script>
@@ -266,6 +360,7 @@ const onClose = () => emit('close');
   align-items: start;
 }
 
+/* left */
 .schedule-box {
   background: #f9fafb;
   border-radius: 14px;
@@ -313,6 +408,7 @@ const onClose = () => emit('close');
   font-weight: 900;
 }
 
+/* right */
 .person-col {
   display: flex;
   flex-direction: column;
@@ -322,6 +418,7 @@ const onClose = () => emit('close');
 .person-card {
   background: #f9fafb;
   border-radius: 14px;
+  border: 2px solid #e5e7eb;
   padding: 18px 16px;
   display: flex;
   align-items: center;
@@ -337,5 +434,40 @@ const onClose = () => emit('close');
   font-size: 14px;
   font-weight: 500;
   color: #101828;
+}
+
+.person-text-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.status-card {
+  justify-content: center;
+  align-items: center;
+}
+
+.status-text {
+  text-align: center;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.status-empty {
+  color: #9ca3af;
+  font-weight: 500;
+}
+
+.status-planned {
+  color: #2563eb;
+}
+
+.status-progress {
+  color: #d97706;
+}
+
+.status-done {
+  color: #16a34a;
 }
 </style>
