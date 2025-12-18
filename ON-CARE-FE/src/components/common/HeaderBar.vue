@@ -101,23 +101,18 @@
   const currentRole = computed(() => {
 
     let authority = "";
-    let authority_name = "";
+    let authority_name = userStore.jobName;;
   
     if (userStore.hasSomeAuthorities(["ROLE_CENTER_MANAGER"])) {
       authority = "ROLE_CENTER_MANAGER"; // 센터 관리자 
-      authority_name = userStore.jobName;
     } else if (userStore.hasAllAuthorities(["ROLE_SALES_TEAM","ROLE_TEAM_LEAD"])) {
       authority = "ROLE_SALES_TEAM"; // or 영업팀 팀장
-      authority_name = userStore.jobName;
     }  else if (userStore.hasAllAuthorities(["ROLE_SALES_TEAM","ROLE_EMPLOYEE"])) {
       authority = "ROLE_SALES_TEAM"; // 영업사원
-      authority_name = userStore.jobName;
     } else if(userStore.hasAllAuthorities(["ROLE_CAREGIVER"])) {
       authority = "ROLE_CAREGIVER"; // 요양사
-      authority_name = userStore.jobName;
     } else if(userStore.hasAllAuthorities(["ROLE_MATERIAL_TEAM","ROLE_EMPLOYEE"])) {
       authority = "ROLE_MATERIAL_TEAM";
-      authority_name = userStore.jobName;
     }
     return [authority, authority_name];
   })
