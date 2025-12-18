@@ -60,6 +60,7 @@
   import inquiryIcon from '@/assets/img/dashboard/inquiryManagement.png'
   import suppliesIcon from '@/assets/img/dashboard/suppliesManagement.png'
   import homeIcon from '@/assets/img/dashboard/home.png'
+  import api from '@/lib/api'
   
   // 알림 / 로그아웃
   import notificationIcon from '@/assets/img/dashboard/notification.png'
@@ -137,8 +138,10 @@
   // }
   
   
-  const goHome = () => {
-    router.push({ name: 'dashboard' })
+  const goHome = async () => {
+    const response = await api.get('/health');
+    console.log(response.data);
+    // router.push({ name: 'dashboard' })
   }
   
   const onLogout = () => {
