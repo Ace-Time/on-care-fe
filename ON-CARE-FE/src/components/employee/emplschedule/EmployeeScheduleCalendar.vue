@@ -6,7 +6,7 @@ const props = defineProps({
 });
 
 // --- 날짜 상태 ---
-const currentDate = ref(new Date(2024, 11, 1)); // 2024년 12월
+const currentDate = ref(new Date());
 
 // --- 날짜 계산 헬퍼 함수 ---
 const getDateString = (date) => {
@@ -56,11 +56,27 @@ const processEventsForWeek = (weekStart, weekEnd) => {
   const weekEndStr = getDateString(weekEnd);
 
   props.schedules.forEach((event, index) => {
-    let eventStart = event.startDate || event.date;
-    let eventEnd = event.endDate || event.date;
+    // 1. FullCalendar 포맷(start, end) 대응 및 시간 제거 (YYYY-MM-DD)
+    const rawStart = event.start || event.startDate || event.date;
+    const rawEnd = event.end || event.endDate || event.date;
+    
+    if (!rawStart || !rawEnd) return;
 
-    if (!eventStart || !eventEnd) return;
+    const eventStart = rawStart.substring(0, 10);
+    const eventEnd = rawEnd.substring(0, 10);
+
+    // 2. 주(Week) 범위 밖이면 패스
     if (eventEnd < weekStartStr || eventStart > weekEndStr) return;
+
+    // 3. 타입 추론 (extendedProps.serviceType 등 활용)
+    //    API에는 serviceType이 한글로 들어옴 ("방문요양", "복지용구" 등)
+    const serviceType = event.extendedProps?.serviceType || '';
+    let type = 'care';
+    if (serviceType.includes('렌탈') || serviceType.includes('용구')) {
+      type = 'rental';
+    } else if (event.type) {
+      type = event.type;
+    }
 
     const effectiveStart = eventStart < weekStartStr ? weekStartStr : eventStart;
     const effectiveEnd = eventEnd > weekEndStr ? weekEndStr : eventEnd;
@@ -75,9 +91,21 @@ const processEventsForWeek = (weekStart, weekEnd) => {
     const isContinuesLeft = eventStart < weekStartStr;
     const isContinuesRight = eventEnd > weekEndStr;
 
+    // 시간 포맷팅
+    let formattedTime = '';
+    if (rawStart && rawStart.length >= 16) {
+      formattedTime = rawStart.substring(11, 16);
+      if (rawEnd && rawEnd.length >= 16) {
+        formattedTime += `~${rawEnd.substring(11, 16)}`;
+      }
+    }
+
     segments.push({
       ...event,
-      _uiKey: `evt-${index}-${startCol}`, // 고유 키
+      title: event.title || serviceType || event.recipient, // 제목 없을 경우 처리
+      time: formattedTime, // [신규] 시간 표시용
+      type, // 결정된 타입 (care/rental)
+      _uiKey: `evt-${index}-${startCol}`,
       gridColumnStart: startCol,
       gridColumnSpan: span,
       isContinuesLeft,
@@ -87,8 +115,8 @@ const processEventsForWeek = (weekStart, weekEnd) => {
 
   return segments.sort((a, b) => {
     if (a.gridColumnSpan !== b.gridColumnSpan) return b.gridColumnSpan - a.gridColumnSpan;
-    const dateA = a.startDate || a.date || '';
-    const dateB = b.startDate || b.date || '';
+    const dateA = a.start || a.startDate || '';
+    const dateB = b.start || b.startDate || '';
     return dateA.localeCompare(dateB);
   });
 };
@@ -174,7 +202,7 @@ const nextMonth = () => currentDate.value = new Date(currentYear.value, currentM
 
               <span class="event-title truncate">
                 {{ event.title || event.recipient }}
-                <span v-if="event.type === 'care'" class="time-text">{{ event.time }}</span>
+                <span class="time-text">{{ event.time }}</span>
               </span>
             </span>
           </div>

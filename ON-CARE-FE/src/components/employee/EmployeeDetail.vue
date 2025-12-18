@@ -2,15 +2,14 @@
 import { ref } from 'vue';
 import EmployeeScheduleCalendar from '@/components/employee/emplschedule/EmployeeScheduleCalendar.vue';
 import EmployeeBasicInfo from '@/components/employee/basicinfo/EmployeeBasicInfo.vue'; 
-
-// [수정 1] API 기능이 포함된 '통합 컴포넌트'로 교체 (파일 경로 확인 필수!)
 import CertificatesAndEducations from '@/components/employee/qualifications/CertificatesAndEducations.vue';
+import AssignedBeneficiaries from '@/components/employee/recipients/AssignedBeneficiaries.vue';
+import BeneficiaryLogList from '@/components/employee/diary/BeneficiaryLogList.vue';
 
 defineProps({
   employee: { type: Object, default: null }
 });
 
-// [수정 2] 'refresh' 이벤트 추가 (데이터 갱신 신호를 상위 페이지로 전달)
 const emit = defineEmits(['edit', 'refresh']);
 const activeTab = ref('info');
 
@@ -60,12 +59,11 @@ const tabs = [
         </div>
 
         <div v-else-if="activeTab === 'careLogs'" class="empty-view">
-          <svg class="icon-lg" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
-          <p>등록된 일지가 없습니다.</p>
+          <BeneficiaryLogList :employeeId="employee.id" />
         </div>
 
-        <div v-else-if="activeTab === 'recipients'" class="empty-view">
-          <p>담당 수급자 정보가 없습니다.</p>
+        <div v-else-if="activeTab === 'recipients'">
+          <AssignedBeneficiaries :employeeId="employee.id" />
         </div>
 
         <div v-else-if="activeTab === 'cert'">
