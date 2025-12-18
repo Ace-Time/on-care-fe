@@ -236,17 +236,6 @@ api.interceptors.response.use(
   }
 );
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 5) 도우미(선택): 앱의 다른 곳에서 명시적으로 토큰을 세팅하고 싶을 때 사용
-//    - 예: 로그인 성공 직후 서버가 바디로 accessToken을 내려주면 setAccessToken(data.accessToken)
-// ─────────────────────────────────────────────────────────────────────────────
-export function setAccessToken(token) {
-  const user = useUserStore();             // ✔ Pinia 스토어 접근
-  user.setToken(token);                    // ✔ 스토어에 토큰 저장
-  // 추가로, 즉시 axios 기본 헤더에도 심어두고 싶다면 아래 라인을 풀어도 된다.
-  // api.defaults.headers.common.Authorization = `Bearer ${token}`;
-}
-
 
 
 // ------------------------------------------------------------

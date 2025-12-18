@@ -6,7 +6,7 @@
           <img :src="logoIcon" alt="OnCare" />
         </div>
         <div class="logo-text">
-          <div class="logo-sub">관리자</div>
+          <div class="logo-sub">{{ currentRole[1] }}</div>
         </div>
       </div>
   
@@ -71,7 +71,7 @@
   
   // 역할별 메뉴 정의
   const MENU_CONFIG = {
-    MANAGER: [
+    ROLE_CENTER_MANAGER: [
       { key: 'schedule', label: '일정 관리', routeName: 'schedule-calendar', icon: scheduleIcon },
       { key: 'employees', label: '직원 관리', routeName: 'employees', icon: employeeIcon },
       { key: 'recipient', label: '수급자 관리', routeName: 'recipient-list', icon: recipientIcon },
@@ -79,36 +79,53 @@
       { key: 'product', label: '용품 관리', routeName: 'product-master', icon: suppliesIcon },
       { key: 'tasks', label: '업무 관리', routeName: 'tasks-approval', icon: businessIcon },
     ],
-    SALES: [
+    ROLE_SALES_TEAM: [
       { key: 'inquiry', label: '고객 관리', routeName: 'inquiry', icon: inquiryIcon },
+      { key: 'recipient', label: '수급자 관리', routeName: 'recipient-list', icon: recipientIcon },
+      { key: 'tasks', label: '업무 관리', routeName: 'tasks-approval', icon: businessIcon },
     ],
-    MATERIAL: [
+    ROLE_MATERIAL_TEAM: [
       { key: 'product', label: '용품 관리', routeName: 'product', icon: suppliesIcon },
+      { key: 'tasks', label: '업무 관리', routeName: 'tasks-approval', icon: businessIcon },
     ],
-    CAREGIVER: [
+    ROLE_CAREGIVER: [
       { key: 'home', label: '홈', routeName: 'home', icon: homeIcon },
       { key: 'activity', label: '활동일지', routeName: 'activity-care', icon: businessIcon },
       { key: 'workschedule', label: '근무일정', routeName: 'workschedule', icon: scheduleIcon },
       { key: 'recipient', label: '수급자 관리', routeName: 'recipient-list', icon: recipientIcon },
+      { key: 'tasks', label: '업무 관리', routeName: 'tasks-approval', icon: businessIcon },
     ],
   }
   
   // 현재 역할
   const currentRole = computed(() => {
-    const r =
-      userStore.mainRole ??
-      (Array.isArray(userStore.roles) ? userStore.roles[0] : null)
+
+    let authority = "";
+    let authority_name = "";
   
-    if (!r) return 'MANAGER' // 임시 역할
-    if (typeof r === 'string' && r.startsWith('ROLE_')) {
-      return r.replace('ROLE_', '')
+    if (userStore.hasSomeAuthorities(["ROLE_CENTER_MANAGER"])) {
+      authority = "ROLE_CENTER_MANAGER"; // 센터 관리자 
+      authority_name = userStore.jobName;
+    } else if (userStore.hasAllAuthorities(["ROLE_SALES_TEAM","ROLE_TEAM_LEAD"])) {
+      authority = "ROLE_SALES_TEAM"; // or 영업팀 팀장
+      authority_name = userStore.jobName;
+    }  else if (userStore.hasAllAuthorities(["ROLE_SALES_TEAM","ROLE_EMPLOYEE"])) {
+      authority = "ROLE_SALES_TEAM"; // 영업사원
+      authority_name = userStore.jobName;
+    } else if(userStore.hasAllAuthorities(["ROLE_CAREGIVER"])) {
+      authority = "ROLE_CAREGIVER"; // 요양사
+      authority_name = userStore.jobName;
+    } else if(userStore.hasAllAuthorities(["ROLE_MATERIAL_TEAM","ROLE_EMPLOYEE"])) {
+      authority = "ROLE_MATERIAL_TEAM";
+      authority_name = userStore.jobName;
     }
-    return r
+    return [authority, authority_name];
   })
   
   // 역할별 메뉴
   const menuList = computed(() => {
-    return MENU_CONFIG[currentRole.value] || MENU_CONFIG.MANAGER
+    console.log("currentRole.value::", currentRole.value);
+    return MENU_CONFIG[currentRole.value[0]] || MENU_CONFIG.ROLE_CENTER_MANAGER
   })
   
   // 현재 라우트 기준 활성 메뉴

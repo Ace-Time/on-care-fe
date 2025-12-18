@@ -8,13 +8,13 @@
       <!-- 이메일 -->
       <div class="input-group">
         <img src="@/assets/img/sign/email.png" class="input-icon" />
-        <input type="text" placeholder="이메일을 입력하세요" />
+        <input type="text" placeholder="이메일을 입력하세요" v-model="email" />
       </div>
 
       <!-- 비밀번호 -->
       <div class="input-group">
         <img src="@/assets/img/sign/password.png" class="input-icon" />
-        <input type="password" placeholder="비밀번호를 입력하세요" />
+        <input type="password" placeholder="비밀번호를 입력하세요" v-model="pwd"/>
       </div>
 
       <button class="login-button" @click="handleLogin">
@@ -23,16 +23,54 @@
     </div>
 
     <p class="copyright">
-      © 2024 OnCare. All rights reserved.
+      © 2025 OnCare. All rights reserved.
     </p>
   </div>
 </template>
 
 <script setup>
 import { useRouter } from 'vue-router'
-const router = useRouter()
+import { ref } from 'vue'
+import { useUserStore } from '@/stores/user'
+import api from '@/lib/api'
+import {jwtDecode} from 'jwt-decode'
+const router = useRouter();
+const userStore = useUserStore();
 
-const handleLogin = () => {
+/**
+ * 권한별 아이디
+ * id : admin1@example.com            관리자
+ * id : material.staff1@example.com   자재팀 사원
+ * id : cg2@example.com               요양사
+ * id : sales.lead1@example.com       영업팀장            
+ * pwd : pwd123    (공통)
+ */
+
+const email = ref('admin1@example.com');
+const pwd = ref('pwd123');
+
+const handleLogin = async() => {
+  const response = 
+    await api.post('/auth/login',
+      {
+        useremail: email.value,
+        password: pwd.value
+      },
+      {
+          headers: { 
+            'Content-Type': 'application/json',
+            }
+      });
+      
+    const { accessToken, tokenType } = response.data;
+
+    // JWT 디코딩 (핵심) 
+    // 토큰의 Payload(Claim) 부분을 JSON 객체로 변환해줍니다.
+    const decoded = jwtDecode(accessToken);
+
+    userStore.setToken(accessToken);
+    userStore.logIn(decoded);
+
   router.push({ name: 'dashboard' })
 }
 </script>
