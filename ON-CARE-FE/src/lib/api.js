@@ -165,10 +165,9 @@ api.interceptors.response.use(
                 user.setToken(accessToken , tokenType);                           // ✔ 토큰 갱신(Pinia 상태 업데이트)
                 info('토큰 재 발급',{description: '엑세스 토큰이 재 발급 되었습니다.' });
                 // 이 Promise의 결과값으로 새 토큰을 반환 (동시에 기다리는 요청들이 이 값을 받는다)
-                return (accessToken, tokenType);
+                return [accessToken, tokenType];
               })()
               .catch(async(e) => {
-                  const user = useUserStore();                           // ✔ 스토어 접근
                   user.logOut();                                         // ✔ 로그인 상태 초기화/세션 정리
                   toastError('이상 접근 감지',{description: '비정상 접근이 갑지 되어 재 로그인 시도 부탁 드립니다.' });
                   await router.push('/') 

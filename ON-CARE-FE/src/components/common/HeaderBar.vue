@@ -139,9 +139,9 @@
   
   
   const goHome = async () => {
-    const response = await api.get('/health');
-    console.log(response.data);
-    // router.push({ name: 'dashboard' })
+    // const response = await api.get('/health');
+    // console.log(response.data);
+    router.push({ name: 'dashboard' })
   }
   
   const onLogout = () => {
