@@ -1,25 +1,79 @@
 <script setup>
-import { ref } from 'vue';
-import { initialTodos } from '@/mock/careworker/homeData';
-import TodoModal from './TodoModal.vue'; 
+import { ref, onMounted } from 'vue';
+import { getTodos, createTodo, completeTodo, uncompleteTodo, deleteTodo } from '@/api/careworker';
+import TodoModal from './TodoModal.vue';
 
-const todos = ref([...initialTodos]);
+const todos = ref([]);
 const isModalOpen = ref(false);
+const loading = ref(true);
 
-const handleAddTodo = ({ content, type }) => {
-  todos.value.unshift({
-    id: Date.now(),
-    text: `${content} ${type ? '(' + type + ')' : ''}`,
-    checked: false
-  });
-  isModalOpen.value = false;
+const loadTodos = async () => {
+  try {
+    const response = await getTodos();
+    const list = Array.isArray(response?.data?.data)
+      ? response.data.data
+      : Array.isArray(response?.data)
+        ? response.data
+        : Array.isArray(response)
+          ? response
+          : [];
+
+    todos.value = list.map((todo) => ({
+      id: todo.todoId,
+      text: todo.content ?? todo.todo ?? '',
+      checked: todo.isCompleted,
+      dueDate: todo.dueDate ?? todo.todoDate,
+    }));
+  } catch (error) {
+    console.error('할 일 목록 로드 실패:', error);
+  } finally {
+    loading.value = false;
+  }
 };
 
-const removeTodo = (id) => {
-  todos.value = todos.value.filter(todo => todo.id !== id);
+// 할 일 추가
+const handleAddTodo = async ({ content, type }) => {
+  try {
+    const newTodo = {
+      todo: content,
+      todoDate: new Date().toISOString().split('T')[0],
+      type: type || null,
+    };
+    await createTodo(newTodo);
+    isModalOpen.value = false; // 추가 완료 후 모달 닫기
+    await loadTodos();
+  } catch (error) {
+    console.error('할 일 추가 실패:', error);
+  }
 };
 
-// 수정 기능은 간단히 prompt로 구현하거나 모달 재사용 가능 (여기선 생략)
+// 할 일 완료/미완료 토글
+const toggleTodo = async (todo) => {
+  try {
+    if (todo.checked) {
+      await uncompleteTodo(todo.id);
+    } else {
+      await completeTodo(todo.id);
+    }
+    todo.checked = !todo.checked;
+  } catch (error) {
+    console.error('할 일 상태 변경 실패:', error);
+  }
+};
+
+// 할 일 삭제
+const removeTodo = async (id) => {
+  try {
+    await deleteTodo(id);
+    todos.value = todos.value.filter(todo => todo.id !== id);
+  } catch (error) {
+    console.error('할 일 삭제 실패:', error);
+  }
+};
+
+onMounted(() => {
+  loadTodos();
+});
 </script>
 
 <template>
@@ -28,11 +82,17 @@ const removeTodo = (id) => {
       <h2 class="section-title">☑️ 할 일 목록</h2>
       <button class="add-btn-small" @click="isModalOpen = true">+ 할 일 추가</button>
     </div>
-    
+
     <ul class="todo-list">
-      <li v-for="todo in todos" :key="todo.id" class="todo-item">
+      <li v-if="loading" class="empty-state">
+        할 일을 불러오는 중...
+      </li>
+      <li v-else-if="todos.length === 0" class="empty-state">
+        할 일이 없습니다.
+      </li>
+      <li v-else v-for="todo in todos" :key="todo.id" class="todo-item">
         <div class="todo-left">
-          <input type="checkbox" v-model="todo.checked" class="checkbox" />
+          <input type="checkbox" :checked="todo.checked" @change="toggleTodo(todo)" class="checkbox" />
           <span :class="['todo-text', { 'completed': todo.checked }]">
             {{ todo.text }}
           </span>
@@ -42,15 +102,12 @@ const removeTodo = (id) => {
           <button class="icon-btn delete" @click="removeTodo(todo.id)">🗑️</button>
         </div>
       </li>
-      <li v-if="todos.length === 0" class="empty-state">
-        할 일이 없습니다.
-      </li>
     </ul>
 
-    <TodoModal 
-      :is-open="isModalOpen" 
-      @close="isModalOpen = false" 
-      @add="handleAddTodo" 
+    <TodoModal
+      :is-open="isModalOpen"
+      @close="isModalOpen = false"
+      @add="handleAddTodo"
     />
   </section>
 </template>

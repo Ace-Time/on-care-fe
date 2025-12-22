@@ -1,17 +1,116 @@
 <script setup>
-import { scheduleItems } from '@/mock/careworker/homeData';
+import { ref, onMounted } from 'vue';
+import { getTodaySchedules } from '@/api/careworker';
+import { startVisit, completeVisit } from '@/api/careworker';
 
-const handleAction = (action, item) => {
-  console.log(`Action: ${action}, Target: ${item.name}`);
-  // 추후 라우터 이동이나 API 호출 로직 추가
+const scheduleItems = ref([]);
+const loading = ref(true);
+
+// 오늘의 일정 로드
+const loadSchedules = async () => {
+  try {
+    const response = await getTodaySchedules();
+    scheduleItems.value = (response.data || []).map(schedule => ({
+      id: schedule.vsId,
+      name: schedule.beneficiaryName,
+      grade: schedule.grade,
+      tags: schedule.tags || [],
+      time: `${schedule.startTime} - ${schedule.endTime}`,
+      service: schedule.serviceType,
+      address: schedule.address,
+      status: getStatusText(schedule.status),
+      statusColor: getStatusColor(schedule.status),
+      showAttendance: schedule.status === 'SCHEDULED',
+      buttons: getButtons(schedule.status),
+      originalStatus: schedule.status
+    }));
+  } catch (error) {
+    console.error('오늘의 일정 로드 실패:', error);
+  } finally {
+    loading.value = false;
+  }
 };
+
+// 상태 텍스트 변환
+const getStatusText = (status) => {
+  const statusMap = {
+    'SCHEDULED': '예정',
+    'IN_PROGRESS': '진행중',
+    'DONE': '완료',
+    'CANCELLED': '취소'
+  };
+  return statusMap[status] || '예정';
+};
+
+// 상태 색상 변환
+const getStatusColor = (status) => {
+  const colorMap = {
+    'SCHEDULED': 'gray',
+    'IN_PROGRESS': 'blue',
+    'DONE': 'green',
+    'CANCELLED': 'red'
+  };
+  return colorMap[status] || 'gray';
+};
+
+// 버튼 구성
+const getButtons = (status) => {
+  if (status === 'SCHEDULED') {
+    return [
+      { text: '서비스 시작', type: 'primary', color: 'green', action: 'start' },
+      { text: '상세보기', type: 'secondary', action: 'detail' }
+    ];
+  } else if (status === 'IN_PROGRESS') {
+    return [
+      { text: '서비스 완료', type: 'primary', color: 'blue', action: 'finish' }
+    ];
+  } else if (status === 'DONE') {
+    return [
+      { text: '활동일지 보기', type: 'secondary', action: 'viewLog' }
+    ];
+  }
+  return [];
+};
+
+// 액션 처리
+const handleAction = async (action, item) => {
+  try {
+    if (action === 'start') {
+      await startVisit(item.id, {
+        actualStartTime: new Date().toISOString()
+      });
+      await loadSchedules();
+    } else if (action === 'finish') {
+      await completeVisit(item.id, {
+        actualEndTime: new Date().toISOString()
+      });
+      await loadSchedules();
+    } else if (action === 'detail') {
+      console.log('상세보기:', item.name);
+    } else if (action === 'viewLog') {
+      console.log('활동일지 보기:', item.name);
+    }
+  } catch (error) {
+    console.error('액션 처리 실패:', error);
+  }
+};
+
+onMounted(() => {
+  loadSchedules();
+});
 </script>
 
 <template>
   <section class="schedule-section">
     <h2 class="section-title">📅 오늘의 일정</h2>
 
-    <div class="schedule-grid">
+    <div v-if="loading" class="empty-state">
+      일정을 불러오는 중...
+    </div>
+    <div v-else-if="scheduleItems.length === 0" class="empty-state">
+      오늘 예정된 일정이 없습니다.
+    </div>
+    <div v-else class="schedule-grid">
       <div v-for="item in scheduleItems" :key="item.id" class="schedule-card">
         <div class="card-header">
           <div class="user-profile">
