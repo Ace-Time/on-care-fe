@@ -175,8 +175,8 @@ const emit = defineEmits(['close', 'refresh'])
 
 const userStore = useUserStore()
 const myEmpId = computed(() => {
-  // ✅ 프로젝트마다 store 구조가 다를 수 있어 fallback 포함
-  return userStore?.user?.empId ?? userStore?.empId ?? 1
+  // ✅ empId가 없으면 null 반환
+  return userStore?.user?.empId ?? userStore?.empId ?? null
 })
 
 const loading = ref(false)

@@ -1,12 +1,11 @@
 <template>
+  <!-- suggesting 제거 -->
   <Teleport to="body">
     <div v-if="visible" class="overlay">
       <div class="modal">
         <header class="modal-header">
           <h3>수급자 정보 수정</h3>
-          <button type="button" class="close-btn" @click="$emit('close')">
-            ✕
-          </button>
+          <button type="button" class="close-btn" @click="$emit('close')">✕</button>
         </header>
 
         <form class="modal-body" @submit.prevent="submit">
@@ -19,11 +18,7 @@
 
             <label class="form-field">
               <span class="form-label">생년월일</span>
-              <input
-                v-model="form.birthdate"
-                class="form-input date-input"
-                type="date"
-              />
+              <input v-model="form.birthdate" class="form-input date-input" type="date" />
             </label>
           </div>
 
@@ -72,11 +67,7 @@
                 <span class="form-label">관계</span>
                 <select v-model="form.guardianRelation" class="form-input">
                   <option value="">선택</option>
-                  <option
-                    v-for="rel in relationOptions"
-                    :key="rel"
-                    :value="rel"
-                  >
+                  <option v-for="rel in relationOptions" :key="rel" :value="rel">
                     {{ rel }}
                   </option>
                 </select>
@@ -98,13 +89,9 @@
           <div class="grid-2">
             <label class="form-field">
               <span class="form-label">장기요양등급</span>
-              <select v-model="form.careLevelId" class="form-input">
+              <select v-model="form.careLevelId" class="form-input" :disabled="metaLoading">
                 <option :value="null">선택</option>
-                <option
-                  v-for="lvl in careLevelOptions"
-                  :key="lvl.id"
-                  :value="lvl.id"
-                >
+                <option v-for="lvl in careLevelOptions" :key="lvl.id" :value="lvl.id">
                   {{ lvl.label }}
                 </option>
               </select>
@@ -112,27 +99,24 @@
 
             <label class="form-field">
               <span class="form-label">장기요양등급 만료일</span>
-              <input
-                v-model="form.careLevelEndDate"
-                class="form-input date-input"
-                type="date"
-              />
+              <input v-model="form.careLevelEndDate" class="form-input date-input" type="date" />
             </label>
           </div>
 
           <!-- 인정번호 -->
           <label class="form-field">
             <span class="form-label">장기요양등급 인정번호</span>
-            <input
-              v-model="form.careLevelNumber"
-              class="form-input"
-              type="text"
-            />
+            <input v-model="form.careLevelNumber" class="form-input" type="text" />
           </label>
 
-          <!-- 태그 (다중 선택) -->
+          <!-- ✅ 태그 (다중 선택) : API로 가져온 options -->
           <div class="form-field">
-            <span class="form-label">태그</span>
+            <div class="field-head">
+              <span class="form-label">태그</span>
+              <span v-if="metaLoading" class="meta-hint">불러오는 중...</span>
+              <span v-else-if="metaError" class="meta-hint error">옵션 로드 실패</span>
+            </div>
+
             <div class="chip-group">
               <button
                 v-for="tag in tagOptions"
@@ -140,16 +124,26 @@
                 type="button"
                 class="chip-btn"
                 :class="{ active: form.tagIds.includes(tag.id) }"
+                :disabled="metaLoading || metaError"
                 @click="toggleTag(tag.id)"
               >
                 {{ tag.label }}
               </button>
+
+              <div v-if="!metaLoading && tagOptions.length === 0" class="empty-meta">
+                등록된 태그가 없습니다.
+              </div>
             </div>
           </div>
 
-          <!-- 위험 요소 (다중 선택) -->
+          <!-- ✅ 위험 요소 (다중 선택) : API로 가져온 options -->
           <div class="form-field">
-            <span class="form-label">위험 요소</span>
+            <div class="field-head">
+              <span class="form-label">위험 요소</span>
+              <span v-if="metaLoading" class="meta-hint">불러오는 중...</span>
+              <span v-else-if="metaError" class="meta-hint error">옵션 로드 실패</span>
+            </div>
+
             <div class="chip-group">
               <button
                 v-for="risk in riskOptions"
@@ -157,21 +151,24 @@
                 type="button"
                 class="chip-btn"
                 :class="{ active: form.riskFactorIds.includes(risk.id) }"
+                :disabled="metaLoading || metaError"
                 @click="toggleRisk(risk.id)"
               >
                 {{ risk.label }}
               </button>
+
+              <div v-if="!metaLoading && riskOptions.length === 0" class="empty-meta">
+                등록된 위험요소가 없습니다.
+              </div>
             </div>
           </div>
 
           <!-- 버튼 -->
           <footer class="modal-footer">
-            <button type="submit" class="btn-submit" :disabled="saving">
-              {{ saving ? '저장 중...' : '수정' }}
+            <button type="submit" class="btn-submit" :disabled="saving || metaLoading">
+              {{ saving ? '저장 중...' : metaLoading ? '옵션 로딩 중...' : '수정' }}
             </button>
-            <button type="button" class="btn-cancel" @click="$emit('close')">
-              취소
-            </button>
+            <button type="button" class="btn-cancel" @click="$emit('close')">취소</button>
           </footer>
         </form>
       </div>
@@ -193,46 +190,18 @@ const emit = defineEmits(['close', 'updated'])
 
 const saving = ref(false)
 
-/** 카테고리 옵션들(디자인 유지용) */
+/** ✅ 관계 옵션(고정 UI) */
 const relationOptions = ['아들', '딸', '손자', '손녀', '친구', '기타']
 
-/**
- * ✅ 여기 옵션은 "id 기반"으로 바꿨음 (백엔드가 tagIds / riskFactorIds 받으니까)
- * - 현재 프론트에 별도 조회 API가 없어서, 기존 배열 순서를 id로 가정(index+1)
- * - 너희 DB id가 다르면 여기 id만 맞춰주면 됨
- */
-const tagOptions = [
-  { id: 1, label: '말벗' },
-  { id: 2, label: '산책' },
-  { id: 3, label: '음악' },
-  { id: 4, label: '종교' },
-  { id: 5, label: '운동' },
-  { id: 6, label: '영화' },
-  { id: 7, label: '게임' },
-  { id: 8, label: '서예' },
-  { id: 9, label: '요리' }
-]
+/** ✅ (중요) 하드코딩 제거: 서버에서 옵션 받아서 넣을 ref 배열 */
+const tagOptions = ref([])      // [{id, label}]
+const riskOptions = ref([])     // [{id, label}]
+const careLevelOptions = ref([]) // [{id, label, validity?, monthlyLimit?}]
 
-const riskOptions = [
-  { id: 1, label: '낙상' },
-  { id: 2, label: '욕창' },
-  { id: 3, label: '치매' },
-  { id: 4, label: '고혈압' },
-  { id: 5, label: '당뇨' },
-  { id: 6, label: '뇌졸증' },
-  { id: 7, label: '거동불편' },
-  { id: 8, label: '공격성' },
-  { id: 9, label: '몽유병' }
-]
-
-const careLevelOptions = [
-  { id: 1, label: '1등급' },
-  { id: 2, label: '2등급' },
-  { id: 3, label: '3등급' },
-  { id: 4, label: '4등급' },
-  { id: 5, label: '5등급' },
-  { id: 6, label: '인지지원등급' }
-]
+/** ✅ 옵션 로딩 상태 */
+const metaLoading = ref(false)
+const metaError = ref(false)
+const metaLoaded = ref(false)
 
 const form = reactive({
   // beneficiary
@@ -280,8 +249,59 @@ const resetForm = () => {
 }
 
 /**
- * ✅ 모달 열릴 때 상세조회해서 기존 값 프리필
- * GET /api/beneficiaries/{id} 응답을 기준으로 채움
+ * ✅ 마스터 옵션 API 연동 (백엔드에서 이미 추가했다고 했던 메타 API들)
+ * - GET /api/beneficiaries/meta/tags         -> [{id,label}]
+ * - GET /api/beneficiaries/meta/risk-factors -> [{id,label}]
+ * - GET /api/beneficiaries/meta/care-levels  -> [{id,label,validity,monthlyLimit}]
+ *
+ * ⚠️ 응답 키가 label이 아니라 name이면 아래 map에서 흡수하도록 해둠.
+ */
+const fetchMetaOnce = async () => {
+  if (metaLoaded.value) return
+
+  metaLoading.value = true
+  metaError.value = false
+  try {
+    const [tagsRes, risksRes, levelsRes] = await Promise.all([
+      api.get('/api/beneficiaries/meta/tags'),
+      api.get('/api/beneficiaries/meta/risk-factors'),
+      api.get('/api/beneficiaries/meta/care-levels')
+    ])
+
+    // ✅ 안전하게 배열인지 확인 + label/name 흡수
+    tagOptions.value = (Array.isArray(tagsRes.data) ? tagsRes.data : [])
+      .map((t) => ({ id: t.id, label: t.label ?? t.name ?? t.tag ?? '' }))
+      .filter((t) => typeof t.id === 'number' && t.label)
+
+    riskOptions.value = (Array.isArray(risksRes.data) ? risksRes.data : [])
+      .map((r) => ({ id: r.id, label: r.label ?? r.name ?? '' }))
+      .filter((r) => typeof r.id === 'number' && r.label)
+
+    careLevelOptions.value = (Array.isArray(levelsRes.data) ? levelsRes.data : [])
+      .map((c) => ({
+        id: c.id,
+        label: c.label ?? c.level ?? '',
+        validity: c.validity,
+        monthlyLimit: c.monthlyLimit
+      }))
+      .filter((c) => typeof c.id === 'number' && c.label)
+
+    metaLoaded.value = true
+  } catch (e) {
+    console.error(e)
+    metaError.value = true
+    // ✅ 옵션 로드 실패 시 빈 배열 유지(선택 불가 처리)
+    tagOptions.value = []
+    riskOptions.value = []
+    careLevelOptions.value = []
+  } finally {
+    metaLoading.value = false
+  }
+}
+
+/**
+ * ✅ 상세조회 값을 폼에 채우기
+ * - tagOptions(마스터)를 받은 뒤에 해야 label->id 매핑이 정확함
  */
 const hydrateFromDetail = (d) => {
   // 기본
@@ -302,21 +322,37 @@ const hydrateFromDetail = (d) => {
   // 등급 만료일
   form.careLevelEndDate = d?.careLevelEndDate ?? ''
 
-  // ✅ 등급 id는 GET에서 문자열 careLevel만 내려오니까 라벨->id 매핑
-  const care = d?.careLevel
-  form.careLevelId = careLevelOptions.find((x) => x.label === care)?.id ?? null
+  /**
+   * ✅ 등급 id 세팅
+   * - 상세조회 응답이 careLevel: "1등급" 같은 라벨이면 label->id로 매핑
+   * - 만약 백엔드가 careLevelId까지 내려주면 그 값을 우선 사용
+   */
+  if (typeof d?.careLevelId === 'number') {
+    form.careLevelId = d.careLevelId
+  } else {
+    const careLabel = d?.careLevel
+    form.careLevelId =
+      careLevelOptions.value.find((x) => x.label === careLabel)?.id ?? null
+  }
 
-  // ⚠️ 현재 네 상세조회 XML에는 인정번호(number)가 SELECT에 없음
-  // 혹시 백엔드가 추가해서 내려주면 그때 자동으로 채워짐
+  // 인정번호
   form.careLevelNumber = d?.careLevelNumber ?? ''
 
-  // ✅ 태그: GET은 tags: ["말벗","산책"] 형태라서 label->id로 매핑
+  /**
+   * ✅ 태그 매핑
+   * - 상세조회: tags: ["말벗","산책"]
+   * - label -> id 매핑은 "서버에서 받은 tagOptions"로 수행(하드코딩 제거)
+   */
   const tags = Array.isArray(d?.tags) ? d.tags : []
   form.tagIds = tags
-    .map((t) => tagOptions.find((x) => x.label === t)?.id)
+    .map((t) => tagOptions.value.find((x) => x.label === t)?.id)
     .filter((id) => typeof id === 'number')
 
-  // ✅ 위험요소: GET은 riskFactors: [{id,name,score}]라서 id로 바로 세팅
+  /**
+   * ✅ 위험요소 매핑
+   * - 상세조회: riskFactors: [{id,name,score}]
+   * - id로 바로 세팅(가장 안전)
+   */
   const risks = Array.isArray(d?.riskFactors) ? d.riskFactors : []
   form.riskFactorIds = risks
     .map((r) => r?.id)
@@ -329,11 +365,21 @@ const fetchDetail = async () => {
   hydrateFromDetail(data)
 }
 
+/**
+ * ✅ 모달이 열릴 때 동작 순서
+ * 1) reset
+ * 2) 메타(태그/위험요소/등급) 로드
+ * 3) 상세 조회 후 프리필
+ */
 watch(
   () => props.visible,
   async (v) => {
     if (!v) return
     resetForm()
+
+    // ✅ 마스터 옵션 먼저 (label->id 매핑 위해 필수)
+    await fetchMetaOnce()
+
     if (props.beneficiaryId) {
       try {
         await fetchDetail()
@@ -360,6 +406,12 @@ const toggleRisk = (riskId) => {
 const submit = async () => {
   if (!props.beneficiaryId) return
 
+  // ✅ 옵션 로딩 실패 상태면 잘못 저장 위험 → 막기
+  if (metaError.value) {
+    alert('태그/위험요소 옵션을 불러오지 못해 저장할 수 없습니다.\n잠시 후 다시 시도해주세요.')
+    return
+  }
+
   saving.value = true
   try {
     // ✅ 백엔드 컬럼명에 맞춘 payload
@@ -377,26 +429,24 @@ const submit = async () => {
 
       careLevelId: form.careLevelId,
       careLevelEndDate: form.careLevelEndDate,
+
       // number는 Long이라 숫자로 보내는 게 안전 (빈값이면 null)
       careLevelNumber:
         form.careLevelNumber === '' || form.careLevelNumber == null
           ? null
           : Number(form.careLevelNumber),
 
+      // ✅ id 기반 (정합성)
       tagIds: form.tagIds,
       riskFactorIds: form.riskFactorIds
     }
 
-    const { data } = await api.put(
-      `/api/beneficiaries/${props.beneficiaryId}`,
-      payload
-    )
+    const { data } = await api.put(`/api/beneficiaries/${props.beneficiaryId}`, payload)
 
     emit('updated', data)
     emit('close')
   } catch (e) {
     console.error(e)
-    // 필요하면 여기서 toast 처리 가능
   } finally {
     saving.value = false
   }
@@ -480,6 +530,24 @@ const submit = async () => {
   font-size: 13px;
 }
 
+.field-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.meta-hint {
+  font-size: 12px;
+  color: #9ca3af;
+}
+.meta-hint.error {
+  color: #ef4444;
+}
+.empty-meta {
+  font-size: 12px;
+  color: #9ca3af;
+  padding: 6px 2px;
+}
+
 .date-input {
 }
 
@@ -500,6 +568,10 @@ const submit = async () => {
   background-color: #22c55e;
   border-color: #16a34a;
   color: #fff;
+}
+.chip-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .modal-footer {

@@ -1,8 +1,6 @@
 <!-- src/components/recipient/RecipientInformation.vue -->
 <template>
-  <div v-if="loading" class="card empty">
-    불러오는 중...
-  </div>
+  <div v-if="loading" class="card empty">불러오는 중...</div>
 
   <div v-else-if="errorMsg" class="card empty">
     {{ errorMsg }}
@@ -35,7 +33,6 @@
         수급자 정보 수정
       </button>
 
-      <!-- ✅ updated 이벤트만 받는다 -->
       <RecipientRegist
         :visible="showRegist"
         :beneficiary-id="beneficiaryId"
@@ -133,16 +130,13 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
 import api from '@/lib/api'
-import RecipientRegist from '@/components/recipient/main/RecipientRegist.vue' // 수급자 정보 수정 모달
+import RecipientRegist from '@/components/recipient/main/RecipientRegist.vue'
 
 const props = defineProps({
-  beneficiaryId: {
-    type: Number,
-    default: null
-  }
+  beneficiaryId: { type: Number, default: null }
 })
 
-/* 추가: 부모로 updated 신호 보내려면 emit 필요 */
+/* ✅ 부모로 updated 신호 */
 const emit = defineEmits(['updated'])
 
 const showRegist = ref(false)
@@ -150,7 +144,7 @@ const loading = ref(false)
 const errorMsg = ref('')
 const vm = ref(null)
 
-/* 상세 조회 */
+/* ✅ 상세 조회 */
 const fetchDetail = async () => {
   if (!props.beneficiaryId) {
     vm.value = null
@@ -171,39 +165,48 @@ const fetchDetail = async () => {
   }
 }
 
-/*  수정 완료 이벤트 */
+/* ✅ 수정 완료 이벤트: 우측 즉시 반영 + 부모에게 신호 */
 const handleUpdated = async () => {
   showRegist.value = false
-  await fetchDetail()     //  우측 즉시 반영
-  emit('updated')         //  부모(RecipientListPage)로 신호 -> 좌측 리스트 refresh 트리거
+  await fetchDetail()
+  emit('updated')
 }
 
 watch(() => props.beneficiaryId, fetchDetail, { immediate: true })
 
+/* ✅ 백엔드 응답 -> 화면용 VM */
 const toViewModel = (d) => ({
   id: d.beneficiaryId,
   name: d.name,
   risk: d.riskLevel,
   status: d.status,
-  careLevel: d.careLevel ? `${d.careLevel}등급`.replace('등급등급', '등급') : '-',
+
+  // ✅ 백엔드가 "1등급" 그대로 내려주므로 땜빵 제거
+  careLevel: d.careLevel ?? '-',
   careLevelEndDate: d.careLevelEndDate,
+
   birth: d.birthdate,
   address: d.address,
   phone: d.phone,
+
   careWorker: d.managerName || '-',
+
   guardianName: d.guardianName,
   guardianRelation: d.guardianRelation,
   guardianPhone: d.guardianPhone,
+
   limitAmount: d.monthlyLimit ?? 0,
   usedAmount: d.usedAmount ?? 0,
-  remainingAmount: d.remainingAmount,
+
+  // ✅ 백엔드 값이 있으면 그걸 우선 사용
+  remainingAmount: d.remainingAmount ?? ((d.monthlyLimit ?? 0) - (d.usedAmount ?? 0)),
+
   tags: d.tags ?? [],
   riskTags: (d.riskFactors ?? []).map((x) => x.name)
 })
 
-const remainingAmount = computed(() =>
-  (vm.value?.limitAmount ?? 0) - (vm.value?.usedAmount ?? 0)
-)
+/* ✅ 잔액(백엔드 계산값 우선) */
+const remainingAmount = computed(() => vm.value?.remainingAmount ?? 0)
 
 const usedPercent = computed(() => {
   if (!vm.value?.limitAmount) return 0
@@ -226,12 +229,13 @@ const stateClass = (status) => ({
 </script>
 
 <style scoped>
+/* (기존 스타일 그대로) */
 .card {
   background-color: #fff;
   border-radius: 12px;
   padding: 14px 16px;
   box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.04);
-  position: relative; /* ✅ 우측 상단 absolute 기준 */
+  position: relative;
 }
 .empty {
   display: flex;
@@ -260,7 +264,6 @@ const stateClass = (status) => ({
   font-size: 12px;
   color: #9ca3af;
 }
-
 .detail-body {
   display: flex;
   gap: 32px;
@@ -281,8 +284,6 @@ const stateClass = (status) => ({
 .info-value {
   flex: 1;
 }
-
-/* ✅ 우측 상단 */
 .info-action-area {
   position: absolute;
   top: 14px;
@@ -291,7 +292,6 @@ const stateClass = (status) => ({
   align-items: center;
   gap: 8px;
 }
-
 .edit-button {
   display: inline-flex;
   align-items: center;
@@ -304,8 +304,6 @@ const stateClass = (status) => ({
   font-size: 15px;
   cursor: pointer;
 }
-
-/* 급여 바 */
 .benefit-wrapper {
   margin-top: 14px;
 }
@@ -340,8 +338,6 @@ const stateClass = (status) => ({
   font-size: 11px;
   color: #6b7280;
 }
-
-/* 배지 */
 .badge {
   padding: 2px 8px;
   border-radius: 999px;
@@ -359,8 +355,6 @@ const stateClass = (status) => ({
   background-color: #e0f2fe;
   color: #1d4ed8;
 }
-
-/* 서비스 상태 */
 .state {
   background-color: #f3f4f6;
   color: #374151;
@@ -373,8 +367,6 @@ const stateClass = (status) => ({
   background-color: #e5e7eb;
   color: #374151;
 }
-
-/* 하단 태그 / 위험요인 */
 .bottom-tags {
   margin-top: 14px;
   display: flex;
@@ -409,7 +401,6 @@ const stateClass = (status) => ({
   color: #b91c1c;
   border-color: #fecaca;
 }
-
 @media (max-width: 960px) {
   .detail-body {
     flex-direction: column;
