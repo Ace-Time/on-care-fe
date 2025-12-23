@@ -1,69 +1,154 @@
 <script setup>
-import { ref } from 'vue';
-import VisitCounselForm from '@/components/careworker/activity/VisitCounselForm.vue';
-import { counselHistoryMock } from '@/mock/careworker/activityHistory';
+import { onMounted, ref } from "vue";
+import VisitCounselForm from "@/components/careworker/activity/VisitCounselForm.vue";
+import { counselHistoryMock } from "@/mock/careworker/activityHistory";
 
-// 메인 탭 상태 (작성 / 내역)
-const mainTab = ref('write');
-
+const mainTab = ref("write");
 const mainTabs = [
-  { key: 'write', label: '작성하기', icon: '📝' },
-  { key: 'history', label: '작성 내역', icon: '📋' }
+  { key: "write", label: "작성하기", icon: "✏️" },
+  { key: "history", label: "작성 내역", icon: "📑" },
 ];
 
-// 임시 내역 데이터 (Mock에서 가져옴)
 const counselHistory = ref([...counselHistoryMock]);
 
-// 전자서명 모달 상태
+// 서명 모달
 const showSignatureModal = ref(false);
-const signatureType = ref(''); // 'recipient' or 'caregiver'
+const signatureType = ref("");
 const currentItemId = ref(null);
+const canvasRef = ref(null);
+const isDrawing = ref(false);
+const lastPoint = ref({ x: 0, y: 0 });
+const signatureData = ref(null);
 
-// 방문상담 제출 처리
+// 수정/삭제 모달
+const showEditModal = ref(false);
+const editForm = ref(null);
+const editingItemId = ref(null);
+
 const handleSubmit = (data) => {
-  console.log('방문상담 제출:', data);
-  alert('방문상담이 저장되었습니다.');
+  console.log("방문상담 제출:", data);
+  alert("방문상담이 접수되었습니다.");
 };
 
-// 방문상담 임시저장
 const handleSaveDraft = (data) => {
-  console.log('방문상담 임시저장:', data);
-  alert('임시저장되었습니다.');
+  console.log("방문상담 임시저장:", data);
+  alert("임시저장되었습니다.");
 };
 
-// 전자서명 모달 열기
+const openEditModal = (item) => {
+  editingItemId.value = item.id;
+  editForm.value = { ...item };
+  showEditModal.value = true;
+};
+
+const closeEditModal = () => {
+  showEditModal.value = false;
+  editingItemId.value = null;
+  editForm.value = null;
+};
+
+const saveEdit = () => {
+  if (!editForm.value) return;
+  const idx = counselHistory.value.findIndex((i) => i.id === editingItemId.value);
+  if (idx === -1) {
+    alert("수정할 작성 내역을 찾지 못했습니다.");
+    return;
+  }
+  counselHistory.value.splice(idx, 1, { ...editForm.value });
+  alert("작성 내역이 수정되었습니다.");
+  closeEditModal();
+};
+
+const deleteHistory = (id) => {
+  const targetId = id ?? editingItemId.value;
+  if (!targetId) return;
+  if (!confirm("이 상담 내역을 삭제하시겠습니까?")) return;
+  counselHistory.value = counselHistory.value.filter((i) => i.id !== targetId);
+  if (editingItemId.value === targetId) {
+    closeEditModal();
+  }
+};
+
 const openSignatureModal = (itemId, type) => {
   currentItemId.value = itemId;
   signatureType.value = type;
   showSignatureModal.value = true;
+  signatureData.value = null;
+  resetCanvas();
 };
 
-// 전자서명 모달 닫기
 const closeSignatureModal = () => {
   showSignatureModal.value = false;
-  signatureType.value = '';
+  signatureType.value = "";
   currentItemId.value = null;
 };
 
-// 서명 저장
+const pointerPos = (event) => {
+  const canvas = canvasRef.value;
+  if (!canvas) return { x: 0, y: 0 };
+  const rect = canvas.getBoundingClientRect();
+  const clientX = event.clientX ?? event.touches?.[0]?.clientX;
+  const clientY = event.clientY ?? event.touches?.[0]?.clientY;
+  return { x: clientX - rect.left, y: clientY - rect.top };
+};
+
+const startDraw = (event) => {
+  event.preventDefault();
+  isDrawing.value = true;
+  lastPoint.value = pointerPos(event);
+};
+
+const draw = (event) => {
+  if (!isDrawing.value) return;
+  event.preventDefault();
+  const canvas = canvasRef.value;
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  const { x, y } = pointerPos(event);
+  ctx.beginPath();
+  ctx.moveTo(lastPoint.value.x, lastPoint.value.y);
+  ctx.lineTo(x, y);
+  ctx.stroke();
+  lastPoint.value = { x, y };
+};
+
+const endDraw = () => {
+  isDrawing.value = false;
+};
+
+const resetCanvas = () => {
+  const canvas = canvasRef.value;
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.strokeStyle = "#1f2937";
+  ctx.lineWidth = 2;
+  ctx.lineCap = "round";
+};
+
 const saveSignature = () => {
-  const item = counselHistory.value.find(i => i.id === currentItemId.value);
-  if (item) {
-    if (signatureType.value === 'recipient') {
-      item.recipientSigned = true;
-    } else if (signatureType.value === 'caregiver') {
-      item.caregiverSigned = true;
-    }
+  const item = counselHistory.value.find((i) => i.id === currentItemId.value);
+  if (!item) return;
+  const dataUrl = canvasRef.value?.toDataURL();
+  if (signatureType.value === "recipient") {
+    item.recipientSigned = true;
+    item.recipientSignature = dataUrl;
+  } else if (signatureType.value === "caregiver") {
+    item.caregiverSigned = true;
+    item.caregiverSignature = dataUrl;
   }
-  alert('서명이 저장되었습니다.');
+  signatureData.value = dataUrl;
+  alert("서명이 저장되었습니다.");
   closeSignatureModal();
 };
+
+onMounted(resetCanvas);
 </script>
 
 <template>
   <div class="visit-counsel-page">
     <main class="main-content">
-      <!-- 메인 탭 (작성 / 내역) -->
       <div class="main-tabs">
         <button
           v-for="tab in mainTabs"
@@ -77,24 +162,18 @@ const saveSignature = () => {
         </button>
       </div>
 
-      <!-- 작성 탭 -->
       <div v-if="mainTab === 'write'" class="write-section">
-        <VisitCounselForm
-          @submit="handleSubmit"
-          @save-draft="handleSaveDraft"
-        />
+        <VisitCounselForm @submit="handleSubmit" @save-draft="handleSaveDraft" />
       </div>
 
-      <!-- 작성 내역 탭 -->
       <div v-else class="history-section">
         <div class="history-header">
-          <h2 class="history-title">방문상담 작성내역</h2>
-          <p class="history-count">총 {{ counselHistory.length }}건의 상담이 등록되어 있습니다</p>
+          <h2 class="history-title">방문상담 작성 내역</h2>
+          <p class="history-count">총 {{ counselHistory.length }}건의 상담이 등록되었습니다</p>
         </div>
 
         <div class="history-list">
           <div v-for="item in counselHistory" :key="item.id" class="counsel-card">
-            <!-- 카드 헤더 -->
             <div class="card-header">
               <div class="recipient-info">
                 <div class="avatar-circle">👤</div>
@@ -106,7 +185,6 @@ const saveSignature = () => {
               <span class="status-badge completed">{{ item.status }}</span>
             </div>
 
-            <!-- 상담 정보 -->
             <div class="counsel-info-grid">
               <div class="info-field">
                 <span class="field-label">상담 유형</span>
@@ -118,38 +196,32 @@ const saveSignature = () => {
               </div>
             </div>
 
-            <!-- 방문 목적 -->
             <div class="section-box">
               <h4 class="section-title">방문 목적</h4>
               <p class="section-content">{{ item.visitPurpose }}</p>
             </div>
 
-            <!-- 참석 가족 -->
             <div class="section-box">
-              <h4 class="section-title">참석 가족</h4>
+              <h4 class="section-title">관찰 내용</h4>
               <p class="section-content">{{ item.observedCondition }}</p>
             </div>
 
-            <!-- 주요 논의사항 -->
             <div class="section-box highlight">
-              <h4 class="section-title">주요 논의사항</h4>
+              <h4 class="section-title">주요 요구사항</h4>
               <p class="section-content">{{ item.subjectiveNeeds }}</p>
             </div>
 
-            <!-- 합의 사항 -->
             <div class="section-box success">
-              <h4 class="section-title">합의 사항</h4>
+              <h4 class="section-title">조치 및 상담 내용</h4>
               <p class="section-content">{{ item.counselorNotes }}</p>
             </div>
 
-            <!-- 다음 방문 예정 -->
             <div class="next-visit">
               <span class="calendar-icon">📅</span>
               <span class="next-visit-label">다음 방문 예정:</span>
               <span class="next-visit-date">{{ item.nextVisit }}</span>
             </div>
 
-            <!-- 서명 및 액션 버튼 -->
             <div class="card-footer">
               <div class="signature-section">
                 <button
@@ -157,38 +229,103 @@ const saveSignature = () => {
                   :class="{ signed: item.recipientSigned }"
                   @click="openSignatureModal(item.id, 'recipient')"
                 >
-                  <span class="signature-icon">{{ item.recipientSigned ? '✓' : '✍️' }}</span>
-                  <span class="signature-label">수급자/보호자 서명</span>
+                  <span class="signature-icon">{{ item.recipientSigned ? "✅" : "✍️" }}</span>
+                  <span class="signature-label">수급자 서명</span>
                 </button>
                 <button
                   class="signature-btn"
                   :class="{ signed: item.caregiverSigned }"
                   @click="openSignatureModal(item.id, 'caregiver')"
                 >
-                  <span class="signature-icon">{{ item.caregiverSigned ? '✓' : '✍️' }}</span>
+                  <span class="signature-icon">{{ item.caregiverSigned ? "✅" : "✍️" }}</span>
                   <span class="signature-label">요양보호사 서명</span>
                 </button>
               </div>
               <div class="action-buttons">
-                <button class="btn-edit">✏️ 수정</button>
-                <button class="btn-delete">🗑️ 삭제</button>
+                <button class="btn-edit" @click="openEditModal(item)">✏️ 수정</button>
+                <button class="btn-delete" @click="deleteHistory(item.id)">🗑️ 삭제</button>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- 전자서명 모달 -->
+      <div v-if="showEditModal" class="modal-overlay" @click="closeEditModal">
+        <div class="modal-content" @click.stop>
+          <div class="modal-header">
+            <h3>작성 내역 수정</h3>
+            <button class="modal-close-btn" @click="closeEditModal">×</button>
+          </div>
+          <div class="modal-body">
+            <div class="edit-grid" v-if="editForm">
+              <label class="edit-field">
+                <span>수급자</span>
+                <input v-model="editForm.recipientName" type="text" />
+              </label>
+              <label class="edit-field">
+                <span>작성일</span>
+                <input v-model="editForm.date" type="date" />
+              </label>
+              <label class="edit-field">
+                <span>상담 유형</span>
+                <input v-model="editForm.counselType" type="text" />
+              </label>
+              <label class="edit-field">
+                <span>만족도</span>
+                <input v-model="editForm.reaction" type="text" />
+              </label>
+              <label class="edit-field full">
+                <span>방문 목적</span>
+                <textarea v-model="editForm.visitPurpose" rows="2"></textarea>
+              </label>
+              <label class="edit-field full">
+                <span>관찰 내용</span>
+                <textarea v-model="editForm.observedCondition" rows="2"></textarea>
+              </label>
+              <label class="edit-field full">
+                <span>주요 요구사항</span>
+                <textarea v-model="editForm.subjectiveNeeds" rows="2"></textarea>
+              </label>
+              <label class="edit-field full">
+                <span>조치 및 상담 내용</span>
+                <textarea v-model="editForm.counselorNotes" rows="2"></textarea>
+              </label>
+              <label class="edit-field">
+                <span>다음 방문 예정</span>
+                <input v-model="editForm.nextVisit" type="date" />
+              </label>
+              <label class="edit-field">
+                <span>상태</span>
+                <input v-model="editForm.status" type="text" />
+              </label>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn-cancel" @click="closeEditModal">취소</button>
+            <button class="btn-save" @click="saveEdit">저장</button>
+          </div>
+        </div>
+      </div>
+
       <div v-if="showSignatureModal" class="modal-overlay" @click="closeSignatureModal">
         <div class="modal-content" @click.stop>
           <div class="modal-header">
-            <h3>{{ signatureType === 'recipient' ? '수급자/보호자 서명' : '요양보호사 서명' }}</h3>
-            <button class="modal-close-btn" @click="closeSignatureModal">✕</button>
+            <h3>{{ signatureType === "recipient" ? "수급자 서명" : "요양보호사 서명" }}</h3>
+            <button class="modal-close-btn" @click="closeSignatureModal">×</button>
           </div>
           <div class="modal-body">
             <div class="signature-pad">
-              <p class="signature-instruction">아래 영역에 서명해주세요</p>
-              <canvas class="signature-canvas" width="500" height="200"></canvas>
+              <p class="signature-instruction">패드 위에 서명해 주세요.</p>
+              <canvas
+                ref="canvasRef"
+                class="signature-canvas"
+                width="500"
+                height="200"
+                @pointerdown="startDraw"
+                @pointermove="draw"
+                @pointerup="endDraw"
+                @pointerleave="endDraw"
+              ></canvas>
             </div>
           </div>
           <div class="modal-footer">
@@ -218,7 +355,6 @@ const saveSignature = () => {
   padding-bottom: 3rem;
 }
 
-/* 메인 탭 (작성/내역) */
 .main-tabs {
   display: flex;
   gap: 0.5rem;
@@ -256,7 +392,6 @@ const saveSignature = () => {
   font-size: 1.125rem;
 }
 
-/* 작성 내역 섹션 */
 .history-section {
   padding: 0;
 }
@@ -288,7 +423,6 @@ const saveSignature = () => {
   gap: 1.5rem;
 }
 
-/* 방문상담 카드 */
 .counsel-card {
   background: white;
   border: 1px solid #e5e7eb;
@@ -304,7 +438,6 @@ const saveSignature = () => {
   transform: translateY(-2px);
 }
 
-/* 카드 헤더 */
 .card-header {
   display: flex;
   justify-content: space-between;
@@ -365,7 +498,6 @@ const saveSignature = () => {
   color: #16a34a;
 }
 
-/* 상담 정보 그리드 */
 .counsel-info-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -391,7 +523,6 @@ const saveSignature = () => {
   font-weight: 500;
 }
 
-/* 섹션 박스 */
 .section-box {
   background: #f9fafb;
   border-radius: 0.5rem;
@@ -423,7 +554,6 @@ const saveSignature = () => {
   line-height: 1.6;
 }
 
-/* 다음 방문 예정 */
 .next-visit {
   display: flex;
   align-items: center;
@@ -450,7 +580,6 @@ const saveSignature = () => {
   font-weight: 700;
 }
 
-/* 카드 푸터 */
 .card-footer {
   display: flex;
   justify-content: space-between;
@@ -544,7 +673,6 @@ const saveSignature = () => {
   box-shadow: 0 4px 8px rgba(239, 68, 68, 0.3);
 }
 
-/* 전자서명 모달 */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -663,7 +791,38 @@ const saveSignature = () => {
   box-shadow: 0 4px 8px rgba(139, 92, 246, 0.3);
 }
 
-/* 반응형 */
+.edit-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+
+.edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.edit-field span {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: #374151;
+}
+
+.edit-field input,
+.edit-field textarea {
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  padding: 0.65rem 0.75rem;
+  font-size: 0.9375rem;
+  color: #111827;
+  resize: vertical;
+}
+
+.edit-field.full {
+  grid-column: 1 / -1;
+}
+
 @media (max-width: 768px) {
   .main-content {
     padding: 1rem;
@@ -780,6 +939,10 @@ const saveSignature = () => {
   .btn-cancel,
   .btn-save {
     width: 100%;
+  }
+
+  .edit-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

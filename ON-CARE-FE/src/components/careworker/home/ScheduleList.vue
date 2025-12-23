@@ -1,31 +1,74 @@
-<script setup>
+﻿<script setup>
 import { ref, onMounted } from 'vue';
-import { getTodaySchedules } from '@/api/careworker';
-import { startVisit, completeVisit } from '@/api/careworker';
+import { useRouter } from 'vue-router';
+import { getTodaySchedules, startVisit, completeVisit } from '@/api/careworker';
+import BeneficiaryDetailModal from './BeneficiaryDetailModal.vue';
+
+const router = useRouter();
 
 const scheduleItems = ref([]);
 const loading = ref(true);
+const showBeneficiaryModal = ref(false);
+const selectedBeneficiaryId = ref(null);
 
-// 오늘의 일정 로드
+// 오늘 일정 로드
 const loadSchedules = async () => {
   try {
     const response = await getTodaySchedules();
-    scheduleItems.value = (response.data || []).map(schedule => ({
-      id: schedule.vsId,
-      name: schedule.beneficiaryName,
-      grade: schedule.grade,
-      tags: schedule.tags || [],
-      time: `${schedule.startTime} - ${schedule.endTime}`,
-      service: schedule.serviceType,
-      address: schedule.address,
-      status: getStatusText(schedule.status),
-      statusColor: getStatusColor(schedule.status),
-      showAttendance: schedule.status === 'SCHEDULED',
-      buttons: getButtons(schedule.status),
-      originalStatus: schedule.status
-    }));
+    console.log('일정 응답 데이터:', response);
+    console.log('response.data 타입:', typeof response.data, Array.isArray(response.data));
+
+    const dataArray = response.data || [];
+    console.log('데이터 배열 길이:', dataArray.length);
+
+    scheduleItems.value = dataArray.map(schedule => {
+      console.log('개별 일정 데이터:', schedule);
+      console.log('schedule의 모든 키:', Object.keys(schedule));
+      console.log('schedule 전체 구조:', JSON.stringify(schedule, null, 2));
+
+      const scheduleId = schedule.vsId || schedule.scheduleId || schedule.id;
+
+      // beneficiaryId 추출 시도 (여러 가능 필드 확인)
+      let beneficiaryId = schedule.beneficiaryId
+        || schedule.recipientId
+        || schedule.beneficiary_id
+        || schedule.beneficiary?.id
+        || schedule.recipient?.id;
+
+      // beneficiaryId가 없으면 scheduleId 사용 (임시)
+      // TODO: 백엔드에서도 beneficiaryId를 전달해주도록 요청
+      if (!beneficiaryId) {
+        console.warn('beneficiaryId를 찾을 수 없어 scheduleId를 사용합니다.');
+        beneficiaryId = scheduleId;
+      }
+
+      console.log('추출된 scheduleId:', scheduleId);
+      console.log('추출된 beneficiaryId:', beneficiaryId);
+
+      return {
+        id: scheduleId,
+        beneficiaryId: beneficiaryId,
+        name: schedule.beneficiaryName || schedule.recipientName || '이름 없음',
+        grade: schedule.grade || '등급 정보 없음',
+        tags: schedule.tags || [],
+        time: `${schedule.startTime || schedule.visitTime?.split(' - ')[0] || '시작시간 미정'} - ${schedule.endTime || schedule.visitTime?.split(' - ')[1] || '종료시간 미정'}`,
+        service: schedule.serviceType || '서비스 정보 없음',
+        address: schedule.address || '주소 정보 없음',
+        status: getStatusText(schedule.status),
+        statusColor: getStatusColor(schedule.status),
+        showAttendance: schedule.status === 'SCHEDULED',
+        buttons: getButtons(schedule.status, schedule.reportId),
+        originalStatus: schedule.status,
+        actualStartTime: schedule.actualStartTime,
+        actualEndTime: schedule.actualEndTime,
+        reportId: schedule.reportId
+      };
+    });
+
+    console.log('최종 scheduleItems:', scheduleItems.value);
+    console.log('scheduleItems 길이:', scheduleItems.value.length);
   } catch (error) {
-    console.error('오늘의 일정 로드 실패:', error);
+    console.error('오늘의 일정 불러오기 실패:', error);
   } finally {
     loading.value = false;
   }
@@ -53,28 +96,69 @@ const getStatusColor = (status) => {
   return colorMap[status] || 'gray';
 };
 
-// 버튼 구성
-const getButtons = (status) => {
+// 버튼 구성 - 상태에 따라 버튼만 표시
+const getButtons = (status, reportId) => {
   if (status === 'SCHEDULED') {
     return [
-      { text: '서비스 시작', type: 'primary', color: 'green', action: 'start' },
-      { text: '상세보기', type: 'secondary', action: 'detail' }
+      { text: '서비스 시작', type: 'primary', color: 'green', action: 'start' }
     ];
   } else if (status === 'IN_PROGRESS') {
     return [
       { text: '서비스 완료', type: 'primary', color: 'blue', action: 'finish' }
     ];
   } else if (status === 'DONE') {
-    return [
-      { text: '활동일지 보기', type: 'secondary', action: 'viewLog' }
-    ];
+    // 요양일지가 작성되었으면 확인으로 변경
+    if (reportId) {
+      return [
+        { text: '요양일지 확인', type: 'primary', color: 'orange', action: 'viewLog' }
+      ];
+    } else {
+      return [
+        { text: '요양일지 작성', type: 'primary', color: 'purple', action: 'writeLog' }
+      ];
+    }
   }
   return [];
+};
+
+// 시간 포맷 함수
+const formatTime = (timeString) => {
+  if (!timeString) return '';
+  const date = new Date(timeString);
+  return date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false });
+};
+
+// 수급자 상세 정보 보기
+const showBeneficiaryDetail = (item) => {
+  console.log('수급자 상세 보기 클릭:', item);
+  console.log('beneficiaryId:', item.beneficiaryId);
+
+  if (!item.beneficiaryId) {
+    console.error('beneficiaryId가 없습니다. item:', item);
+    alert('수급자 정보를 찾을 수 없습니다.');
+    return;
+  }
+  selectedBeneficiaryId.value = item.beneficiaryId;
+  showBeneficiaryModal.value = true;
+  console.log('모달 오픈 - beneficiaryId:', selectedBeneficiaryId.value);
+};
+
+// 모달 닫기
+const closeBeneficiaryModal = () => {
+  showBeneficiaryModal.value = false;
+  selectedBeneficiaryId.value = null;
 };
 
 // 액션 처리
 const handleAction = async (action, item) => {
   try {
+    // vsId가 없으면 에러 메시지 표시
+    if (!item.id) {
+      console.error('일정 ID가 없습니다:', item);
+      alert('일정 정보를 불러올 수 없습니다.');
+      return;
+    }
+
     if (action === 'start') {
       await startVisit(item.id, {
         actualStartTime: new Date().toISOString()
@@ -87,11 +171,17 @@ const handleAction = async (action, item) => {
       await loadSchedules();
     } else if (action === 'detail') {
       console.log('상세보기:', item.name);
+    } else if (action === 'writeLog') {
+      // 돌봄일지 작성 페이지로 이동
+      router.push({ name: 'activity-care' });
     } else if (action === 'viewLog') {
-      console.log('활동일지 보기:', item.name);
+      // 돌봄일지 확인 페이지로 이동
+      console.log('요양일지 확인:', item.reportId);
+      // 예시: router.push({ name: 'ActivityLogView', params: { reportId: item.reportId } });
     }
   } catch (error) {
     console.error('액션 처리 실패:', error);
+    alert(`작업 실패: ${error.message || '알 수 없는 오류'}`);
   }
 };
 
@@ -102,26 +192,27 @@ onMounted(() => {
 
 <template>
   <section class="schedule-section">
-    <h2 class="section-title">📅 오늘의 일정</h2>
+    <div class="header-row">
+      <h2 class="section-title">📅 오늘의 일정</h2>
+    </div>
 
     <div v-if="loading" class="empty-state">
-      일정을 불러오는 중...
+      일정을 불러오는 중..
     </div>
     <div v-else-if="scheduleItems.length === 0" class="empty-state">
       오늘 예정된 일정이 없습니다.
     </div>
     <div v-else class="schedule-grid">
       <div v-for="item in scheduleItems" :key="item.id" class="schedule-card">
-        <div class="card-header">
-          <div class="user-profile">
-            <div class="avatar-placeholder">{{ item.name.charAt(0) }}</div>
+        <div class="card-header" @click="showBeneficiaryDetail(item)">
+          <div class="user-profile clickable">
+            <div class="avatar-placeholder">{{ item.name?.charAt(0) || '?' }}</div>
             <div>
               <h3 class="user-name">{{ item.name }}</h3>
               <p class="user-grade">{{ item.grade }}</p>
             </div>
           </div>
           <div class="status-wrapper">
-            <button class="call-btn">📞</button>
             <span :class="['status-badge', item.statusColor]">{{ item.status }}</span>
           </div>
         </div>
@@ -137,6 +228,14 @@ onMounted(() => {
             <span class="info-icon">🕒</span>
             <span class="info-text">{{ item.time }}</span>
           </div>
+          <div v-if="item.actualStartTime" class="info-item time-badge">
+            <span class="info-icon">⏱</span>
+            <span class="info-text">시작: {{ formatTime(item.actualStartTime) }}</span>
+          </div>
+          <div v-if="item.actualEndTime" class="info-item time-badge">
+            <span class="info-icon">🏁</span>
+            <span class="info-text">종료: {{ formatTime(item.actualEndTime) }}</span>
+          </div>
           <div class="info-item">
             <span class="info-icon">📋</span>
             <span class="info-text">{{ item.service }}</span>
@@ -145,11 +244,6 @@ onMounted(() => {
             <span class="info-icon">📍</span>
             <span class="info-text address">{{ item.address }}</span>
           </div>
-        </div>
-
-        <div v-if="item.showAttendance" class="attendance-btns">
-          <button class="att-btn check-in">출근하기</button>
-          <button class="att-btn check-out">퇴근하기</button>
         </div>
 
         <div class="action-buttons">
@@ -161,27 +255,54 @@ onMounted(() => {
         </div>
       </div>
     </div>
+
+    <!-- 수급자 상세 정보 모달 -->
+    <BeneficiaryDetailModal
+      :isOpen="showBeneficiaryModal"
+      :beneficiaryId="selectedBeneficiaryId"
+      @close="closeBeneficiaryModal"
+    />
   </section>
 </template>
 
 <style scoped>
-.schedule-section { margin-top: 1.5rem; }
-.section-title { font-size: 1.125rem; font-weight: 800; color: #1f2937; margin-bottom: 1rem; }
+.schedule-section {
+  background-color: white;
+  padding: 1.5rem;
+  border-radius: 24px;
+  border: 1px solid #d7f3dd;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05);
+  margin-top: 1.5rem;
+}
+
+.header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.25rem;
+}
+
+.section-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #388e3c;
+  margin: 0;
+}
 
 .schedule-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr); /* 2x2 그리드로 고정 */
+  grid-template-columns: repeat(2, 1fr);
   grid-template-rows: repeat(2, 1fr);
   gap: 1rem;
-  max-height: 600px; /* 그리드 최대 높이 */
+  max-height: 600px;
 }
 
-/* 최대 4개 항목만 표시 */
+/* Limit desktop view to first 4 cards */
 .schedule-card:nth-child(n+5) {
   display: none;
 }
 
-/* 반응형: 모바일에서는 1열로 */
+/* Responsive: single column on mobile */
 @media (max-width: 768px) {
   .schedule-grid {
     grid-template-columns: 1fr;
@@ -189,7 +310,7 @@ onMounted(() => {
   }
 
   .schedule-card:nth-child(n+5) {
-    display: flex; /* 모바일에서는 모든 항목 표시 */
+    display: flex;
   }
 }
 
@@ -200,8 +321,30 @@ onMounted(() => {
 }
 
 /* Header */
-.card-header { display: flex; justify-content: space-between; align-items: center; }
-.user-profile { display: flex; align-items: center; gap: 0.75rem; }
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  padding: 0.5rem;
+  margin: -0.5rem;
+  border-radius: 0.5rem;
+}
+
+.card-header:hover {
+  background-color: #f3f4f6;
+}
+
+.user-profile {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.user-profile.clickable {
+  flex: 1;
+}
 .avatar-placeholder { 
   width: 2.5rem; height: 2.5rem; background-color: #e5e7eb; border-radius: 50%; 
   display: flex; align-items: center; justify-content: center; font-weight: 700; color: #6b7280;
@@ -211,11 +354,6 @@ onMounted(() => {
 .user-grade { font-size: 0.75rem; color: #6b7280; margin: 0; }
 
 .status-wrapper { display: flex; align-items: center; gap: 0.5rem; }
-.call-btn { 
-  background-color: #f3f4f6; border: none; padding: 0.4rem; border-radius: 50%; 
-  cursor: pointer; font-size: 0.875rem;
-}
-.call-btn:hover { background-color: #e5e7eb; }
 
 .status-badge { padding: 0.25rem 0.6rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 700; }
 .status-badge.green { background-color: #dcfce7; color: #16a34a; }
@@ -233,25 +371,71 @@ onMounted(() => {
 .info-text.address { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* Buttons */
-.attendance-btns { display: flex; gap: 0.5rem; }
-.att-btn {
-  flex: 1; padding: 0.6rem; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 700;
-  border: none; cursor: pointer; transition: background 0.2s;
+.action-buttons {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: auto;
 }
-.check-in { background-color: #dcfce7; color: #16a34a; }
-.check-in:hover { background-color: #bbf7d0; }
-.check-out { background-color: #f3f4f6; color: #4b5563; }
-.check-out:hover { background-color: #e5e7eb; }
 
-.action-buttons { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: auto; }
 .main-btn {
-  flex: 1; padding: 0.75rem; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 700;
-  border: none; cursor: pointer; text-align: center; white-space: nowrap;
+  width: 100%;
+  padding: 0.875rem;
+  border-radius: 0.75rem;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  text-align: center;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
-.main-btn.secondary { background-color: white; border: 1px solid #e5e7eb; color: #4b5563; }
-.main-btn.secondary:hover { background-color: #f9fafb; border-color: #d1d5db; }
-.main-btn.primary.green { background-color: #22c55e; color: white; }
-.main-btn.primary.green:hover { background-color: #16a34a; }
-.main-btn.primary.blue { background-color: #3b82f6; color: white; }
-.main-btn.primary.blue:hover { background-color: #2563eb; }
+.main-btn.primary.green {
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  color: white;
+}
+.main-btn.primary.green:hover {
+  background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.4);
+}
+
+.main-btn.primary.blue {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+}
+.main-btn.primary.blue:hover {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+}
+
+.main-btn.primary.purple {
+  background: linear-gradient(135deg, #a855f7 0%, #9333ea 100%);
+  color: white;
+}
+.main-btn.primary.purple:hover {
+  background: linear-gradient(135deg, #9333ea 0%, #7e22ce 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(168, 85, 247, 0.4);
+}
+
+.main-btn.primary.orange {
+  background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+  color: white;
+}
+.main-btn.primary.orange:hover {
+  background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(249, 115, 22, 0.4);
+}
+
+/* Time badge styling */
+.info-item.time-badge {
+  background-color: #f0fdf4;
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  color: #15803d;
+}
 </style>

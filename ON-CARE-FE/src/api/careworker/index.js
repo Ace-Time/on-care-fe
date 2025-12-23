@@ -24,6 +24,7 @@ export {
   getBeneficiaryDetail,
   getTodoDetail,
   getCareLogBySchedule,
+  getMyBeneficiaries,
 } from './dashboardApi';
 
 // Schedule API

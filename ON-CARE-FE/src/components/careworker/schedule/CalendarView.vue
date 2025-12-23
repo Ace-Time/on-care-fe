@@ -1,34 +1,47 @@
 <!-- components/schedule/CalendarView.vue -->
 
 <script setup>
-import { ref, defineEmits } from 'vue';
+import { ref, defineEmits, defineProps, computed } from 'vue';
 import { scheduleList } from '@/mock/careworker/scheduleData';
 
-// 부모에게 보낼 이벤트 정의 (일정 선택, 뷰 모드 변경)
-const emit = defineEmits(['select-schedule', 'view-change']);
+// 부모에 전달할 이벤트 (일정 선택, 모드 변경, 일정 등록)
+const emit = defineEmits(['select-schedule', 'view-change', 'add-schedule']);
 
-const currentView = ref('day'); // 현재 뷰 상태 (사실상 'day'로 고정됨, 버튼 클릭 시 부모가 뷰를 교체)
-const currentDate = ref('2025년 12월 11일 목');
-const timeSlots = Array.from({ length: 12 }, (_, i) => i + 7); // 7시 ~ 18시
+const props = defineProps({
+  schedules: {
+    type: Array,
+    default: () => [],
+  },
+});
 
-// 일정 클릭 시 상세 정보창 열기
+const currentView = ref('day'); // 현재 뷰 타입 (일간)
+const currentDate = ref('2025-12-11');
+const timeSlots = Array.from({ length: 12 }, (_, i) => i + 7); // 7시~18시
+
+const scheduleData = computed(() => (props.schedules?.length ? props.schedules : scheduleList));
+
+// 일정 클릭 시 부모로 전달
 const handleSelect = (schedule) => {
   emit('select-schedule', schedule);
 };
 
-// 뷰 변경 버튼 클릭 시 부모에게 알림 (week, month 등으로 변경 요청)
+// 뷰 전환
 const changeView = (viewType) => {
   emit('view-change', viewType);
 };
 
-// 시간 문자열(10:00)을 그리드 위치(top, height)로 변환하는 함수
+// 일정 등록 버튼
+const openAdd = () => {
+  emit('add-schedule', { date: currentDate.value });
+};
+
+// 위치 계산 (start~end)
 const getPositionStyle = (start, end) => {
   const startHour = parseInt(start.split(':')[0]);
   const startMin = parseInt(start.split(':')[1]);
   const endHour = parseInt(end.split(':')[0]);
   const endMin = parseInt(end.split(':')[1]);
 
-  // 7시가 시작점(0), 1시간당 60px 높이
   const top = ((startHour - 7) * 60) + startMin;
   const height = ((endHour - startHour) * 60) + (endMin - startMin);
   
@@ -56,7 +69,7 @@ const getPositionStyle = (start, end) => {
 
       <div class="right-actions">
         <button class="today-btn">오늘</button>
-        <button class="add-btn">+ 일정등록</button>
+        <button class="add-btn" @click="openAdd">+ 일정등록</button>
       </div>
     </div>
 
@@ -72,15 +85,15 @@ const getPositionStyle = (start, end) => {
           <div v-for="hour in timeSlots" :key="hour" class="grid-line"></div>
         </div>
 
-        <div v-for="item in scheduleList" :key="item.id" 
+        <div v-for="item in scheduleData" :key="item.id" 
              class="schedule-block"
              :style="getPositionStyle(item.startTime, item.endTime)"
              @click="handleSelect(item)">
           <div class="block-content">
-            <div class="block-time">🕒 {{ item.startTime }} - {{ item.endTime }}</div>
+            <div class="block-time">시간 {{ item.startTime }} - {{ item.endTime }}</div>
             <div class="block-title">{{ item.recipient }}</div>
-            <div class="block-sub">{{ item.serviceType }}</div>
-            <div class="block-loc">📍 {{ item.address.split(' ')[1] }}</div>
+            <div class="block-sub">{{ item.serviceType || item.serviceLabel }}</div>
+            <div class="block-loc">📍 {{ item.address?.split(' ')[1] || '' }}</div>
           </div>
         </div>
       </div>
@@ -99,7 +112,7 @@ const getPositionStyle = (start, end) => {
   flex-direction: column;
 }
 
-/* 컨트롤 바 */
+/* 컨트롤바 */
 .calendar-controls {
   display: flex;
   justify-content: space-between;
@@ -128,7 +141,7 @@ const getPositionStyle = (start, end) => {
 .today-btn { padding: 0.5rem 1rem; border: 1px solid #e5e7eb; border-radius: 0.5rem; background: #f9fafb; cursor: pointer; font-weight: 600; color: #4b5563; }
 .add-btn { padding: 0.5rem 1rem; background-color: #4ade80; color: white; border: none; border-radius: 0.5rem; font-weight: 700; cursor: pointer; }
 
-/* 캘린더 바디 (스크롤 가능 영역) */
+/* 타임라인 바디 */
 .day-view-body { display: flex; flex: 1; overflow-y: auto; min-height: 600px; border-top: 1px solid #f3f4f6; }
 .time-axis { width: 60px; border-right: 1px solid #f3f4f6; background-color: #fff; }
 .time-slot { height: 60px; font-size: 0.75rem; color: #9ca3af; text-align: right; padding-right: 10px; transform: translateY(-8px); }
@@ -141,7 +154,7 @@ const getPositionStyle = (start, end) => {
   position: absolute;
   left: 0;
   width: 95%;
-  background-color: #fef9c3; /* 연한 노랑 */
+  background-color: #fef9c3; /* 밝은 노랑 */
   border-left: 4px solid #eab308; /* 진한 노랑 */
   border-radius: 4px;
   padding: 0.5rem;

@@ -34,9 +34,9 @@ import QuickMenu from '@/components/careworker/home/QuickMenu.vue';
 
 .main-content {
   flex: 1;
-  max-width: 1200px;
-  margin: 0 auto;
   width: 100%;
+  max-width: 1200px; /* 수급자 관리/업무관리 레이아웃과 동일 폭 */
+  margin: 0 auto;
   padding: 1.5rem;
   padding-bottom: 5rem; /* 하단 퀵메뉴 공간 확보 (사용 시) */
 }

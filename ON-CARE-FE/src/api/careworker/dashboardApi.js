@@ -51,3 +51,9 @@ export const getCareLogBySchedule = async (vsId) => {
   const res = await api.get(`/api/dashboard/schedule/${vsId}/carelog`);
   return res.data;
 };
+
+// 8. 내 담당 수급자 목록 조회
+export const getMyBeneficiaries = async () => {
+  const res = await api.get('/api/dashboard/my-beneficiaries');
+  return res.data;
+};

@@ -6,7 +6,7 @@ import { getDashboardSummary } from '@/api/careworker';
 const summaryStats = ref([
   { label: '오늘 일정', value: '0건', colorClass: 'green-border' },
   { label: '담당 수급자', value: '0명', colorClass: 'blue-border' },
-  { label: '주간 근무시간', value: '0h', colorClass: 'purple-border' },
+  { label: '월간 근무시간', value: '0h', colorClass: 'purple-border' },
 ]);
 
 onMounted(async () => {
@@ -14,6 +14,15 @@ onMounted(async () => {
     const response = await getDashboardSummary();
     // 백엔드 ApiResponse<{data}> 형태와 순수 데이터 반환을 모두 대응
     const data = response?.data?.data ?? response?.data ?? response;
+
+    console.log('📊 백엔드 응답 전체:', response);
+    console.log('📊 파싱된 data:', data);
+    console.log('📊 근무시간 필드들:', {
+      weeklyWorkHours: data?.weeklyWorkHours,
+      monthlyWorkHours: data?.monthlyWorkHours,
+      workHours: data?.workHours,
+      allKeys: Object.keys(data || {})
+    });
 
     summaryStats.value = [
       {
@@ -27,8 +36,8 @@ onMounted(async () => {
         colorClass: 'blue-border',
       },
       {
-        label: '주간 근무시간',
-        value: `${data?.weeklyWorkHours ?? 0}h`,
+        label: '월간 근무시간',
+        value: `${data?.weeklyWorkHours ?? data?.monthlyWorkHours ?? data?.workHours ?? 0}h`,
         colorClass: 'purple-border',
       },
     ];

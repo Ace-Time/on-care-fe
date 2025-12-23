@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import { ref } from 'vue';
 import CareLogForm from '@/components/careworker/activity/CareLogForm.vue';
 import { careLogHistoryMock } from '@/mock/careworker/activityHistory';
@@ -7,12 +7,92 @@ import { careLogHistoryMock } from '@/mock/careworker/activityHistory';
 const activeTab = ref('write');
 
 const subTabs = [
-  { key: 'write', label: '작성하기', icon: '📝' },
+   { key: 'write', label: '작성하기', icon: '📝' },
   { key: 'history', label: '작성 내역', icon: '📋' }
 ];
 
 // 임시 내역 데이터 (Mock에서 가져옴)
 const careLogHistory = ref([...careLogHistoryMock]);
+const showDetailModal = ref(false);
+const isEditMode = ref(false);
+const selectedLog = ref(null);
+const editForm = ref(null);
+
+const openDetail = (item) => {
+  selectedLog.value = { ...item };
+  editForm.value = null;
+  isEditMode.value = false;
+  showDetailModal.value = true;
+};
+
+const openEdit = (item) => {
+  const base = item || selectedLog.value;
+  if (!base) return;
+
+  selectedLog.value = { ...base };
+  editForm.value = {
+    ...base,
+    services: Array.isArray(base.services) ? base.services.join(', ') : base.services || '',
+  };
+  isEditMode.value = true;
+  showDetailModal.value = true;
+};
+
+const closeModal = () => {
+  showDetailModal.value = false;
+  isEditMode.value = false;
+  editForm.value = null;
+};
+
+const saveEdit = () => {
+  if (!editForm.value) return;
+
+  const parsedServices = typeof editForm.value.services === 'string'
+    ? editForm.value.services.split(',').map((s) => s.trim()).filter(Boolean)
+    : Array.isArray(editForm.value.services)
+      ? editForm.value.services
+      : [];
+
+  const updated = {
+    ...selectedLog.value,
+    ...editForm.value,
+    services: parsedServices,
+  };
+
+  const targetIndex = careLogHistory.value.findIndex((log) => log.id === updated.id);
+  if (targetIndex === -1) {
+    alert('수정할 활동일지를 찾지 못했습니다.');
+    return;
+  }
+
+  careLogHistory.value.splice(targetIndex, 1, updated);
+  selectedLog.value = { ...updated };
+  isEditMode.value = false;
+  editForm.value = null;
+  alert('활동일지가 수정되었습니다.');
+};
+
+const deleteLog = (id) => {
+  const targetId = id ?? selectedLog.value?.id;
+  if (!targetId) return;
+
+  const confirmed = confirm('이 활동일지를 삭제하시겠습니까?');
+  if (!confirmed) return;
+
+  careLogHistory.value = careLogHistory.value.filter((log) => log.id !== targetId);
+  if (selectedLog.value?.id === targetId) {
+    closeModal();
+    selectedLog.value = null;
+  }
+  alert('삭제되었습니다.');
+};
+const statusClass = (status) => {
+  const normalized = (status || '').toString().toLowerCase();
+  const approvedKeywords = ['approved', 'done', 'complete', 'success'];
+  return approvedKeywords.some((keyword) => normalized.includes(keyword.toLowerCase()))
+    ? 'approved'
+    : 'resubmit';
+};
 </script>
 
 <template>
@@ -56,7 +136,7 @@ const careLogHistory = ref([...careLogHistoryMock]);
                     </p>
                   </div>
                 </div>
-                <span class="status-badge" :class="item.status === '승인됨' ? 'approved' : 'resubmit'">
+                <span class="status-badge" :class="statusClass(item.status)">
                   {{ item.status }}
                 </span>
               </div>
@@ -80,7 +160,7 @@ const careLogHistory = ref([...careLogHistoryMock]);
                 </span>
               </div>
 
-              <!-- 특이사항 -->
+               <!-- 특이사항 -->
               <div class="card-notes">
                 <div class="notes-header">
                   <span class="notes-icon">⚠️</span>
@@ -91,15 +171,138 @@ const careLogHistory = ref([...careLogHistoryMock]);
 
               <!-- 액션 버튼 -->
               <div class="card-actions">
-                <button class="btn-detail">📄 상세보기</button>
-                <button class="btn-edit">✏️ 수정</button>
-                <button class="btn-delete">🗑️ 삭제</button>
+                <button class="btn-detail" @click="openDetail(item)">📄 상세보기</button>
+                <button class="btn-edit" @click="openEdit(item)">✏️ 수정</button>
+                <button class="btn-delete" @click="deleteLog(item.id)">🗑️ 삭제</button>
               </div>
             </div>
           </div>
         </div>
       </div>
     </main>
+
+    <div
+      v-if="showDetailModal && selectedLog"
+      class="log-modal-overlay"
+      @click.self="closeModal"
+    >
+      <div class="log-modal-card">
+        <div class="log-modal-header">
+          <div>
+            <p class="log-modal-subtitle">활동일지</p>
+            <h3 class="log-modal-title">
+              {{ isEditMode ? '활동일지 수정' : '활동일지 상세보기' }}
+            </h3>
+          </div>
+          <button class="log-close-btn" @click="closeModal">×</button>
+        </div>
+
+        <div class="log-modal-body">
+          <template v-if="!isEditMode">
+            <div class="detail-grid">
+              <div class="detail-row">
+                <span class="detail-label">수급자</span>
+                <span class="detail-value">{{ selectedLog.recipientName }}</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">일자</span>
+                <span class="detail-value">
+                  {{ selectedLog.date }}
+                  <span v-if="selectedLog.dayOfWeek">({{ selectedLog.dayOfWeek }})</span>
+                </span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">시간</span>
+                <span class="detail-value">{{ selectedLog.time }}</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">주소</span>
+                <span class="detail-value">{{ selectedLog.address }}</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">제공 서비스</span>
+                <div class="service-chips">
+                  <span
+                    v-for="(service, idx) in selectedLog.services || []"
+                    :key="idx"
+                    class="service-chip"
+                  >
+                    {{ service }}
+                  </span>
+                  <span
+                    v-if="!selectedLog.services || !selectedLog.services.length"
+                    class="detail-value"
+                  >
+                    등록된 서비스가 없습니다.
+                  </span>
+                </div>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">특이사항</span>
+                <p class="detail-value multiline">{{ selectedLog.specialNotes || '기록 없음' }}</p>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">상태</span>
+                <span class="status-pill">{{ selectedLog.status || '미정' }}</span>
+              </div>
+            </div>
+          </template>
+
+          <template v-else-if="editForm">
+            <div class="edit-form-grid">
+              <label class="edit-field">
+                <span class="edit-label">수급자</span>
+                <input v-model="editForm.recipientName" type="text" />
+              </label>
+              <label class="edit-field">
+                <span class="edit-label">일자</span>
+                <input v-model="editForm.date" type="date" />
+              </label>
+              <label class="edit-field">
+                <span class="edit-label">요일</span>
+                <input v-model="editForm.dayOfWeek" type="text" placeholder="월/화/수 등" />
+              </label>
+              <label class="edit-field">
+                <span class="edit-label">시간</span>
+                <input v-model="editForm.time" type="text" placeholder="09:00 - 12:00" />
+              </label>
+              <label class="edit-field full">
+                <span class="edit-label">주소</span>
+                <input v-model="editForm.address" type="text" />
+              </label>
+              <label class="edit-field full">
+                <span class="edit-label">제공 서비스</span>
+                <input
+                  v-model="editForm.services"
+                  type="text"
+                  placeholder="서비스를 쉼표(,)로 구분해 입력하세요"
+                />
+                <small class="input-hint">예시: 목욕, 청소, 식사보조</small>
+              </label>
+              <label class="edit-field full">
+                <span class="edit-label">특이사항</span>
+                <textarea v-model="editForm.specialNotes" rows="4"></textarea>
+              </label>
+              <label class="edit-field">
+                <span class="edit-label">상태</span>
+                <input v-model="editForm.status" type="text" />
+              </label>
+            </div>
+          </template>
+        </div>
+
+        <div class="log-modal-footer">
+          <button class="btn-secondary" @click="closeModal">닫기</button>
+          <template v-if="!isEditMode">
+            <button class="btn-secondary" @click="openEdit(selectedLog)">수정</button>
+            <button class="btn-danger" @click="deleteLog(selectedLog.id)">삭제</button>
+          </template>
+          <template v-else>
+            <button class="btn-primary" @click="saveEdit">변경사항 저장</button>
+          </template>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -113,9 +316,9 @@ const careLogHistory = ref([...careLogHistoryMock]);
 
 .main-content {
   flex: 1;
-  max-width: 1200px;
-  margin: 0 auto;
   width: 100%;
+  max-width: 1200px; /* 수급자 관리/업무관리와 동일 폭 */
+  margin: 0 auto;
   padding: 1.5rem;
   padding-bottom: 3rem;
 }
@@ -191,8 +394,8 @@ const careLogHistory = ref([...careLogHistoryMock]);
 }
 
 .history-list {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
   gap: 1rem;
 }
 
@@ -301,7 +504,6 @@ const careLogHistory = ref([...careLogHistoryMock]);
   color: #4b5563;
 }
 
-/* 서비스 태그 */
 .card-services {
   display: flex;
   flex-wrap: wrap;
@@ -309,6 +511,7 @@ const careLogHistory = ref([...careLogHistoryMock]);
   margin-bottom: 1rem;
 }
 
+/* 서비스 태그 */
 .service-tag {
   padding: 0.375rem 0.75rem;
   background: #f0fdf4;
@@ -405,7 +608,225 @@ const careLogHistory = ref([...careLogHistoryMock]);
   box-shadow: 0 4px 8px rgba(239, 68, 68, 0.3);
 }
 
-/* 반응형 */
+.log-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  z-index: 2000;
+}
+
+.log-modal-card {
+  width: min(960px, 100%);
+  background: white;
+  border-radius: 0.75rem;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.18);
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+}
+
+.log-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+}
+
+.log-modal-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #166534;
+}
+
+.log-modal-subtitle {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #16a34a;
+  font-weight: 700;
+}
+
+.log-close-btn {
+  border: none;
+  background: white;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  font-size: 1.25rem;
+  color: #6b7280;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.log-close-btn:hover {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.log-modal-body {
+  padding: 1.5rem;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+
+.detail-row {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.detail-label {
+  font-size: 0.8125rem;
+  color: #6b7280;
+  font-weight: 700;
+}
+
+.detail-value {
+  font-size: 0.95rem;
+  color: #111827;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.detail-value.multiline {
+  white-space: pre-wrap;
+}
+
+.service-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.service-chip {
+  background: #dcfce7;
+  border: 1px solid #bbf7d0;
+  color: #15803d;
+  padding: 0.35rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.35rem 0.75rem;
+  background: #eff6ff;
+  color: #2563eb;
+  border-radius: 999px;
+  font-weight: 700;
+  width: fit-content;
+}
+
+.edit-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+
+.edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  padding: 0.9rem;
+}
+
+.edit-field.full {
+  grid-column: 1 / -1;
+}
+
+.edit-label {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: #374151;
+}
+
+.edit-field input,
+.edit-field textarea {
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  padding: 0.65rem 0.75rem;
+  font-size: 0.9375rem;
+}
+
+.edit-field textarea {
+  resize: vertical;
+}
+
+.input-hint {
+  color: #6b7280;
+  font-size: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.log-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding: 1rem 1.25rem 1.25rem;
+  border-top: 1px solid #e5e7eb;
+  background: #f9fafb;
+}
+
+.btn-primary,
+.btn-secondary,
+.btn-danger {
+  padding: 0.75rem 1.25rem;
+  border-radius: 0.65rem;
+  font-weight: 700;
+  font-size: 0.9375rem;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  color: white;
+}
+
+.btn-primary:hover {
+  background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+}
+
+.btn-secondary {
+  background: white;
+  color: #374151;
+  border: 1px solid #d1d5db;
+}
+
+.btn-secondary:hover {
+  background: #f3f4f6;
+}
+
+.btn-danger {
+  background: #ef4444;
+  color: white;
+}
+
+.btn-danger:hover {
+  background: #dc2626;
+}
+
 @media (max-width: 768px) {
   .main-content {
     padding: 1rem;
@@ -482,5 +903,16 @@ const careLogHistory = ref([...careLogHistoryMock]);
     width: 100%;
     justify-content: center;
   }
+
+  .detail-grid,
+  .edit-form-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>
+
+
+
+
+
+
