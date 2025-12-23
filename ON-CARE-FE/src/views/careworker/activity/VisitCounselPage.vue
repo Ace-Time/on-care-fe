@@ -339,21 +339,28 @@ onMounted(resetCanvas);
 </template>
 
 <style scoped>
+/* 페이지 전체 컨테이너: 부모 크기에 맞춤 (투명, 100%) */
 .visit-counsel-page {
-  background-color: #f8fafc;
-  min-height: 100vh;
+  background-color: transparent; /* 변경 */
+  width: 100%; /* 변경 */
+  height: 100%; /* 변경 */
   display: flex;
   flex-direction: column;
 }
 
+/* 메인 컨텐츠 영역: 제한 해제 및 여백 제거 */
 .main-content {
   flex: 1;
-  max-width: 1200px;
-  margin: 0 auto;
   width: 100%;
-  padding: 1.5rem;
+  max-width: none; /* 변경 */
+  margin: 0; /* 변경 */
+  padding: 0; /* 변경 */
   padding-bottom: 3rem;
 }
+
+/* -------------------------------------------
+   아래는 기존 디자인 유지
+   ------------------------------------------- */
 
 .main-tabs {
   display: flex;

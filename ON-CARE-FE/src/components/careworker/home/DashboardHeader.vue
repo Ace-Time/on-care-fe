@@ -33,28 +33,16 @@ const handleLogout = () => {
 <template>
   <header class="dashboard-header">
     <div class="user-info-container">
-      <div class="user-avatar">
-        <span class="avatar-icon">👤</span>
-      </div>
       <div class="user-info">
-        <h1 class="user-name">안녕하세요, {{ userName }} {{ userRole }}님</h1>
+        <h1 class="user-name">
+          <span class="greeting-text">안녕하세요, </span>
+          <span class="name-text">{{ userName }}</span>
+          <span class="greeting-text"> {{ userRole }}님</span>
+        </h1>
         <p class="date">{{ currentDate }}</p>
       </div>
     </div>
 
-    <div class="header-actions">
-      <div class="notification-badge">
-        <span class="bell-icon">🔔</span>
-        <div class="noti-text">
-          <span class="noti-name">{{ userName }} {{ userRole }}</span>
-          <span class="noti-email">{{ userEmail }}</span>
-        </div>
-        <div class="profile-circle">{{ nameInitial }}</div>
-      </div>
-      <button class="logout-btn" @click="handleLogout">
-        <span class="logout-icon">↪</span> 로그아웃
-      </button>
-    </div>
   </header>
 </template>
 
@@ -95,15 +83,22 @@ const handleLogout = () => {
 }
 
 .user-name {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: #1f2937;
+  font-size: 30px;
+  font-weight: 600;
   margin: 0;
 }
 
+.greeting-text {
+  color: #000000;
+}
+
+.name-text {
+  color: #1a5928;
+}
+
 .date {
-  font-size: 0.875rem;
-  color: #6b7280;
+  font-size: 14px;
+  color: #4a5565;
   margin: 0.25rem 0 0 0;
 }
 

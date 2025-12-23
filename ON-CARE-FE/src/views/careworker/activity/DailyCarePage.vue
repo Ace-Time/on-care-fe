@@ -7,7 +7,7 @@ import { careLogHistoryMock } from '@/mock/careworker/activityHistory';
 const activeTab = ref('write');
 
 const subTabs = [
-   { key: 'write', label: '작성하기', icon: '📝' },
+  { key: 'write', label: '작성하기', icon: '📝' },
   { key: 'history', label: '작성 내역', icon: '📋' }
 ];
 
@@ -125,7 +125,6 @@ const statusClass = (status) => {
 
           <div class="history-list">
             <div v-for="item in careLogHistory" :key="item.id" class="care-log-card">
-              <!-- 카드 헤더 -->
               <div class="card-header">
                 <div class="recipient-info">
                   <div class="avatar-circle">👤</div>
@@ -141,7 +140,6 @@ const statusClass = (status) => {
                 </span>
               </div>
 
-              <!-- 시간 및 주소 -->
               <div class="card-time-location">
                 <div class="info-item">
                   <span class="info-icon">🕐</span>
@@ -153,15 +151,13 @@ const statusClass = (status) => {
                 </div>
               </div>
 
-              <!-- 서비스 태그 -->
               <div class="card-services">
                 <span v-for="(service, index) in item.services" :key="index" class="service-tag">
                   {{ service }}
                 </span>
               </div>
 
-               <!-- 특이사항 -->
-              <div class="card-notes">
+               <div class="card-notes">
                 <div class="notes-header">
                   <span class="notes-icon">⚠️</span>
                   <span class="notes-label">오전 간단한 파우 활동 진행. 집중력 양호하심. 점심 식사 후 혈압 약 확인.</span>
@@ -169,7 +165,6 @@ const statusClass = (status) => {
                 <p class="notes-content">{{ item.specialNotes }}</p>
               </div>
 
-              <!-- 액션 버튼 -->
               <div class="card-actions">
                 <button class="btn-detail" @click="openDetail(item)">📄 상세보기</button>
                 <button class="btn-edit" @click="openEdit(item)">✏️ 수정</button>
@@ -307,19 +302,22 @@ const statusClass = (status) => {
 </template>
 
 <style scoped>
+/* 페이지 전체 컨테이너: 부모 크기에 맞춤 */
 .daily-care-page {
-  background-color: #f8fafc;
-  min-height: 100vh;
+  background-color: transparent; /* 변경: 투명 */
+  width: 100%;
+  height: 100%;
   display: flex;
   flex-direction: column;
 }
 
+/* 메인 컨텐츠 영역: 제한 해제 및 여백 제거 */
 .main-content {
   flex: 1;
   width: 100%;
-  max-width: 1200px; /* 수급자 관리/업무관리와 동일 폭 */
-  margin: 0 auto;
-  padding: 1.5rem;
+  max-width: none; /* 변경: 제한 해제 */
+  margin: 0;      /* 변경: 마진 제거 */
+  padding: 0;     /* 변경: 패딩 제거 (부모 패딩 사용) */
   padding-bottom: 3rem;
 }
 
@@ -910,9 +908,3 @@ const statusClass = (status) => {
   }
 }
 </style>
-
-
-
-
-
-

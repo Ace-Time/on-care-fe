@@ -1,12 +1,9 @@
-<!-- views/careworker/workschedule/WorkschedulePage.vue -->
-
 <script setup>
 import { ref } from 'vue';
-import SimpleHeader from '@/components/common/SimpleHeader.vue';
 import ScheduleHeader from '@/components/careworker/schedule/ScheduleHeader.vue';
-import CalendarView from '@/components/careworker/schedule/CalendarView.vue'; // 일간
-import WeekView from '@/components/careworker/schedule/WeekView.vue';         // 주간
-import MonthView from '@/components/careworker/schedule/MonthView.vue';       // 월간
+import CalendarView from '@/components/careworker/schedule/CalendarView.vue';
+import WeekView from '@/components/careworker/schedule/WeekView.vue';
+import MonthView from '@/components/careworker/schedule/MonthView.vue';
 import ScheduleDetail from '@/components/careworker/schedule/ScheduleDetail2.vue';
 import { scheduleList } from '@/mock/careworker/scheduleData';
 
@@ -96,13 +93,19 @@ const onViewChange = (viewType) => {
 </script>
 
 <template>
-  <div class="workschedule">
-    <SimpleHeader
-      title="근무 일정"
-      subtitle="나의 근무 일정을 확인할 수 있어요"
-    />
+  <div class="workschedule-page">
+    <div class="page-header">
+      <div class="title-area">
+        <h1 class="page-title">근무 일정</h1>
+        <p class="page-desc">나의 근무 일정을 확인할 수 있어요</p>
+      </div>
 
-    <div class="main-content">
+      <button class="add-button" type="button" @click="openAddModal">
+        + 일정 등록
+      </button>
+    </div>
+
+    <div class="schedule-box">
       <ScheduleHeader />
 
       <div class="content-container">
@@ -132,7 +135,6 @@ const onViewChange = (viewType) => {
           />
         </div>
 
-        <!-- 슬라이드 패널 -->
         <Transition name="slide">
           <div v-if="selectedSchedule" class="detail-panel">
             <ScheduleDetail
@@ -144,7 +146,6 @@ const onViewChange = (viewType) => {
       </div>
     </div>
 
-    <!-- 일정 등록 모달 -->
     <div v-if="showAddModal" class="modal-overlay" @click="closeAddModal">
       <div class="modal-card" @click.stop>
         <div class="modal-header">
@@ -189,51 +190,101 @@ const onViewChange = (viewType) => {
 </template>
 
 <style scoped>
-.workschedule {
-  background-color: #f8fafc;
-  min-height: 100vh;
+/* 페이지 전체 레이아웃 (수급자 페이지와 동일한 패딩) */
+.workschedule-page {
+  padding: 0 24px 24px;
+  background-color: transparent; /* 배경색 제거 (상위 컴포넌트 배경 따름) */
+}
+
+/* 상단 헤더 스타일 (수급자 페이지와 동일) */
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 28px 0 12px;
+}
+
+.title-area {
   display: flex;
   flex-direction: column;
+  gap: 4px;
 }
 
-.main-content {
-  flex: 1;
-  max-width: 1200px; /* 수급자 관리/업무관리와 동일 폭 */
-  margin: 0 auto;
-  width: 100%;
-  padding: 1.5rem;
-  overflow: hidden; /* 슬라이드 패널이 튀어나오지 않도록*/
+.page-title {
+  font-size: 30px;
+  font-weight: 600;
+  color: #1a5928; /* 요청하신 초록색 타이틀 */
+  margin: 0;
 }
 
+.page-desc {
+  font-size: 14px;
+  color: #4a5565; /* 요청하신 회색 설명 */
+  margin: 0;
+}
+
+/* 추가 버튼 스타일 (수급자 등록 버튼과 동일) */
+.add-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 18px;
+  border-radius: 10px;
+  border: none;
+  background-color: #00c950;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.add-button:hover {
+  background-color: #00b347;
+}
+
+/* 메인 컨텐츠 박스 (수급자 페이지의 .tabs-box 스타일 적용) */
+.schedule-box {
+  background: #ffffff;
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
+  padding: 20px 24px; /* 내부 패딩 */
+  margin-top: 16px;
+  min-height: 800px; /* 최소 높이 확보 */
+}
+
+/* 기존 캘린더 내부 레이아웃 유지 */
 .content-container {
   position: relative;
-  height: 800px;
+  height: 800px; /* 고정 높이 혹은 min-height */
   margin-top: 1rem;
   display: flex;
   gap: 0;
+  overflow: hidden; /* 슬라이드 패널 넘침 방지 */
 }
 
 .calendar-area {
-  width: 100%; /* 기본은 전체 폭 */
+  width: 100%;
   height: 100%;
   transition: width 0.3s ease-in-out;
 }
 
-/* 상세 패널이 열려있을 때 캘린더 영역 축소 */
 .calendar-area.has-detail {
-  width: calc(100% - 500px); /* 패널 너비만큼 축소 */
+  width: calc(100% - 500px);
 }
 
 .detail-panel {
   position: absolute;
   right: 0;
   top: 0;
-  width: 480px; /* 상세 패널 너비 지정 */
+  width: 480px;
   height: 100%;
   background-color: white;
   box-shadow: -4px 0 12px rgba(0, 0, 0, 0.1);
   z-index: 10;
   overflow-y: auto;
+  border-left: 1px solid #e2e8f0; /* 패널 구분선 추가 */
 }
 
 /* 슬라이드 애니메이션 */
@@ -255,7 +306,7 @@ const onViewChange = (viewType) => {
   transform: translateX(0);
 }
 
-/* 등록 모달 */
+/* --- 모달 스타일 (기존 유지) --- */
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -289,6 +340,7 @@ const onViewChange = (viewType) => {
   margin: 0;
   font-size: 1.1rem;
   font-weight: 700;
+  color: #1f2937;
 }
 
 .close-btn {
@@ -370,15 +422,19 @@ const onViewChange = (viewType) => {
   background: #f3f4f6;
 }
 
-/* 반응형 처리: 모바일에서는 상세 패널을 전체 화면 커버 */
+/* 반응형 처리 */
 @media (max-width: 1024px) {
+  .workschedule-page {
+    padding: 16px;
+  }
+
   .content-container {
     height: auto;
     min-height: 600px;
   }
 
   .calendar-area {
-    width: 100% !important; /* 모바일에서는 항상 전체 너비 */
+    width: 100% !important;
   }
 
   .detail-panel {
@@ -389,10 +445,9 @@ const onViewChange = (viewType) => {
     bottom: 0;
     width: 100%;
     height: 100vh;
-    z-index: 1000;
+    z-index: 3000; /* 모달보다 높게 */
   }
 
-  /* 모바일 슬라이드 애니메이션 - 아래에서 위로 */
   .slide-enter-from {
     transform: translateY(100%);
   }

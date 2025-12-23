@@ -272,7 +272,6 @@ onMounted(() => {
   border-radius: 24px;
   border: 1px solid #d7f3dd;
   box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05);
-  margin-top: 1.5rem;
 }
 
 .header-row {
@@ -292,9 +291,8 @@ onMounted(() => {
 .schedule-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  grid-template-rows: repeat(2, 1fr);
   gap: 1rem;
-  max-height: 600px;
+  grid-auto-rows: auto;
 }
 
 /* Limit desktop view to first 4 cards */

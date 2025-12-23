@@ -16,10 +16,10 @@ const mainTabs = [
 // 서브 탭 상태 - 기초평가 항목별
 const activeTab = ref("fallRisk");
 const subTabs = [
-  { key: "fallRisk", label: "낙상위험도", subtitle: "(분기 1회)", icon: "F" },
-  { key: "bedsore", label: "욕창위험도", subtitle: "(분기 1회)", icon: "B" },
-  { key: "cognitive", label: "인지기능", subtitle: "(분기 1회)", icon: "C" },
-  { key: "needs", label: "욕구사정", subtitle: "(분기 1회)", icon: "N" },
+  { key: "fallRisk", label: "낙상위험도", subtitle: "(분기 1회)", icon: "🏃" },
+  { key: "bedsore", label: "욕창위험도", subtitle: "(분기 1회)", icon: "🛏️" },
+  { key: "cognitive", label: "인지기능", subtitle: "(분기 1회)", icon: "🧠" },
+  { key: "needs", label: "욕구사정", subtitle: "(분기 1회)", icon: "📋" },
 ];
 
 // 임시 작성 내역(Mock)
@@ -373,21 +373,27 @@ const handleNeedsSaveDraft = (data) => {
 </template>
 
 <style scoped>
+/* 페이지 전체 컨테이너: 배경색과 최소 높이, 패딩을 제거하여 부모 요소에 맞춤 */
 .basic-eval-page {
-  background-color: #f8fafc;
-  min-height: 100vh;
+  width: 100%;
+  height: 100%;
+  background-color: transparent; /* 변경: 투명 배경 */
   display: flex;
   flex-direction: column;
 }
 
+/* 메인 컨텐츠 영역: Max-width 제거 및 여백 최소화 */
 .main-content {
   flex: 1;
-  max-width: 1400px;
-  margin: 0 auto;
   width: 100%;
-  padding: 1.5rem;
-  padding-bottom: 3rem;
+  max-width: none; /* 변경: 제한 해제 */
+  margin: 0;      /* 변경: 마진 제거 */
+  padding: 0;     /* 변경: 부모 패딩 활용을 위해 제거 */
 }
+
+/* -------------------------------------------
+   아래는 기존 디자인 유지
+   ------------------------------------------- */
 
 .main-tabs {
   display: flex;
@@ -448,7 +454,9 @@ const handleNeedsSaveDraft = (data) => {
   transition: all 0.2s;
   border-bottom: 3px solid transparent;
   border-radius: 0.5rem 0.5rem 0 0;
+  /* 부모가 흰색이면 그림자가 어색할 수 있으나 디자인 유지 요청으로 남김 */
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  border: 1px solid #f1f5f9; /* 구분감을 위해 살짝 추가 */
 }
 
 .sub-tab-btn:hover {
@@ -462,6 +470,7 @@ const handleNeedsSaveDraft = (data) => {
   border-bottom-color: #16a34a;
   background: #dcfce7;
   box-shadow: 0 2px 8px rgba(22, 163, 74, 0.15);
+  border-color: #16a34a;
 }
 
 .sub-tab-btn .tab-icon {
@@ -500,10 +509,12 @@ const handleNeedsSaveDraft = (data) => {
 }
 
 .history-section {
-  background: white;
+  background: white; /* 탭 박스 안이라면 중첩된 카드 느낌이 됨 */
   border-radius: 0.75rem;
   padding: 1.5rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  /* 부모 배경과 구분을 위해 테두리 추가 */
+  border: 1px solid #e5e7eb; 
+  box-shadow: none; /* 이중 그림자 방지 */
 }
 
 .history-header {
@@ -719,7 +730,7 @@ const handleNeedsSaveDraft = (data) => {
 }
 
 @media (max-width: 768px) {
-  .main-content { padding: 1rem; }
+  .main-content { padding: 0; }
   .main-tabs { flex-direction: column; border-bottom: none; }
   .main-tab-btn { border-bottom: none; border-left: 3px solid transparent; }
   .main-tab-btn.active { border-left-color: #16a34a; border-bottom-color: transparent; }
