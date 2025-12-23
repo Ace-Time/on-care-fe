@@ -1,37 +1,67 @@
 <!-- src/components/recipient/RecipientInformation.vue -->
 <template>
-  <div v-if="recipient" class="card">
+  <div v-if="loading" class="card empty">
+    불러오는 중...
+  </div>
+
+  <div v-else-if="errorMsg" class="card empty">
+    {{ errorMsg }}
+  </div>
+
+  <div v-else-if="vm" class="card">
     <div class="detail-header">
       <div>
         <div class="name-row">
-          <h3>{{ recipient.name }}</h3>
-          <span class="badge risk" :class="riskClass(recipient.risk)">
-            {{ recipient.risk }}
+          <h3>{{ vm.name }}</h3>
+
+          <span class="badge risk" :class="riskClass(vm.risk)">
+            {{ vm.risk }}
           </span>
-          <span class="badge state">서비스 중</span>
+
+          <span class="badge state" :class="stateClass(vm.status)">
+            {{ vm.status }}
+          </span>
         </div>
+
         <p class="small">
-          {{ recipient.careLevel }}등급 | 만료일:
-          {{ recipient.registeredAt }}
+          {{ vm.careLevel }} | 만료일: {{ vm.careLevelEndDate || '-' }}
         </p>
       </div>
     </div>
 
-    <!-- 상단 기본 정보 -->
+    <!-- ✅ 우측 상단 버튼 -->
+    <div class="info-action-area">
+      <button class="edit-button" type="button" @click="showRegist = true">
+        수급자 정보 수정
+      </button>
+
+      <!-- ✅ updated 이벤트만 받는다 -->
+      <RecipientRegist
+        :visible="showRegist"
+        :beneficiary-id="beneficiaryId"
+        @close="showRegist = false"
+        @updated="handleUpdated"
+      />
+    </div>
+
+    <!-- 기본 정보 -->
     <div class="detail-body">
       <div class="detail-col">
         <div class="info-row">
           <span class="info-label">📅 생년월일</span>
-          <span class="info-value">{{ recipient.birth }}</span>
+          <span class="info-value">{{ vm.birth }}</span>
         </div>
         <div class="info-row">
           <span class="info-label">📍 주소</span>
-          <span class="info-value">{{ recipient.address }}</span>
+          <span class="info-value">{{ vm.address }}</span>
         </div>
         <div class="info-row">
           <span class="info-label">👨‍👩‍👧 보호자</span>
           <span class="info-value">
-            {{ recipient.guardianName }} ({{ recipient.guardianRelation }})
+            {{ vm.guardianName || '-' }}
+            <template v-if="vm.guardianRelation">
+              ({{ vm.guardianRelation }})
+            </template>
           </span>
         </div>
       </div>
@@ -39,70 +69,58 @@
       <div class="detail-col">
         <div class="info-row">
           <span class="info-label">📞 연락처</span>
-          <span class="info-value">{{ recipient.phone }}</span>
+          <span class="info-value">{{ vm.phone }}</span>
         </div>
         <div class="info-row">
           <span class="info-label">🧑‍⚕️ 담당 요양보호사</span>
-          <span class="info-value">{{ recipient.careWorker }}</span>
+          <span class="info-value">{{ vm.careWorker }}</span>
         </div>
         <div class="info-row">
           <span class="info-label">📱 보호자 연락처</span>
-          <span class="info-value">{{ recipient.guardianPhone }}</span>
+          <span class="info-value">{{ vm.guardianPhone || '-' }}</span>
         </div>
       </div>
     </div>
 
-    <!-- 월 지급금 바 -->
+    <!-- 급여 -->
     <div class="benefit-wrapper">
       <div class="benefit-bar-top">
         <span>월 지급금</span>
-        <span class="amount">{{ formatCurrency(recipient.limitAmount) }}</span>
+        <span class="amount">{{ formatCurrency(vm.limitAmount) }}</span>
       </div>
+
       <div class="benefit-bar">
-        <div
-          class="benefit-fill used"
-          :style="{ width: usedPercent + '%' }"
-        ></div>
-        <div
-          class="benefit-fill remain"
-          :style="{ width: remainPercent + '%' }"
-        ></div>
+        <div class="benefit-fill used" :style="{ width: usedPercent + '%' }"></div>
+        <div class="benefit-fill remain" :style="{ width: remainPercent + '%' }"></div>
       </div>
+
       <div class="benefit-bar-bottom">
-        <span>사용액 {{ formatCurrency(recipient.usedAmount) }}</span>
+        <span>사용액 {{ formatCurrency(vm.usedAmount) }}</span>
         <span>잔액 {{ formatCurrency(remainingAmount) }}</span>
         <span>{{ usedPercent.toFixed(1) }}%</span>
       </div>
     </div>
 
-    <!-- 하단 : 태그 / 위험 요소 두 컬럼 -->
+    <!-- 태그 / 위험 요소 -->
     <div class="bottom-tags">
-      <!-- 태그 -->
       <div class="tag-section">
         <div class="tag-title">태그</div>
-        <div class="chip-row" v-if="recipient.tags?.length">
-          <span
-            v-for="chip in recipient.tags"
-            :key="chip"
-            class="chip chip-disease"
-          >
+        <div class="chip-row" v-if="vm.tags?.length">
+          <span v-for="chip in vm.tags" :key="chip" class="chip chip-disease">
             {{ chip }}
           </span>
         </div>
+        <div v-else class="small">-</div>
       </div>
 
-      <!-- 위험 요소 -->
       <div class="tag-section">
         <div class="tag-title">위험 요소</div>
-        <div class="chip-row" v-if="recipient.riskTags?.length">
-          <span
-            v-for="chip in recipient.riskTags"
-            :key="chip"
-            class="chip chip-risk"
-          >
+        <div class="chip-row" v-if="vm.riskTags?.length">
+          <span v-for="chip in vm.riskTags" :key="chip" class="chip chip-risk">
             {{ chip }}
           </span>
         </div>
+        <div v-else class="small">-</div>
       </div>
     </div>
   </div>
@@ -113,33 +131,97 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
+import api from '@/lib/api'
+import RecipientRegist from '@/components/recipient/main/RecipientRegist.vue' // 수급자 정보 수정 모달
 
 const props = defineProps({
-  recipient: {
-    type: Object,
+  beneficiaryId: {
+    type: Number,
     default: null
   }
 })
 
-const remainingAmount = computed(() => {
-  if (!props.recipient) return 0
-  return props.recipient.limitAmount - props.recipient.usedAmount
+/* 추가: 부모로 updated 신호 보내려면 emit 필요 */
+const emit = defineEmits(['updated'])
+
+const showRegist = ref(false)
+const loading = ref(false)
+const errorMsg = ref('')
+const vm = ref(null)
+
+/* 상세 조회 */
+const fetchDetail = async () => {
+  if (!props.beneficiaryId) {
+    vm.value = null
+    return
+  }
+
+  loading.value = true
+  errorMsg.value = ''
+
+  try {
+    const { data } = await api.get(`/api/beneficiaries/${props.beneficiaryId}`)
+    vm.value = toViewModel(data)
+  } catch (e) {
+    console.error(e)
+    errorMsg.value = '수급자 상세 정보를 불러오지 못했습니다.'
+  } finally {
+    loading.value = false
+  }
+}
+
+/*  수정 완료 이벤트 */
+const handleUpdated = async () => {
+  showRegist.value = false
+  await fetchDetail()     //  우측 즉시 반영
+  emit('updated')         //  부모(RecipientListPage)로 신호 -> 좌측 리스트 refresh 트리거
+}
+
+watch(() => props.beneficiaryId, fetchDetail, { immediate: true })
+
+const toViewModel = (d) => ({
+  id: d.beneficiaryId,
+  name: d.name,
+  risk: d.riskLevel,
+  status: d.status,
+  careLevel: d.careLevel ? `${d.careLevel}등급`.replace('등급등급', '등급') : '-',
+  careLevelEndDate: d.careLevelEndDate,
+  birth: d.birthdate,
+  address: d.address,
+  phone: d.phone,
+  careWorker: d.managerName || '-',
+  guardianName: d.guardianName,
+  guardianRelation: d.guardianRelation,
+  guardianPhone: d.guardianPhone,
+  limitAmount: d.monthlyLimit ?? 0,
+  usedAmount: d.usedAmount ?? 0,
+  remainingAmount: d.remainingAmount,
+  tags: d.tags ?? [],
+  riskTags: (d.riskFactors ?? []).map((x) => x.name)
 })
+
+const remainingAmount = computed(() =>
+  (vm.value?.limitAmount ?? 0) - (vm.value?.usedAmount ?? 0)
+)
+
 const usedPercent = computed(() => {
-  if (!props.recipient) return 0
-  const { usedAmount, limitAmount } = props.recipient
-  return Math.min(100, (usedAmount / limitAmount) * 100)
+  if (!vm.value?.limitAmount) return 0
+  return Math.min(100, (vm.value.usedAmount / vm.value.limitAmount) * 100)
 })
 const remainPercent = computed(() => 100 - usedPercent.value)
 
-const formatCurrency = (n) =>
-  (n ?? 0).toLocaleString('ko-KR') + '원'
+const formatCurrency = (n) => (n ?? 0).toLocaleString('ko-KR') + '원'
 
 const riskClass = (risk) => ({
   'risk-high': risk === '고위험',
   'risk-mid': risk === '중위험',
   'risk-low': risk === '저위험'
+})
+
+const stateClass = (status) => ({
+  'state-on': status === '서비스 중',
+  'state-off': status === '서비스 해지'
 })
 </script>
 
@@ -149,6 +231,7 @@ const riskClass = (risk) => ({
   border-radius: 12px;
   padding: 14px 16px;
   box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.04);
+  position: relative; /* ✅ 우측 상단 absolute 기준 */
 }
 .empty {
   display: flex;
@@ -197,6 +280,29 @@ const riskClass = (risk) => ({
 }
 .info-value {
   flex: 1;
+}
+
+/* ✅ 우측 상단 */
+.info-action-area {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.edit-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 18px;
+  border-radius: 10px;
+  border: none;
+  background-color: #00c950;
+  color: #fff;
+  font-size: 15px;
+  cursor: pointer;
 }
 
 /* 급여 바 */
@@ -253,12 +359,22 @@ const riskClass = (risk) => ({
   background-color: #e0f2fe;
   color: #1d4ed8;
 }
+
+/* 서비스 상태 */
 .state {
+  background-color: #f3f4f6;
+  color: #374151;
+}
+.state-on {
   background-color: #dcfce7;
   color: #15803d;
 }
+.state-off {
+  background-color: #e5e7eb;
+  color: #374151;
+}
 
-/* 하단 태그 / 위험요인 섹션 */
+/* 하단 태그 / 위험요인 */
 .bottom-tags {
   margin-top: 14px;
   display: flex;
@@ -277,23 +393,17 @@ const riskClass = (risk) => ({
   flex-wrap: wrap;
   gap: 4px;
 }
-
-/* 칩 공통 */
 .chip {
   padding: 2px 8px;
   border-radius: 999px;
   font-size: 10px;
   border: 1px solid transparent;
 }
-
-/* 태그 칩 (보라 톤) */
 .chip-disease {
   background-color: #f3e8ff;
   color: #6b21a8;
   border-color: #e9d5ff;
 }
-
-/* 위험 요인 칩 (연한 빨강 톤) */
 .chip-risk {
   background-color: #fee2e2;
   color: #b91c1c;
