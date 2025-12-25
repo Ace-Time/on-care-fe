@@ -5,7 +5,7 @@ export const getProductMaster = async({page, size, codeOrName, categoryCode }) =
 
     const params ={
         page,
-        ...(size != null ? {size} : {PAGE_CONSTANT}),
+        ...(size != null ? {size} : PAGE_CONSTANT),
         ...(codeOrName != null && codeOrName != '' ? {codeOrName} : {}),
         ...(categoryCode != null ? {categoryCode} : {})
     }
@@ -19,3 +19,25 @@ export const getMasterCategoryCode = async() => {
     const res = await api.get('/product/master-category');
     return res.data;
 };
+
+export const registMaster = async({
+    id,
+    name,
+    category : categoryCd,
+    amount,
+    rentalAmount,
+    explanation
+}) => {
+
+    const params ={
+        id,
+        name,
+        categoryCd,
+        amount,
+        ...(rentalAmount != null ? {rentalAmount} : {}),
+        ...(explanation != null ? {explanation} : {})
+    }
+
+    const res = await api.post('product/master',params)
+    return res.data;
+}

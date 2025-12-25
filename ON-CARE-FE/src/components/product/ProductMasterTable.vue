@@ -1,5 +1,13 @@
 <template>
   <div class="product-table-wrap">
+
+    <div class="table-header">
+      <span class="total-count">총 <strong>{{ totalItemCount }}</strong>개</span>
+      <button class="btn-register" @click="isModalOpen = true">
+        + 신규 등록
+      </button>
+    </div>
+
     <table class="product-table">
       <thead>
         <tr>
@@ -50,29 +58,40 @@
         다음 &gt;
       </button>
     </div>
+
+    <ProductRegisterModal 
+      v-if="isModalOpen" 
+      :categories="categories"
+      @close="isModalOpen = false"
+      @save="onRegisterProduct"
+    />
   </div>
 </template>
   
   <script setup>
   import editButton from '@/assets/img/common/editButton.png'
   import { computed ,watch, ref} from 'vue'
+  import ProductRegisterModal from '@/components/product/modal/ProductRegisterModal.vue'
   
   const visualPage = ref(0) // 현재 내가 보고 있는 화면 페이지
   const pageSize = 10       // 화면에 보여줄 개수
   const totalItemCount = computed(() => props.products.length) // 전체 아이템 개수
-
+  const isModalOpen = ref(false)  //모달 상태 변수
   // 아직 마지막 페이지까지 데이터가 없을 경우 부모에게 다음 페이지 API 호출 요청
-  const emit = defineEmits(['needMoreData'])
+  const emit = defineEmits(['needMoreData', 'register'])
   
   const props = defineProps({
       products: {
         type: Array,
         default: () => [],
       },
-      // 서버에 더 가져올 데이터가 없는지 여부 (API의 last 값)
-      isLastBatch: {
+      isLastBatch: { // 서버에 더 가져올 데이터가 없는지 여부 (API의 last 값)
         type: Boolean,
         default: false
+      },
+      categories: {
+        type: Array,
+        default: () => [],
       }
     })
 
@@ -122,7 +141,6 @@
   }
 
   watch(() => props.products.length, (newLen, oldLen) => {
-    console.log('와치 실행됨 :', newLen, oldLen)
     if (newLen === 0) {
       visualPage.value = 0;
       return;
@@ -132,6 +150,12 @@
       visualPage.value++;
     }
   })
+
+
+  const onRegisterProduct = (formData) => {
+    emit('register', formData)
+    isModalOpen.value = false
+  }
     
   const formatCurrency = (value) => {
     if (value == null) return '-'
@@ -154,4 +178,11 @@
   .page-btn:hover:not(:disabled) { background-color: #f3f4f6; border-color: #d1d5db; }
   .page-btn:disabled { opacity: 0.5; cursor: not-allowed; background-color: #f9fafb; }
   .page-info { font-size: 13px; color: #6b7280; }
+
+  .table-header {display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .total-count { font-size: 14px; color: #6b7280; }
+  .total-count strong { color: #111827; font-weight: 600; }
+
+  .btn-register {padding: 8px 16px;  background-color: #16a34a; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: 500; cursor: pointer; transition: background-color 0.2s; }
+  .btn-register:hover { background-color: #15803d; }
   </style>

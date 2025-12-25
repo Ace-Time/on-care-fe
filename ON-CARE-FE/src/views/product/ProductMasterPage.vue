@@ -12,16 +12,18 @@
     <ProductTable
       :products="products"
       :is-last-batch="isLastApiBatch"
+      :categories="categories"
       @needMoreData="fetchNextBatch"
+      @register="registMasterData"
     />
   </div>
 </template>
 
 <script setup>
-import { ref, computed , onMounted} from 'vue'
+import { ref, computed , onMounted, watch} from 'vue'
 import ProductSearchBar from '@/components/product/ProductSearchBar.vue'
 import ProductTable from '@/components/product/ProductMasterTable.vue'
-import { getProductMaster, getMasterCategoryCode } from '@/api/product/product.js'
+import { getProductMaster, getMasterCategoryCode , registMaster} from '@/api/product/product.js'
 
 // 검색어
 const searchValue = ref('')
@@ -31,6 +33,7 @@ const selectedCategory = ref('C000')
 const apiPage = ref(0)          // API 요청용 페이지 번호
 const products = ref([]) // 전체 상품 데이터
 const categoryOptions = ref([]);
+const categories = ref([]); // 전체 제외된 원본
 const isLastApiBatch = ref(false) // API 마지막 페이지 상태
 
 // 검색 
@@ -54,9 +57,10 @@ const fetchApiBatch = async (pageIdx) => {
 
 onMounted(async() => {
   const master_category = await getMasterCategoryCode();
-  master_category.unshift({id:'C000', name:'전체'})
+  categories.value = {...master_category};
 
   categoryOptions.value = master_category;
+  categoryOptions.value.unshift({id:'C000', name:'전체'})
   await handleSearch();
 })
 
@@ -76,6 +80,12 @@ const handleSearch = async () => {
   await fetchApiBatch(0)
 }
 
+const registMasterData = async (masterData) => {
+ await registMaster(masterData);
+ handleSearch();
+}
+
+watch(selectedCategory,handleSearch );
 </script>
 
 <style scoped>
