@@ -1,12 +1,8 @@
 <template>
   <section class="detail-panel">
-    <div v-if="!schedule" class="placeholder">
+    <div v-if="!viewModel" class="placeholder">
       <div class="placeholder-icon">
-        <img
-          :src="scheduleManagementIcon"
-          alt="일정 선택"
-          class="calendar-icon-img"
-        />
+        <img :src="scheduleManagementIcon" alt="일정 선택" class="calendar-icon-img" />
       </div>
       <p class="placeholder-main">일정을 선택하면</p>
       <p class="placeholder-sub">상세 정보가 표시됩니다</p>
@@ -22,121 +18,443 @@
         </div>
 
         <div class="header-bottom">
-          <span
-            class="type-pill"
-            :class="{
-              'pill-care': schedule.serviceTypeId === 1,
-              'pill-bath': schedule.serviceTypeId === 2,
-              'pill-nurse': schedule.serviceTypeId === 3,
-            }"
-          >
-            {{ schedule.serviceTypeName }}
+          <span class="type-pill" :class="typePillClass(viewModel.serviceTypeId)">
+            {{ viewModel.serviceTypeName }}
           </span>
+
+          <!-- ✅ 토스트: 방문간호 라인 우측 끝 -->
+          <StatusToast
+            v-model:show="showToast"
+            :message="toastMessage"
+            :type="toastType"
+          />
         </div>
       </div>
 
       <div class="detail-body">
         <div class="top-grid">
           <div class="schedule-box">
-            <div class="schedule-box-title">
-              <img :src="detailClockIcon" alt="clock" class="schedule-icon" />
-              <span class="schedule-title">일정</span>
+            <div class="schedule-box-head">
+              <div class="head-left">
+                <img :src="detailClockIcon" alt="clock" class="schedule-icon" />
+                <span class="schedule-title">일정</span>
+              </div>
+
+              <div v-if="isConfirmed" class="head-right">
+                <button class="head-text-btn" type="button" @click="onClickEdit">
+                  일정 수정
+                </button>
+                <span class="head-divider">/</span>
+                <button class="head-text-btn" type="button" @click="onClickDelete">
+                  일정 삭제
+                </button>
+              </div>
             </div>
 
-            <div class="info-row">
-              <span class="label">날짜:</span>
-              <span class="value">{{ formatDate(schedule.date) }}</span>
-            </div>
-            <div class="info-row">
-              <span class="label">시작:</span>
-              <span class="value">{{ formatTimeHM(schedule.startTime) }}</span>
-            </div>
-            <div class="info-row">
-              <span class="label">종료:</span>
-              <span class="value">{{ formatTimeHM(schedule.endTime) }}</span>
-            </div>
-            <div class="info-row">
-              <span class="label">소요시간:</span>
-              <span class="value strong">{{ formatDuration(schedule.durationMinutes) }}</span>
+            <div class="schedule-rows">
+              <div class="info-row">
+                <span class="label">날짜:</span>
+                <span class="value">{{ formatDate(viewModel.date) }}</span>
+              </div>
+              <div class="info-row">
+                <span class="label">시작:</span>
+                <span class="value">{{ formatTimeHM(viewModel.startTime) }}</span>
+              </div>
+              <div class="info-row">
+                <span class="label">종료:</span>
+                <span class="value">{{ formatTimeHM(viewModel.endTime) }}</span>
+              </div>
+              <div class="info-row">
+                <span class="label">소요시간:</span>
+                <span class="value strong">{{ formatDuration(viewModel.durationMinutes) }}</span>
+              </div>
             </div>
           </div>
 
           <div class="person-col">
             <div class="person-card">
               <img :src="memberIcon" alt="member" class="member-icon" />
-              <div class="person-text">수급자&nbsp;&nbsp;{{ schedule.beneficiaryName }}</div>
+              <div class="person-text">수급자&nbsp;&nbsp;{{ viewModel.beneficiaryName }}</div>
             </div>
 
             <div class="person-card">
               <img :src="memberIcon" alt="member" class="member-icon" />
-              <div class="person-text">요양보호사&nbsp;&nbsp;{{ schedule.careWorkerName }}</div>
+              <div class="person-text">요양보호사&nbsp;&nbsp;{{ viewModel.careWorkerName }}</div>
+            </div>
+
+            <div class="person-card status-card">
+              <div
+                v-if="viewModel.status"
+                class="status-pill"
+                :class="statusClass(viewModel.status)"
+              >
+                {{ statusLabel(viewModel.status) }}
+              </div>
+              <div v-else class="status-pill status-empty">-</div>
             </div>
           </div>
         </div>
 
         <AlternateCareWorkers />
+
         <ScheduleMemo
-          :matching-id="schedule.matchingId"
-          :memo-date="formatDate(schedule.date)"
+          :source="schedule?.source || 'NORMAL'"
+          :matching-id="viewModel?.matchingId ?? null"
+          :vs-id="viewModel?.vsId ?? schedule?.vsId ?? null"
+          :memo-date="formatDate(viewModel?.date)"
         />
       </div>
     </div>
+
+    <ConfirmedScheduleTimeEditModal
+      :open="showEditModal"
+      :vs-id="viewModel?.vsId"
+      :date="formatDate(viewModel?.date)"
+      :start-time="formatTimeHM(viewModel?.startTime)"
+      :end-time="formatTimeHM(viewModel?.endTime)"
+      :loading="editLoading"
+      :server-error="editModalError"
+      @close="showEditModal = false"
+      @submit="onSubmitEditTime"
+    />
+
+    <ConfirmDeleteModal
+      v-if="showDeleteModal"
+      :loading="deleteLoading"
+      title="일정 삭제"
+      message="정말 삭제하시겠습니까?"
+      confirm-text="예"
+      cancel-text="아니오"
+      @close="showDeleteModal = false"
+      @confirm="onConfirmDelete"
+    />
   </section>
 </template>
 
 <script setup>
-import { computed } from 'vue';
-
-import AlternateCareWorkers from '@/components/schedule/calendar/detail/AlternateCareWorkers.vue';
-import ScheduleMemo from '@/components/schedule/calendar/detail/ScheduleMemo.vue';
-
-import detailClockIcon from '@/assets/img/schedule/detailClock.png';
-import memberIcon from '@/assets/img/schedule/member.png';
-import closeIcon from '@/assets/img/common/closeButton.png';
-import scheduleManagementIcon from '@/assets/img/common/scheduleManagement.png';
-
-const props = defineProps({
-  schedule: {
-    type: Object,
-    default: null,
-  },
-});
-
-const emit = defineEmits(['close']);
-
-const schedule = computed(() => props.schedule || null);
-
-const formatDate = (v) => {
-  const s = String(v ?? '');
-  if (!s) return '';
-  return s.includes('T') ? s.split('T')[0] : s.slice(0, 10);
-};
-
-const formatTimeHM = (t) => {
-  const s = String(t ?? '');
-  if (!s) return '';
-  if (s.includes('T')) {
-    const timePart = s.split('T')[1] || '';
-    return timePart.slice(0, 5);
-  }
-  return s.slice(0, 5);
-};
-
-const formatDuration = (minutes) => {
-  const m = Number(minutes);
-  if (!Number.isFinite(m) || m <= 0) return '0분';
-  const h = Math.floor(m / 60);
-  const r = m % 60;
-  if (h <= 0) return `${r}분`;
-  if (r === 0) return `${h}시간`;
-  return `${h}시간`;
-};
-
-const onClose = () => emit('close');
+  import { computed, ref, watch } from 'vue';
+  
+  import AlternateCareWorkers from '@/components/schedule/calendar/detail/AlternateCareWorkers.vue';
+  import ScheduleMemo from '@/components/schedule/calendar/detail/ScheduleMemo.vue';
+  
+  import ConfirmDeleteModal from '@/components/schedule/calendar/detail/ConfirmDeleteModal.vue';
+  import ConfirmedScheduleTimeEditModal from '@/components/schedule/calendar/detail/ConfirmedScheduleTimeEditModal.vue';
+  
+  import StatusToast from '@/components/schedule/calendar/detail/ScheduleToastMessage.vue';
+  
+  import { getScheduleDetail } from '@/api/schedule/scheduleApi';
+  import { getConfirmedScheduleDetail } from '@/api/schedule/confirmedScheduleApi';
+  import {
+    updateConfirmedVisitScheduleTime,
+    deleteConfirmedVisitSchedule,
+  } from '@/api/schedule/confirmedScheduleApi';
+  
+  import detailClockIcon from '@/assets/img/schedule/detailClock.png';
+  import memberIcon from '@/assets/img/schedule/member.png';
+  import closeIcon from '@/assets/img/common/closeButton.png';
+  import scheduleManagementIcon from '@/assets/img/common/scheduleManagement.png';
+  
+  const props = defineProps({
+    schedule: { type: Object, default: null },
+  });
+  
+  const emit = defineEmits(['close', 'refresh']);
+  
+  const loading = ref(false);
+  const detail = ref(null);
+  
+  const schedule = computed(() => props.schedule || null);
+  const viewModel = computed(() => detail.value || schedule.value || null);
+  
+  const isConfirmed = computed(() => schedule.value?.source === 'CONFIRMED');
+  
+  const showEditModal = ref(false);
+  const showDeleteModal = ref(false);
+  const editLoading = ref(false);
+  const deleteLoading = ref(false);
+  
+  /** ✅ 겹침(요양보호사/수급자)일 때만 모달 내부로 넣을 에러 */
+  const editModalError = ref('');
+  
+  /* -------------------- 토스트 -------------------- */
+  const toastMessage = ref('');
+  const toastType = ref('warning');
+  const showToast = ref(false);
+  let toastTimer = null;
+  
+  const openToast = (message, type = 'warning') => {
+    const msg = String(message ?? '').trim();
+    if (!msg) return;
+  
+    toastMessage.value = msg;
+    toastType.value = type;
+  
+    if (showToast.value) showToast.value = false;
+  
+    clearTimeout(toastTimer);
+    requestAnimationFrame(() => {
+      showToast.value = true;
+      toastTimer = setTimeout(() => (showToast.value = false), 2600);
+    });
+  };
+  
+  const pickToastType = (msg) => {
+    const m = String(msg ?? '');
+    if (m.includes('완료') || m.includes('성공')) return 'success';
+    return 'warning';
+  };
+  
+  /* -------------------- 에러 메시지 파싱 -------------------- */
+  const normalizeApiMessage = (e, fallback) => {
+    const data = e?.response?.data;
+    if (typeof data === 'string' && data.trim()) return data.trim();
+    if (data && typeof data === 'object') {
+      const m = data.message || data.error || data.msg || data.detail;
+      if (typeof m === 'string' && m.trim()) return m.trim();
+    }
+    const m2 = e?.message;
+    if (typeof m2 === 'string' && m2.trim()) return m2.trim();
+    return fallback;
+  };
+  
+  const prettifyBusinessMessage = (raw) => {
+    const msg = String(raw ?? '').trim();
+    const upper = msg.toUpperCase();
+  
+    if (msg.includes('진행') && msg.includes('시간 변경')) return '진행 중인 일정은 수정할 수 없습니다.';
+    if (msg.includes('완료') && msg.includes('시간 변경')) return '완료된 일정은 수정할 수 없습니다.';
+    if (msg.includes('진행') && msg.includes('삭제')) return '진행 중인 일정은 삭제할 수 없습니다.';
+    if (msg.includes('완료') && msg.includes('삭제')) return '완료된 일정은 삭제할 수 없습니다.';
+  
+    if (upper.includes('CAREWORKER') || upper.includes('CAREGIVER')) {
+      return '해당 시간에 요양보호사가 이미 배치되어 있어 수정할 수 없습니다.';
+    }
+    if (upper.includes('BENEFICIARY')) {
+      return '해당 시간에 수급자 일정이 이미 존재하여 수정할 수 없습니다.';
+    }
+  
+    return msg;
+  };
+  
+  /** ✅ “겹침(요양보호사/수급자)” 여부만 판별 */
+  const isOverlapMessage = (msg) => {
+    const m = String(msg ?? '');
+    const upper = m.toUpperCase();
+  
+    const careWorkerOverlap =
+      m.includes('요양보호사') && (m.includes('배치') || m.includes('시간') || m.includes('일정'));
+    const beneficiaryOverlap =
+      m.includes('수급자') && (m.includes('일정') || m.includes('존재') || m.includes('배치'));
+  
+    const careWorkerOverlapEN = upper.includes('CAREWORKER') || upper.includes('CAREGIVER');
+    const beneficiaryOverlapEN = upper.includes('BENEFICIARY');
+  
+    return careWorkerOverlap || beneficiaryOverlap || careWorkerOverlapEN || beneficiaryOverlapEN;
+  };
+  
+  /* -------------------- formatter -------------------- */
+  const formatDate = (v) => {
+    const s = String(v ?? '');
+    if (!s) return '';
+    return s.includes('T') ? s.split('T')[0] : s.slice(0, 10);
+  };
+  
+  const formatTimeHM = (t) => {
+    const s = String(t ?? '');
+    if (!s) return '';
+    if (s.includes('T')) {
+      const timePart = s.split('T')[1] || '';
+      return timePart.slice(0, 5);
+    }
+    return s.slice(0, 5);
+  };
+  
+  const formatDuration = (minutes) => {
+    const m = Number(minutes);
+    if (!Number.isFinite(m) || m <= 0) return '0분';
+    const h = Math.floor(m / 60);
+    const r = m % 60;
+    if (h <= 0) return `${r}분`;
+    if (r === 0) return `${h}시간`;
+    return `${h}시간 ${r}분`;
+  };
+  
+  const typePillClass = (serviceTypeId) => {
+    const n = Number(serviceTypeId);
+    if (n === 1) return 'pill-care';
+    if (n === 2) return 'pill-bath';
+    if (n === 3) return 'pill-nurse';
+    return '';
+  };
+  
+  const statusLabel = (status) => {
+    const s = String(status ?? '').toUpperCase();
+    if (s === 'SCHEDULED' || s === 'PLANNED') return '방문 예정';
+    if (s === 'IN_PROGRESS') return '방문 진행중';
+    if (s === 'DONE') return '방문 완료';
+    return '';
+  };
+  
+  const statusClass = (status) => {
+    const s = String(status ?? '').toUpperCase();
+    if (s === 'SCHEDULED' || s === 'PLANNED') return 'status-planned';
+    if (s === 'IN_PROGRESS') return 'status-progress';
+    if (s === 'DONE') return 'status-done';
+    return '';
+  };
+  
+  const showEditBlockedToast = (status) => {
+    const s = String(status ?? '').toUpperCase();
+    if (s === 'IN_PROGRESS') {
+      openToast('진행 중인 일정은 수정할 수 없습니다.', 'warning');
+      return true;
+    }
+    if (s === 'DONE') {
+      openToast('완료된 일정은 수정할 수 없습니다.', 'success');
+      return true;
+    }
+    return false;
+  };
+  
+  const showDeleteBlockedToast = (status) => {
+    const s = String(status ?? '').toUpperCase();
+    if (s === 'IN_PROGRESS') {
+      openToast('진행 중인 일정은 삭제할 수 없습니다.', 'warning');
+      return true;
+    }
+    if (s === 'DONE') {
+      openToast('완료된 일정은 삭제할 수 없습니다.', 'success');
+      return true;
+    }
+    return false;
+  };
+  
+  /* -------------------- detail load -------------------- */
+  const loadDetail = async () => {
+    detail.value = null;
+    if (!schedule.value) return;
+  
+    loading.value = true;
+    try {
+      const src = schedule.value.source;
+  
+      if (src === 'CONFIRMED') {
+        const vsId = schedule.value.vsId;
+        if (!vsId) {
+          detail.value = schedule.value;
+          return;
+        }
+        detail.value = await getConfirmedScheduleDetail({ vsId });
+        return;
+      }
+  
+      detail.value = await getScheduleDetail({
+        matchingId: schedule.value.matchingId,
+        date: formatDate(schedule.value.date),
+        serviceTypeId: schedule.value.serviceTypeId,
+        startTime: schedule.value.startTime,
+      });
+    } catch (e) {
+      detail.value = schedule.value;
+      console.error('[ScheduleDetail] loadDetail failed:', e);
+    } finally {
+      loading.value = false;
+    }
+  };
+  
+  watch(
+    () => schedule.value,
+    () => loadDetail(),
+    { immediate: true }
+  );
+  
+  const onClose = () => emit('close');
+  
+  const onClickEdit = () => {
+    if (!isConfirmed.value) return;
+    if (!viewModel.value?.vsId) return;
+  
+    const st = viewModel.value?.status;
+    if (showEditBlockedToast(st)) return;
+  
+    editModalError.value = '';       // ✅ 모달 오픈 시 에러 초기화
+    showEditModal.value = true;
+  };
+  
+  const onClickDelete = () => {
+    if (!isConfirmed.value) return;
+    if (!viewModel.value?.vsId) return;
+  
+    const st = viewModel.value?.status;
+    if (showDeleteBlockedToast(st)) return;
+  
+    showDeleteModal.value = true;
+  };
+  
+  /* -------------------- update time -------------------- */
+  const onSubmitEditTime = async ({ startDt, endDt }) => {
+    try {
+      const vsId = viewModel.value?.vsId;
+      if (!vsId) throw new Error('vsId is missing');
+  
+      editLoading.value = true;
+      editModalError.value = ''; // ✅ 요청 시작할 때 초기화
+  
+      await updateConfirmedVisitScheduleTime({ vsId, startDt, endDt });
+  
+      // ✅ 성공 시에만 모달 닫기
+      showEditModal.value = false;
+  
+      await loadDetail();
+      emit('refresh');
+      openToast('시간이 수정되었습니다.', 'success');
+    } catch (e) {
+      const raw = normalizeApiMessage(e, '시간 변경에 실패했습니다.');
+      const pretty = prettifyBusinessMessage(raw);
+  
+      // ✅ 겹침(요양보호사/수급자)만 모달 errorMsg로
+      if (isOverlapMessage(pretty)) {
+        editModalError.value = pretty;
+        // showEditModal 유지 (안 닫음)
+        return;
+      }
+  
+      // ✅ 나머지는 기존 위치 토스트
+      openToast(pretty, pickToastType(pretty));
+      console.error('[ScheduleDetail] update time failed:', e);
+    } finally {
+      editLoading.value = false;
+    }
+  };
+  
+  /* -------------------- delete -------------------- */
+  const onConfirmDelete = async () => {
+    try {
+      const vsId = viewModel.value?.vsId;
+      if (!vsId) throw new Error('vsId is missing');
+  
+      deleteLoading.value = true;
+      await deleteConfirmedVisitSchedule({ vsId });
+  
+      showDeleteModal.value = false;
+  
+      emit('refresh');
+      emit('close');
+      openToast('일정이 삭제되었습니다.', 'success');
+    } catch (e) {
+      const raw = normalizeApiMessage(e, '삭제에 실패했습니다.');
+      const pretty = prettifyBusinessMessage(raw);
+  
+      openToast(pretty, pickToastType(pretty));
+      console.error('[ScheduleDetail] delete failed:', e);
+    } finally {
+      deleteLoading.value = false;
+    }
+  };
 </script>
 
 <style scoped>
-.detail-panel {
+  .detail-panel {
   box-sizing: border-box;
   width: 100%;
   height: 100%;
@@ -219,6 +537,10 @@ const onClose = () => emit('close');
 
 .header-bottom {
   margin-top: 10px;
+  position: relative;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
 }
 
 .type-pill {
@@ -263,7 +585,7 @@ const onClose = () => emit('close');
   display: grid;
   grid-template-columns: 1.4fr 1fr;
   gap: 16px;
-  align-items: start;
+  align-items: stretch;
 }
 
 .schedule-box {
@@ -271,13 +593,22 @@ const onClose = () => emit('close');
   border-radius: 14px;
   border: 2px solid #e5e7eb;
   padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
 }
 
-.schedule-box-title {
+.schedule-box-head {
   display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 10px;
+  margin-bottom: 8px;
+}
+
+.head-left {
+  display: inline-flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 8px;
 }
 
 .schedule-icon {
@@ -291,12 +622,40 @@ const onClose = () => emit('close');
   color: #4a5565;
 }
 
-.info-row {
+.head-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #101828;
+}
+
+.head-text-btn {
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.head-divider {
+  opacity: 0.7;
+}
+
+.schedule-rows {
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+}
+
+.info-row {
+  display: grid;
+  grid-template-columns: auto 1fr;
   align-items: center;
   font-size: 14px;
-  padding: 8px 0;
 }
 
 .label {
@@ -307,6 +666,7 @@ const onClose = () => emit('close');
 .value {
   color: #4a5565;
   font-weight: 600;
+  text-align: right;
 }
 
 .value.strong {
@@ -316,13 +676,15 @@ const onClose = () => emit('close');
 .person-col {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
+  height: 100%;
 }
 
 .person-card {
   background: #f9fafb;
   border-radius: 14px;
-  padding: 18px 16px;
+  border: 2px solid #e5e7eb;
+  padding: 12px 14px;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -337,5 +699,47 @@ const onClose = () => emit('close');
   font-size: 14px;
   font-weight: 500;
   color: #101828;
+}
+
+.person-card.status-card {
+  border: none;
+  background: transparent;
+  padding: 0;
+  justify-content: center;
+  align-items: center;
+}
+
+.status-pill {
+  width: 100%;
+  height: 50px;
+  border-radius: 999px;
+  border: 4px solid #e5e7eb;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.status-empty {
+  color: #9ca3af;
+  border-color: #e5e7eb;
+}
+
+.status-planned {
+  color: #2563eb;
+  border-color: rgba(37, 99, 235, 0.25);
+}
+
+.status-progress {
+  color: #d97706;
+  border-color: rgba(217, 119, 6, 0.25);
+}
+
+.status-done {
+  color: #16a34a;
+  border-color: rgba(22, 163, 74, 0.25);
 }
 </style>
