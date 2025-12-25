@@ -9,22 +9,21 @@
           type="text"
           :value="searchText"
           @input="$emit('update:searchText', $event.target.value)"
+          @keyup.enter="$emit('search')"
           :placeholder="placeholder"
         />
       </div>
   
       <select
         class="category-select"
-        :value="selectedCategory"
-        @change="$emit('update:selectedCategory', $event.target.value)"
+        v-model="proxyCategory"
       >
-        <option value="전체">전체</option>
         <option
           v-for="cat in categories"
-          :key="cat"
-          :value="cat"
+          :key="cat.id"
+          :value="cat.id"
         >
-          {{ cat }}
+          {{ cat.name }}
         </option>
       </select>
     </div>
@@ -32,28 +31,37 @@
   
   <script setup>
   import searchIcon from '@/assets/img/common/search.png'
+  import { computed } from 'vue'
   
-  defineProps({
+  const props = defineProps({
     searchText: {
       type: String,
       default: '',
     },
     selectedCategory: {
       type: String,
-      default: '전체',
+      default: 'C000',
     },
     categories: {
       type: Array,
       default: () => [],
     },
-    // ★ 페이지마다 placeholder 바꿀 수 있도록
     placeholder: {
       type: String,
       default: '용품명 또는 코드로 검색...',
     },
   })
-  
-  defineEmits(['update:searchText', 'update:selectedCategory'])
+  const emit = defineEmits(['update:searchText', 'update:selectedCategory','search'])
+
+  // 부모의 props를 받아오되(get), 바꿀 때는 부모에게 알리는(set) 완벽한 중계자 역할
+  const proxyCategory = computed({
+    get() {
+      return props.selectedCategory
+    },
+    set(newValue) {
+      emit('update:selectedCategory', newValue)
+    }
+  })
   </script>
   
   <style scoped>

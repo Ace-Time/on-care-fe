@@ -2,62 +2,80 @@
   <div class="product-page">
     <!-- 검색 바 -->
     <ProductSearchBar
-      v-model:searchText="searchTerm"
+      v-model:searchText="searchValue"
       v-model:selectedCategory="selectedCategory"
       :categories="categoryOptions"
+      @search="handleSearch"
     />
 
     <!-- 테이블 -->
     <ProductTable
-      :items="filteredProducts"
+      :products="products"
+      :is-last-batch="isLastApiBatch"
+      @needMoreData="fetchNextBatch"
     />
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
-import { productMasterMock } from '@/mock/product/productMasterMock.js'
-
+import { ref, computed , onMounted} from 'vue'
 import ProductSearchBar from '@/components/product/ProductSearchBar.vue'
 import ProductTable from '@/components/product/ProductMasterTable.vue'
+import { getProductMaster, getMasterCategoryCode } from '@/api/product/product.js'
 
 // 검색어
-const searchTerm = ref('')
+const searchValue = ref('')
 
 // 선택된 카테고리(드롭다운)
-const selectedCategory = ref('전체')
+const selectedCategory = ref('C000')
+const apiPage = ref(0)          // API 요청용 페이지 번호
+const products = ref([]) // 전체 상품 데이터
+const categoryOptions = ref([]);
+const isLastApiBatch = ref(false) // API 마지막 페이지 상태
 
-// 전체 상품 데이터
-const products = ref(productMasterMock)
+// 검색 
+const fetchApiBatch = async (pageIdx) => {
+  const data = await getProductMaster({
+      page: pageIdx,
+      size: 50, // 50개씩 요청
+      codeOrName: searchValue.value,
+      ...(selectedCategory.value === 'C000' ? {} : { categoryCode: selectedCategory.value })
+    })
 
-// 카테고리 목록 (중복 제거)
-const categoryOptions = computed(() => {
-  const set = new Set()
-  products.value.forEach((p) => {
-    if (p.category) set.add(p.category)
-  })
-  return Array.from(set)
+  if (data && data.content) {
+      // 검색 할 때마다 데이터를 뒤에 이어 붙임
+      products.value.push(...data.content)
+      
+      // 상태 업데이트
+      isLastApiBatch.value = data.last
+      apiPage.value = data.number
+  }
+}
+
+onMounted(async() => {
+  const master_category = await getMasterCategoryCode();
+  master_category.unshift({id:'C000', name:'전체'})
+
+  categoryOptions.value = master_category;
+  await handleSearch();
 })
 
-// 검색 + 카테고리 필터 적용
-const filteredProducts = computed(() => {
-  const keyword = searchTerm.value.trim().toLowerCase()
+//  자식 컴포넌트에서 서버에 다음페이지 요청 시 
+const fetchNextBatch = async () => {
+  if (!isLastApiBatch.value) {
+    await fetchApiBatch(apiPage.value + 1)
+  }
+}
 
-  return products.value.filter((item) => {
-    // 키워드 매칭 (이름 or 코드)
-    const matchesKeyword =
-      !keyword ||
-      item.name.toLowerCase().includes(keyword) ||
-      item.code.toLowerCase().includes(keyword)
+//  검색 (초기화) 
+const handleSearch = async () => {
+  products.value = []
+  apiPage.value = 0
+  isLastApiBatch.value = false
+  
+  await fetchApiBatch(0)
+}
 
-    // 카테고리 매칭
-    const matchesCategory =
-      selectedCategory.value === '전체' ||
-      item.category === selectedCategory.value
-
-    return matchesKeyword && matchesCategory
-  })
-})
 </script>
 
 <style scoped>
