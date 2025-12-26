@@ -1,24 +1,24 @@
 <template>
   <section class="matching-panel">
-    <!-- 제목 + 인원수 -->
     <header class="panel-header">
       <h2 class="panel-title">요양보호사</h2>
       <span class="count-badge">{{ caregivers.length }}명</span>
     </header>
 
-    <!-- 검색 -->
     <div class="search-bar">
       <img :src="searchIcon" class="search-icon" />
       <input v-model="search" type="text" placeholder="요양보호사 검색..." />
     </div>
 
-    <!-- 리스트 스크롤 영역 -->
-    <div class="table-scroll">
+    <div v-if="loading" class="loading">불러오는 중...</div>
+    <div v-else-if="error" class="error">{{ error }}</div>
+
+    <div v-else class="table-scroll">
       <table class="list-table">
         <tbody>
           <tr
             v-for="item in pagedList"
-            :key="item.id"
+            :key="item.careWorkerId ?? item.id"
             class="list-row"
             @click="handleSelect(item)"
           >
@@ -28,24 +28,22 @@
                 {{ item.gender }}
               </span>
             </td>
-            <td class="dash">–</td>
             <td>
               <div class="tags">
-                <span
-                  v-for="tag in item.services"
-                  :key="tag"
-                  class="tag"
-                >
+                <span v-for="tag in item.tags" :key="tag" class="tag">
                   {{ tag }}
                 </span>
               </div>
             </td>
           </tr>
+
+          <tr v-if="!pagedList.length">
+            <td colspan="3" class="dash">표시할 요양보호사가 없습니다.</td>
+          </tr>
         </tbody>
       </table>
     </div>
 
-    <!-- 페이지네이션 -->
     <div class="pagination">
       <button @click="prevPage" :disabled="page === 1">〈</button>
       <span>{{ page }} / {{ totalPages }}</span>
@@ -55,29 +53,87 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import searchIcon from '@/assets/img/common/search.png'
-import { caregiverMockData } from '@/mock/schedule/matchingCaregiverMock.js'
+import { getCandidateCareWorkerCards } from '@/api/schedule/matching.js'
 
-// ✅ 상위(MatchingPage)로 선택된 요양보호사 전달
+const props = defineProps({
+  recipient: { type: Object, default: null },
+})
+
 const emit = defineEmits(['select-caregiver'])
 
 const search = ref('')
 const page = ref(1)
 const pageSize = 10
 
-const caregivers = computed(() => {
-  const q = search.value.toLowerCase().trim()
-  return q
-    ? caregiverMockData.filter(c =>
-        [c.name, c.gender, ...(c.services || [])].some(f =>
-          String(f).toLowerCase().includes(q)
-        )
-      )
-    : caregiverMockData
+const loading = ref(false)
+const error = ref('')
+const caregiversRaw = ref([])
+
+const getBeneficiaryId = (obj) => obj?.beneficiaryId ?? obj?.id ?? null
+
+const loadCareWorkers = async () => {
+  const beneficiaryId = getBeneficiaryId(props.recipient)
+
+  if (!beneficiaryId) {
+    caregiversRaw.value = []
+    error.value = ''
+    return
+  }
+
+  try {
+    loading.value = true
+    error.value = ''
+
+    const res = await getCandidateCareWorkerCards(beneficiaryId)
+    const list = Array.isArray(res?.data) ? res.data : []
+
+    caregiversRaw.value = list.map((c) => {
+      const careWorkerId = c?.careWorkerId ?? c?.id ?? null
+      return {
+        careWorkerId,
+        name: c?.name ?? '-',
+        gender: c?.gender ?? '-',
+        tags: Array.isArray(c?.tags) ? c.tags : [],
+      }
+    })
+  } catch (e) {
+    error.value = e?.response?.data?.message || '요양보호사 목록을 불러오지 못했습니다.'
+    caregiversRaw.value = []
+  } finally {
+    loading.value = false
+  }
+}
+
+watch(
+  () => getBeneficiaryId(props.recipient),
+  () => {
+    page.value = 1
+    search.value = ''
+    loadCareWorkers()
+  },
+  { immediate: true }
+)
+
+watch(search, () => {
+  page.value = 1
 })
 
-const totalPages = computed(() => Math.ceil(caregivers.value.length / pageSize))
+const caregivers = computed(() => {
+  const q = search.value.toLowerCase().trim()
+  if (!q) return caregiversRaw.value
+
+  return caregiversRaw.value.filter((c) =>
+    [c.name, c.gender, ...(c.tags || [])].some((f) =>
+      String(f ?? '').toLowerCase().includes(q)
+    )
+  )
+})
+
+const totalPages = computed(() =>
+  Math.max(1, Math.ceil(caregivers.value.length / pageSize))
+)
 
 const pagedList = computed(() =>
   caregivers.value.slice((page.value - 1) * pageSize, page.value * pageSize)
@@ -90,12 +146,12 @@ const nextPage = () => {
   if (page.value < totalPages.value) page.value++
 }
 
-// ✅ 행 클릭 시 emit
-const handleSelect = item => {
-  emit('select-caregiver', item)
+const handleSelect = (item) => {
+  const careWorkerId = item?.careWorkerId ?? item?.id ?? null
+  emit('select-caregiver', { ...item, careWorkerId })
 }
 
-const badgeClass = gender => ({
+const badgeClass = (gender) => ({
   badge: true,
   male: gender === '남자',
   female: gender === '여자',
