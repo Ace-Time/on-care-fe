@@ -58,7 +58,6 @@ const activeSubTab = ref('summary')
 watch(
   () => props.refreshKey,
   () => {
-    // Summary는 상위 mock / 기초평가는 내부 fetch
     console.log('[Record] refresh')
   }
 )
