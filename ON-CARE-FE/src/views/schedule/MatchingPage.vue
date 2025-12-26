@@ -45,36 +45,42 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+  import { ref } from 'vue'
+  
+  import RecipientMatchingList from '@/components/schedule/matching/RecipientMatchingList.vue'
+  import CaregiverMatchingList from '@/components/schedule/matching/CaregiverMatchingList.vue'
+  
+  import RecipientDetailPanel from '@/components/schedule/matching/recipientDetail/RecipientDetailPanel.vue'
+  import CaregiverDetailPanel from '@/components/schedule/matching/caregiverDetail/CaregiverDetailPanel.vue'
+  
+  import ScheduleWeeklyPanel from '@/components/schedule/matching/scheduleWeekly/ScheduleWeeklyPanel.vue'
 
-import RecipientMatchingList from '@/components/schedule/matching/RecipientMatchingList.vue'
-import CaregiverMatchingList from '@/components/schedule/matching/CaregiverMatchingList.vue'
-
-import RecipientDetailPanel from '@/components/schedule/matching/recipientDetail/RecipientDetailPanel.vue'
-import CaregiverDetailPanel from '@/components/schedule/matching/caregiverDetail/CaregiverDetailPanel.vue'
-
-import ScheduleWeeklyPanel from '@/components/schedule/matching/scheduleWeekly/ScheduleWeeklyPanel.vue'
-
-const selectedRecipient = ref(null)
-const selectedCaregiver = ref(null)
-
-const onSelectRecipient = (recipient) => {
-  selectedRecipient.value = recipient
-  selectedCaregiver.value = null
-}
-
-const onSelectCaregiver = (caregiver) => {
-  selectedCaregiver.value = caregiver
-}
-
-const onRemoveCaregiver = (cg) => {
-  console.log('수급자에서 요양보호사 매칭 해제', cg)
-}
-
-const onRemoveRecipient = (rcp) => {
-  console.log('요양보호사에서 수급자 매칭 해제', rcp)
-}
-</script>
+  import { useMatchingSelectionStore } from '@/stores/matchingSelection.js'
+  
+  const store = useMatchingSelectionStore()
+  
+  const selectedRecipient = ref(null)
+  const selectedCaregiver = ref(null)
+  
+  const onSelectRecipient = (recipient) => {
+    selectedRecipient.value = recipient
+    selectedCaregiver.value = null
+    store.setRecipient(recipient)
+  }
+  
+  const onSelectCaregiver = (caregiver) => {
+    selectedCaregiver.value = caregiver
+    store.setCaregiver(caregiver)
+  }
+  
+  const onRemoveCaregiver = (cg) => {
+    console.log('수급자에서 요양보호사 매칭 해제', cg)
+  }
+  
+  const onRemoveRecipient = (rcp) => {
+    console.log('요양보호사에서 수급자 매칭 해제', rcp)
+  }
+  </script>
 
 <style scoped>
 .matching-page {
@@ -93,7 +99,6 @@ const onRemoveRecipient = (rcp) => {
   min-height: 0;
 }
 
-/* ✅ 왼쪽 컬럼이 다른 영역에 덮이지 않도록 우선순위 부여 */
 .left-column {
   flex: 0 0 36%;
   display: flex;
@@ -106,7 +111,6 @@ const onRemoveRecipient = (rcp) => {
   pointer-events: auto;
 }
 
-/* ✅ 리스트 패널 클릭 영역 보장 */
 .list-panel {
   flex: 1;
   overflow: hidden;
@@ -116,7 +120,6 @@ const onRemoveRecipient = (rcp) => {
   pointer-events: auto;
 }
 
-/* 오른쪽 컬럼은 z-index를 낮게 */
 .right-column {
   flex: 1;
   display: flex;
@@ -142,7 +145,6 @@ const onRemoveRecipient = (rcp) => {
   z-index: 1;
 }
 
-/* ✅ 주간패널이 왼쪽을 덮는 케이스 방지 */
 .weekly-panel {
   flex: 1;
   min-height: 260px;
