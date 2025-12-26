@@ -18,7 +18,7 @@
         <tbody>
           <tr
             v-for="item in pagedList"
-            :key="item.id"
+            :key="item.beneficiaryId"
             class="list-row"
             @click="handleSelect(item)"
           >
@@ -28,16 +28,9 @@
                 {{ item.gender }}
               </span>
             </td>
-            <td><span class="grade">{{ item.grade }}</span></td>
-            <td class="dash">–</td>
+            <td><span class="grade">{{ item.riskLevel }}</span></td>
             <td>
-              <span
-                v-if="item.assigned"
-                class="assigned-badge"
-              >
-                배정
-              </span>
-              <span v-else class="dash">–</span>
+              <span v-if="item.assigned" class="assigned-badge">배정</span>
             </td>
           </tr>
         </tbody>
@@ -54,9 +47,9 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import searchIcon from '@/assets/img/common/search.png'
-import { recipientMockData } from '@/mock/schedule/matchingRecipientMock.js'
+import { getBeneficiaryList } from '@/api/schedule/matching.js'
 
 const emit = defineEmits(['select-recipient'])
 
@@ -64,18 +57,37 @@ const search = ref('')
 const page = ref(1)
 const pageSize = 10
 
-const recipients = computed(() => {
-  const q = search.value.toLowerCase().trim()
-  return q
-    ? recipientMockData.filter(r =>
-        [r.name, r.gender, r.grade].some(f =>
-          String(f).toLowerCase().includes(q)
-        )
-      )
-    : recipientMockData
+const recipientsRaw = ref([])
+
+const load = async () => {
+  try {
+    const { data } = await getBeneficiaryList()
+    recipientsRaw.value = Array.isArray(data) ? data : []
+  } catch (e) {
+    recipientsRaw.value = []
+    console.error(e)
+  }
+}
+
+onMounted(load)
+
+// 검색어 바뀌면 1페이지로
+watch(search, () => {
+  page.value = 1
 })
 
-const totalPages = computed(() => Math.ceil(recipients.value.length / pageSize))
+const recipients = computed(() => {
+  const q = search.value.toLowerCase().trim()
+  if (!q) return recipientsRaw.value
+
+  return recipientsRaw.value.filter(r =>
+    [r.name, r.gender, r.riskLevel].some(f =>
+      String(f ?? '').toLowerCase().includes(q)
+    )
+  )
+})
+
+const totalPages = computed(() => Math.max(1, Math.ceil(recipients.value.length / pageSize)))
 
 const pagedList = computed(() =>
   recipients.value.slice((page.value - 1) * pageSize, page.value * pageSize)
@@ -222,7 +234,7 @@ const badgeClass = gender => ({
   color: #ec4899;
 }
 
-/* 등급 */
+/* 위험등급 */
 .grade {
   padding: 3px 10px;
   background: #f3e8ff;

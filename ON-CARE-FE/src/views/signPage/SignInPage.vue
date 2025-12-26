@@ -69,7 +69,7 @@ const handleLogin = async() => {
     // 토큰의 Payload(Claim) 부분을 JSON 객체로 변환해줍니다.
     const decoded = jwtDecode(accessToken);
 
-    userStore.setToken(accessToken);
+    userStore.setToken(accessToken , tokenType);
     userStore.logIn(decoded);
 
   // 요양보호사(jobname === '요양보호사')면 홈페이지로, 아니면 대시보드로 이동

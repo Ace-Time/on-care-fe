@@ -4,15 +4,12 @@
       <!-- 왼쪽 : 수급자 / 요양보호사 리스트 -->
       <div class="left-column">
         <div class="list-panel">
-          <!-- 수급자 선택 -->
-          <RecipientMatchingList
-            @select-recipient="onSelectRecipient"
-          />
+          <RecipientMatchingList @select-recipient="onSelectRecipient" />
         </div>
 
         <div class="list-panel">
-          <!-- 요양보호사 선택 -->
           <CaregiverMatchingList
+            :recipient="selectedRecipient"
             @select-caregiver="onSelectCaregiver"
           />
         </div>
@@ -20,7 +17,6 @@
 
       <!-- 오른쪽 : 상세 + 주간 일정 -->
       <div class="right-column">
-        <!-- 상단 상세 2개 -->
         <div class="detail-row">
           <div class="detail-panel">
             <RecipientDetailPanel
@@ -37,9 +33,7 @@
           </div>
         </div>
 
-        <!-- 하단 주간 일정 -->
         <div class="weekly-panel">
-          <!-- 🔥 선택된 수급자/요양보호사를 내려준다 -->
           <ScheduleWeeklyPanel
             :recipient="selectedRecipient"
             :caregiver="selectedCaregiver"
@@ -64,21 +58,15 @@ import ScheduleWeeklyPanel from '@/components/schedule/matching/scheduleWeekly/S
 const selectedRecipient = ref(null)
 const selectedCaregiver = ref(null)
 
-// 수급자 선택 시
 const onSelectRecipient = (recipient) => {
   selectedRecipient.value = recipient
-  // 필요하면 요양보호사 선택 해제
-  // selectedCaregiver.value = null
+  selectedCaregiver.value = null
 }
 
-// 요양보호사 선택 시
 const onSelectCaregiver = (caregiver) => {
   selectedCaregiver.value = caregiver
-  // 필요하면 수급자 선택 해제
-  // selectedRecipient.value = null
 }
 
-// 나중에 매칭 해제 기능 붙일 때 사용할 핸들러
 const onRemoveCaregiver = (cg) => {
   console.log('수급자에서 요양보호사 매칭 해제', cg)
 }
@@ -92,50 +80,75 @@ const onRemoveRecipient = (rcp) => {
 .matching-page {
   padding: 24px 32px 32px;
   box-sizing: border-box;
+  position: relative;
 }
 
-/* 상단 전체 2열 레이아웃 */
 .top-area {
   display: flex;
   gap: 24px;
   align-items: flex-start;
+
+  position: relative;
+  z-index: 0;
+  min-height: 0;
 }
 
-/* 왼쪽: 리스트 두 개 (위/아래 50%씩) */
+/* ✅ 왼쪽 컬럼이 다른 영역에 덮이지 않도록 우선순위 부여 */
 .left-column {
   flex: 0 0 36%;
   display: flex;
   flex-direction: column;
   gap: 20px;
   min-height: 0;
+
+  position: relative;
+  z-index: 10;
+  pointer-events: auto;
 }
 
+/* ✅ 리스트 패널 클릭 영역 보장 */
 .list-panel {
   flex: 1;
   overflow: hidden;
+
+  position: relative;
+  z-index: 11;
+  pointer-events: auto;
 }
 
-/* 오른쪽: 상세 + 주간 일정 */
+/* 오른쪽 컬럼은 z-index를 낮게 */
 .right-column {
   flex: 1;
   display: flex;
   flex-direction: column;
   gap: 20px;
+
+  position: relative;
+  z-index: 1;
+  min-height: 0;
 }
 
-/* 상세 두 개 나란히 */
 .detail-row {
   display: flex;
   gap: 20px;
+
+  position: relative;
+  z-index: 1;
 }
 
 .detail-panel {
   flex: 1;
+  position: relative;
+  z-index: 1;
 }
 
-/* 주간 일정 영역 */
+/* ✅ 주간패널이 왼쪽을 덮는 케이스 방지 */
 .weekly-panel {
   flex: 1;
   min-height: 260px;
+
+  position: relative;
+  z-index: 1;
+  pointer-events: auto;
 }
 </style>
