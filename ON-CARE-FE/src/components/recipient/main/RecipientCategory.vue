@@ -35,7 +35,6 @@
       <Record
         v-else-if="activeTab === 'record'"
         :monthly-summary-list="monthlySummaryList"
-
         :beneficiary-id="beneficiaryId"
         :refresh-key="refreshKey"
       />
@@ -77,7 +76,6 @@ import Document from '@/components/recipient/main/category/Document.vue'
 const props = defineProps({
   beneficiaryId: { type: Number, default: null },
   refreshKey: Number,   // 하위 탭들이 새로고침 없이 수급자 정보 변경되면 자동 반영
-
   monthlySummaryList: { type: Array, default: () => [] }
 })
 

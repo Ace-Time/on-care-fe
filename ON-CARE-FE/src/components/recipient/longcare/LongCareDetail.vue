@@ -176,7 +176,7 @@ const emit = defineEmits(['close', 'refresh'])
 const userStore = useUserStore()
 const myEmpId = computed(() => {
   // ✅ empId가 없으면 null 반환
-  return userStore?.user?.empId ?? userStore?.empId ?? null
+  return userStore?.user?.empId ?? userStore?.empId ?? 1    // 로그인 적용하면 empId를 확보해서 자동 주입해야 함
 })
 
 const loading = ref(false)
