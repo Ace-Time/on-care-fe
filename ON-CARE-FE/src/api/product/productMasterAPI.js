@@ -23,7 +23,7 @@ export const getMasterCategoryCode = async() => {
 export const registMaster = async({
     id,
     name,
-    category : categoryCd,
+    categoryCd,
     amount,
     rentalAmount,
     explanation
@@ -39,5 +39,28 @@ export const registMaster = async({
     }
 
     const res = await api.post('product/master',params)
+    return res.data;
+}
+
+
+export const updateMaster = async({
+    id,
+    name,
+    categoryCd,
+    amount,
+    rentalAmount,
+    explanation
+}) => {
+
+    const params ={
+        id,
+        name,
+        categoryCd,
+        amount,
+        ...(rentalAmount != null ? {rentalAmount} : {}),
+        ...(explanation != null ? {explanation} : {})
+    }
+
+    const res = await api.patch('product/master',params)
     return res.data;
 }

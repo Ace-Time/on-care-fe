@@ -3,7 +3,7 @@
 
     <div class="table-header">
       <span class="total-count">총 <strong>{{ totalItemCount }}</strong>개</span>
-      <button class="btn-register" @click="isModalOpen = true">
+      <button class="btn-register" @click="openModal('create')">
         + 신규 등록
       </button>
     </div>
@@ -13,6 +13,7 @@
         <tr>
           <th>용품 코드</th>
           <th>용품명</th>
+          <th>카테고리</th>
           <th>단가</th>
           <th>월 임대료</th>
           <th>설명</th>
@@ -27,12 +28,15 @@
         <tr v-for="item in visualItems" :key="item.id">
           <td>{{ item.id }}</td>
           <td>{{ item.name }}</td>
+          <td>
+            <span class="badge badge-blue">{{ item.categoryName }}</span>
+          </td>
           <td>{{ formatCurrency(item.amount) }}</td>
           <td>{{ formatCurrency(item.rentalAmount) }}</td>
           <td class="desc">{{ item.explanation }}</td>
           <td class="actions">
             <button type="button" class="icon-btn edit">
-                <img :src="editButton" alt="수정" />
+                <img :src="editButton" alt="수정" @click="openModal('edit', item)"/>
               </button>
           </td>
         </tr>
@@ -62,6 +66,8 @@
     <ProductRegisterModal 
       v-if="isModalOpen" 
       :categories="categories"
+      :is-edit="modalMode === 'edit'"
+      :initial-data="selectedItem"
       @close="isModalOpen = false"
       @save="onRegisterProduct"
     />
@@ -77,6 +83,8 @@
   const pageSize = 10       // 화면에 보여줄 개수
   const totalItemCount = computed(() => props.products.length) // 전체 아이템 개수
   const isModalOpen = ref(false)  //모달 상태 변수
+  const modalMode = ref('create') // 'create' 또는 'edit'
+  const selectedItem = ref(null)  // 수정 시 선택된 데이터 담을 곳
   // 아직 마지막 페이지까지 데이터가 없을 경우 부모에게 다음 페이지 API 호출 요청
   const emit = defineEmits(['needMoreData', 'register'])
   
@@ -152,14 +160,37 @@
   })
 
 
-  const onRegisterProduct = (formData) => {
-    emit('register', formData)
-    isModalOpen.value = false
-  }
     
   const formatCurrency = (value) => {
     if (value == null) return '-'
     return `₩${value.toLocaleString()}`
+  }
+
+  const openModal = (mode, item = null) => {
+    modalMode.value = mode
+    
+    if (mode === 'edit' && item) {
+      // 수정 모드: 선택된 아이템 복사해서 넘김 (참조 끊기 위해 spread 사용)
+      selectedItem.value = { ...item }
+    } else {
+      // 등록 모드: 데이터 초기화
+      selectedItem.value = null
+    }
+    
+    isModalOpen.value = true
+  }
+
+  
+  const onRegisterProduct = (formData) => {
+    if (formData.mode === 'edit') {
+      // 수정 API 호출 요청 (부모에게 전달)
+      emit('update', formData) 
+    } else {
+      // 등록 API 호출 요청
+      emit('register', formData)
+    }
+    
+    isModalOpen.value = false
   }
   </script>
   
@@ -185,4 +216,9 @@
 
   .btn-register {padding: 8px 16px;  background-color: #16a34a; color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: 500; cursor: pointer; transition: background-color 0.2s; }
   .btn-register:hover { background-color: #15803d; }
+
+  .badge { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 999px; font-size: 12px;}
+  .badge-blue { background: #eef2ff; color: #4f46e5; }
+  .badge-red { background: #fee2e2; color: #b91c1c; }
+  .badge-green {  background: #dcfce7;  color: #166534; }
   </style>

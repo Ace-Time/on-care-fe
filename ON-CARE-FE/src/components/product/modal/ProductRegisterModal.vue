@@ -2,14 +2,16 @@
   <div class="modal-overlay" >
     <div class="modal-content">
       <div class="modal-header">
-        <h3>용품 신규 등록</h3>
+        <h3>{{ isEdit ? '용품 정보 수정' : '용품 신규 등록' }}</h3>
         <button class="close-btn" @click="$emit('close')">×</button>
       </div>
 
       <div class="modal-body">
         <div class="form-group">
           <label>용품 코드</label>
-          <input v-model="form.id" type="text" placeholder="예: EM009" />
+          <input v-model="form.id" type="text" placeholder="예: EM009" 
+            :disabled="isEdit" 
+            :class="{ 'disabled-input': isEdit }"/>
         </div>
 
         <div class="form-group">
@@ -19,7 +21,7 @@
 
         <div class="form-group">
           <label>카테고리</label>
-          <select v-model="form.category">
+          <select v-model="form.categoryCd">
             <option v-for="item in categories" :key="item.id"  :value="item.id">
                 {{ item.name }}
             </option>
@@ -45,21 +47,22 @@
 
       <div class="modal-footer">
         <button class="btn-cancel" @click="$emit('close')">취소</button>
-        <button class="btn-save" @click="handleSave">등록</button>
+        <button class="btn-save" @click="handleSave">
+          {{ isEdit ? '수정' : '등록' }}
+        </button>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { reactive } from 'vue'
+import { reactive, watch } from 'vue'
 
-  const props = defineProps({
-      categories: {
-        type: Array,
-        default: () => [],
-      }
-    })
+const props = defineProps({
+  categories: { type: Array, default: () => [] },
+  isEdit: { type: Boolean, default: false },     // 수정 모드인지 확인
+  initialData: { type: Object, default: null }   // 수정할 데이터 받기
+})
 
 const emit = defineEmits(['close', 'save'])
 
@@ -67,20 +70,32 @@ const emit = defineEmits(['close', 'save'])
 const form = reactive({
   id: '',
   name: '',
-  category: '',
+  categoryCd: '',
   amount: 0,
   rentalAmount: 0,
   explanation: ''
 })
 
+watch(() => props.initialData, (newData) => {
+  if (newData && props.isEdit) {
+    // 수정 모드: 부모가 준 데이터로 덮어쓰기
+    Object.assign(form, newData)
+  } else {
+    // 등록 모드: 폼 초기화
+    Object.assign(form, {
+      id: '', name: '', categoryCd: '', amount: 0, rentalAmount: 0, explanation: ''
+    })
+  }
+}, { immediate: true }) // 컴포넌트 생성 즉시 실행
+
 const handleSave = () => {
   // 간단한 유효성 검사
-  if (!form.name || !form.id || !form.category) {
+  if (!form.name || !form.id || !form.categoryCd) {
     alert('용품 코드,이름, 카테고리 필수입니다.')
     return
   }
   // 부모에게 입력된 데이터 전달
-  emit('save', { ...form })
+  emit('save', { ...form, mode: props.isEdit ? 'edit' : 'create' })
 }
 </script>
 
@@ -139,4 +154,10 @@ const handleSave = () => {
   border-radius: 6px; cursor: pointer;
 }
 .btn-save:hover { background: #15803d; }
+
+.disabled-input {
+  background-color: #f3f4f6;
+  color: #9ca3af;
+  cursor: not-allowed;
+}
 </style>

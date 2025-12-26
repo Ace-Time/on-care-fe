@@ -15,6 +15,7 @@
       :categories="categories"
       @needMoreData="fetchNextBatch"
       @register="registMasterData"
+      @update="updateMasterData"
     />
   </div>
 </template>
@@ -23,7 +24,7 @@
 import { ref, computed , onMounted, watch} from 'vue'
 import ProductSearchBar from '@/components/product/ProductSearchBar.vue'
 import ProductTable from '@/components/product/ProductMasterTable.vue'
-import { getProductMaster, getMasterCategoryCode , registMaster} from '@/api/product/product.js'
+import { getProductMaster, getMasterCategoryCode , registMaster, updateMaster} from '@/api/product/productMasterAPI.js'
 
 // 검색어
 const searchValue = ref('')
@@ -82,6 +83,12 @@ const handleSearch = async () => {
 
 const registMasterData = async (masterData) => {
  await registMaster(masterData);
+ handleSearch();
+}
+
+
+const updateMasterData = async (masterData) => {
+ await updateMaster(masterData);
  handleSearch();
 }
 
