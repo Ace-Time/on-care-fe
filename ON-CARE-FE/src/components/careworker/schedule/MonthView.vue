@@ -1,25 +1,25 @@
 <!-- components/schedule/MonthView.vue -->
 
 <script setup>
-import { ref, computed, defineEmits, defineProps } from 'vue';
-import { scheduleList } from '@/mock/careworker/scheduleData';
+import { computed, defineEmits, defineProps } from 'vue';
 
-const emit = defineEmits(['select-schedule', 'view-change', 'add-schedule']);
+const emit = defineEmits(['select-schedule', 'view-change', 'add-schedule', 'date-change']);
 
 const props = defineProps({
   schedules: {
     type: Array,
     default: () => [],
   },
+  currentDate: {
+    type: Date,
+    default: () => new Date(),
+  },
 });
 
-// 현재 기준 날짜 (초기값 2025-12-01)
-const currentDate = ref(new Date('2025-12-01'));
+const currentYear = computed(() => props.currentDate.getFullYear());
+const currentMonth = computed(() => props.currentDate.getMonth());
 
-const currentYear = computed(() => currentDate.value.getFullYear());
-const currentMonth = computed(() => currentDate.value.getMonth());
-
-const scheduleData = computed(() => (props.schedules?.length ? props.schedules : scheduleList));
+const scheduleData = computed(() => props.schedules || []);
 
 // 일정 데이터를 날짜별로 그룹화
 const schedulesByDate = computed(() => {
@@ -33,15 +33,17 @@ const schedulesByDate = computed(() => {
   return grouped;
 });
 
-// 달력 그리드 (이전/다음달 포함 6주)
+// 달력 그리드 (이전/다음달 포함 6주) - 월요일부터 시작
 const calendarDays = computed(() => {
   const days = [];
   const firstDayOfMonth = new Date(currentYear.value, currentMonth.value, 1);
   const lastDayOfMonth = new Date(currentYear.value, currentMonth.value + 1, 0);
-  
-  // 시작: 이번 달 1일이 속한 주의 일요일
+
+  // 시작: 이번 달 1일이 속한 주의 월요일
   const startDate = new Date(firstDayOfMonth);
-  startDate.setDate(startDate.getDate() - startDate.getDay());
+  const day = startDate.getDay(); // 0(일) ~ 6(토)
+  const diff = day === 0 ? -6 : 1 - day; // 일요일이면 -6, 그 외에는 1-day
+  startDate.setDate(startDate.getDate() + diff);
 
   // 끝: 6주(42칸) 채우기
   const endDate = new Date(startDate);
@@ -70,15 +72,18 @@ const displayMonth = computed(() => {
 
 // 이전/다음 이동
 const prevMonth = () => {
-  currentDate.value = new Date(currentYear.value, currentMonth.value - 1, 1);
+  const newDate = new Date(currentYear.value, currentMonth.value - 1, 1);
+  emit('date-change', newDate);
 };
 const nextMonth = () => {
-  currentDate.value = new Date(currentYear.value, currentMonth.value + 1, 1);
+  const newDate = new Date(currentYear.value, currentMonth.value + 1, 1);
+  emit('date-change', newDate);
 };
 
 // 오늘로 이동
 const goToday = () => {
-  currentDate.value = new Date();
+  const newDate = new Date();
+  emit('date-change', newDate);
 };
 
 // 현재 달 여부
@@ -113,13 +118,13 @@ const openAdd = () => {
 
     <div class="month-view-body">
       <div class="weekday-header">
-        <div class="weekday">일</div>
         <div class="weekday">월</div>
         <div class="weekday">화</div>
         <div class="weekday">수</div>
         <div class="weekday">목</div>
         <div class="weekday">금</div>
         <div class="weekday">토</div>
+        <div class="weekday">일</div>
       </div>
 
       <div class="date-grid">

@@ -1,10 +1,13 @@
 ﻿<script setup>
-import { ref, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref, onMounted, watch, onActivated } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
 import { getTodaySchedules, startVisit, completeVisit } from '@/api/careworker';
+import { useScheduleStore } from '@/stores/schedule';
 import BeneficiaryDetailModal from './BeneficiaryDetailModal.vue';
 
 const router = useRouter();
+const route = useRoute();
+const scheduleStore = useScheduleStore();
 
 const scheduleItems = ref([]);
 const loading = ref(true);
@@ -185,7 +188,33 @@ const handleAction = async (action, item) => {
   }
 };
 
+// 일정 업데이트 감지 시 자동 새로고침
+watch(() => scheduleStore.scheduleUpdateCounter, (newValue, oldValue) => {
+  console.log('📅 홈 화면: 일정 업데이트 감지!', { oldValue, newValue });
+  console.log('📅 홈 화면: 일정 새로고침 시작...');
+  loadSchedules();
+}, { immediate: false });
+
+// 라우트 변경 감지 (홈 페이지로 이동 시 새로고침)
+watch(() => route.path, (newPath, oldPath) => {
+  console.log('🔄 라우트 변경:', { oldPath, newPath });
+  if (newPath === '/home') {
+    console.log('📅 홈 페이지로 이동: 일정 새로고침');
+    // 약간의 지연을 두고 새로고침 (DOM 업데이트 대기)
+    setTimeout(() => {
+      loadSchedules();
+    }, 50);
+  }
+});
+
+// 컴포넌트 활성화 시에도 새로고침 (keep-alive 사용 시)
+onActivated(() => {
+  console.log('📅 홈 화면 활성화: 일정 새로고침');
+  loadSchedules();
+});
+
 onMounted(() => {
+  console.log('📅 ScheduleList 마운트: 초기 일정 로드');
   loadSchedules();
 });
 </script>

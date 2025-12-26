@@ -2,23 +2,39 @@
 
 <script setup>
 import { ref, defineEmits, defineProps, computed } from 'vue';
-import { scheduleList } from '@/mock/careworker/scheduleData';
 
-// 부모에 전달할 이벤트 (일정 선택, 모드 변경, 일정 등록)
-const emit = defineEmits(['select-schedule', 'view-change', 'add-schedule']);
+// 부모에 전달할 이벤트 (일정 선택, 모드 변경, 일정 등록, 날짜 변경)
+const emit = defineEmits(['select-schedule', 'view-change', 'add-schedule', 'date-change']);
 
 const props = defineProps({
   schedules: {
     type: Array,
     default: () => [],
   },
+  currentDate: {
+    type: Date,
+    default: () => new Date(),
+  },
 });
 
 const currentView = ref('day'); // 현재 뷰 타입 (일간)
-const currentDate = ref('2025-12-11');
 const timeSlots = Array.from({ length: 12 }, (_, i) => i + 7); // 7시~18시
 
-const scheduleData = computed(() => (props.schedules?.length ? props.schedules : scheduleList));
+const scheduleData = computed(() => props.schedules || []);
+
+// 날짜 포맷 (YYYY-MM-DD)
+const formatDateKey = (date) => {
+  if (typeof date === 'string') return date;
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+// 화면 표시용 날짜 (부모로부터 받은 currentDate 사용)
+const displayDate = computed(() => {
+  return formatDateKey(props.currentDate);
+});
 
 // 일정 클릭 시 부모로 전달
 const handleSelect = (schedule) => {
@@ -32,22 +48,83 @@ const changeView = (viewType) => {
 
 // 일정 등록 버튼
 const openAdd = () => {
-  emit('add-schedule', { date: currentDate.value });
+  emit('add-schedule', { date: formatDateKey(props.currentDate) });
 };
 
-// 위치 계산 (start~end)
-const getPositionStyle = (start, end) => {
+// 이전 날로 이동
+const goPrevDay = () => {
+  const newDate = new Date(props.currentDate);
+  newDate.setDate(newDate.getDate() - 1);
+  emit('date-change', newDate);
+};
+
+// 다음 날로 이동
+const goNextDay = () => {
+  const newDate = new Date(props.currentDate);
+  newDate.setDate(newDate.getDate() + 1);
+  emit('date-change', newDate);
+};
+
+// 오늘로 이동
+const goToday = () => {
+  const newDate = new Date();
+  emit('date-change', newDate);
+};
+
+// 겹치는 일정 감지 및 배치 계산
+const getOverlappingSchedules = () => {
+  const overlaps = {};
+
+  scheduleData.value.forEach((schedule, index) => {
+    const key = `${schedule.startTime}-${schedule.endTime}`;
+    if (!overlaps[key]) {
+      overlaps[key] = [];
+    }
+    overlaps[key].push({ schedule, index });
+  });
+
+  return overlaps;
+};
+
+// 위치 계산 (start~end) + 겹치는 일정 처리
+const getPositionStyle = (start, end, scheduleId) => {
   const startHour = parseInt(start.split(':')[0]);
   const startMin = parseInt(start.split(':')[1]);
   const endHour = parseInt(end.split(':')[0]);
   const endMin = parseInt(end.split(':')[1]);
 
   const top = ((startHour - 7) * 60) + startMin;
-  const height = ((endHour - startHour) * 60) + (endMin - startMin);
-  
+  const heightRaw = ((endHour - startHour) * 60) + (endMin - startMin);
+  // 연속된 일정이 겹치지 않도록 하단에 8px 여백 추가
+  const height = heightRaw - 8;
+
+  // 같은 시간대의 일정들 찾기
+  const key = `${start}-${end}`;
+  const overlaps = getOverlappingSchedules();
+  const sameTimeSchedules = overlaps[key] || [];
+
+  // 현재 일정이 몇 번째인지 찾기
+  const currentIndex = sameTimeSchedules.findIndex(item => item.schedule.id === scheduleId);
+  const totalCount = sameTimeSchedules.length;
+
+  // 겹치는 일정이 있으면 너비를 나누고 위치 조정
+  if (totalCount > 1) {
+    const widthPercent = 95 / totalCount; // 전체 너비를 개수만큼 나눔
+    const leftPercent = (widthPercent * currentIndex);
+
+    return {
+      top: `${top}px`,
+      height: `${height}px`,
+      width: `${widthPercent}%`,
+      left: `${leftPercent}%`,
+    };
+  }
+
   return {
     top: `${top}px`,
-    height: `${height}px`
+    height: `${height}px`,
+    width: '95%',
+    left: '0',
   };
 };
 </script>
@@ -62,13 +139,13 @@ const getPositionStyle = (start, end) => {
       </div>
       
       <div class="date-navigator">
-        <button class="nav-btn">&lt;</button>
-        <span class="current-date">{{ currentDate }}</span>
-        <button class="nav-btn">&gt;</button>
+        <button class="nav-btn" @click="goPrevDay">&lt;</button>
+        <span class="current-date">{{ displayDate }}</span>
+        <button class="nav-btn" @click="goNextDay">&gt;</button>
       </div>
 
       <div class="right-actions">
-        <button class="today-btn">오늘</button>
+        <button class="today-btn" @click="goToday">오늘</button>
         <button class="add-btn" @click="openAdd">+ 일정등록</button>
       </div>
     </div>
@@ -85,9 +162,9 @@ const getPositionStyle = (start, end) => {
           <div v-for="hour in timeSlots" :key="hour" class="grid-line"></div>
         </div>
 
-        <div v-for="item in scheduleData" :key="item.id" 
+        <div v-for="item in scheduleData" :key="item.id"
              class="schedule-block"
-             :style="getPositionStyle(item.startTime, item.endTime)"
+             :style="getPositionStyle(item.startTime, item.endTime, item.id)"
              @click="handleSelect(item)">
           <div class="block-content">
             <div class="block-time">시간 {{ item.startTime }} - {{ item.endTime }}</div>
