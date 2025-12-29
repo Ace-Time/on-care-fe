@@ -2,42 +2,73 @@
 import { ref, computed, watch } from 'vue';
 
 const props = defineProps({
-  isOpen: Boolean,
-  employees: { type: Array, default: () => [] }
+  isOpen: Boolean
 });
 
 const emit = defineEmits(['close', 'submit']);
 
-// 1. 전체 직원들이 가진 자격증 이름 추출 (중복 제거)
-const certOptions = computed(() => {
-  console.log('BulkModal employees:', props.employees.length);
-  if (props.employees.length > 0) {
-    console.log('First employee certs:', props.employees[0].certificates);
-  }
+// API 함수 import
+import { getCertificateTypes, getCertificateHolders, registerBulkEducation } from '@/api/employee/employeeApi';
 
-  const names = new Set();
-  props.employees.forEach(emp => {
-    if (emp.certificates) {
-      emp.certificates.forEach(cert => {
-        const name = cert.certificateName || cert.name;
-        if (name) names.add(name);
-      });
+// 1. 자격증 종류 조회 (API)
+const certTypes = ref([]);
+const isLoadingTypes = ref(false);
+
+const fetchCertTypes = async () => {
+  isLoadingTypes.value = true;
+  try {
+    const response = await getCertificateTypes();
+    console.log('Certificate Types API Response:', response);
+
+    let rawData = [];
+    if (Array.isArray(response)) {
+      rawData = response;
+    } else if (response && Array.isArray(response.data)) {
+      rawData = response.data; // { data: [...] } Wrapper support
+    } else if (response && Array.isArray(response.content)) {
+      rawData = response.content; // Page wrapper support
     }
-  });
-  
-  const result = Array.from(names).sort();
-  console.log('Extracted Cert Options:', result);
-  
-  // [Fallback] 만약 추출된 자격증이 하나도 없다면, 기본 옵션이라도 제공 (데이터 누락 대비)
-  if (result.length === 0) {
-    return ['요양보호사 1급', '사회복지사 1급', '간호조무사'];
+
+    // 데이터 매핑 (문자열 리스트 or 객체 리스트 대응)
+    certTypes.value = rawData.map((item, index) => {
+      // 1. 단순 문자열인 경우 (예: ["요양보호사", "사회복지사"])
+      if (typeof item === 'string') {
+        return { id: item, name: item };
+      }
+      // 2. 객체인 경우 (예: { id: 1, name: "..." } or { code: "...", value: "..." })
+      return {
+        id: item.id || item.code || item.certificateId || index, 
+        name: item.name || item.certificateName || item.value || '이름 없음'
+      };
+    });
+    
+  } catch (error) {
+    console.error('자격증 종류 조회 실패:', error);
+    certTypes.value = []; 
+  } finally {
+    isLoadingTypes.value = false;
   }
-  
-  return result;
+};
+
+watch(() => props.isOpen, (newVal) => {
+  if (newVal) {
+    fetchCertTypes();
+    // 초기화
+    form.value = { 
+      targetCertId: '', 
+      eduName: '', 
+      institution: '', 
+      eduDate: '', 
+      nextEduDate: '', 
+      status: 0 
+    };
+    holders.value = [];
+    selectedIds.value = [];
+  }
 });
 
 const form = ref({ 
-  targetCertName: '', 
+  targetCertId: '', 
   eduName: '', 
   institution: '', 
   eduDate: '', 
@@ -47,22 +78,32 @@ const form = ref({
 
 const selectedIds = ref([]);
 
-// 2. 선택된 자격증을 가진 직원 필터링
-const filteredEmployees = computed(() => {
-  if (!form.value.targetCertName) return [];
-  return props.employees.filter(emp => {
-    if (!emp.certificates) return false;
-    return emp.certificates.some(cert => {
-      const name = cert.certificateName || cert.name;
-      // 정확히 일치하거나 포함되는 경우 (여기선 편의상 포함으로 처리하되, Select라면 정확 일치 권장)
-      return name === form.value.targetCertName;
-    });
-  });
-});
+// 2. 보유자 조회 (API)
+const holders = ref([]);
+const isLoadingHolders = ref(false);
 
-// 자격증 변경 시 선택 초기화
-watch(() => form.value.targetCertName, () => {
+const fetchHolders = async (certId) => {
+  if (!certId) return;
+  isLoadingHolders.value = true;
+  try {
+    const data = await getCertificateHolders(certId);
+    // data가 [{ id(employeeId), name, cwc_id, ... }, ...] 형태라고 가정
+    // 혹은 data가 [{ cwc_id, employeeName: ..., }, ...] 일 수도 있음.
+    // 여기서는 data를 그대로 holders에 넣고, template에서 필드를 맞춰씀.
+    holders.value = Array.isArray(data) ? data : [];
+  } catch (error) {
+    console.error('보유자 조회 실패:', error);
+    holders.value = [];
+  } finally {
+    isLoadingHolders.value = false;
+  }
+};
+
+// 자격증 변경 시 보유자 목록 조회
+watch(() => form.value.targetCertId, (newId) => {
   selectedIds.value = [];
+  if (newId) fetchHolders(newId);
+  else holders.value = [];
 });
 
 // 이수일 변경 시 다음 교육 예정일(2년 뒤) 자동 계산
@@ -80,18 +121,42 @@ watch(() => form.value.eduDate, (newDate) => {
 });
 
 const toggleAll = (e) => {
-  if (e.target.checked) selectedIds.value = filteredEmployees.value.map(c => c.id);
+  // cwc_id를 사용한다고 가정.
+  if (e.target.checked) selectedIds.value = holders.value.map(c => c.cwc_id || c.id);
   else selectedIds.value = [];
 };
 
-const handleSubmit = () => {
-  if (!form.value.targetCertName) return alert('대상 자격증을 선택해주세요.');
+const handleSubmit = async () => {
+  if (!form.value.targetCertId) return alert('대상 자격증을 선택해주세요.');
   if (selectedIds.value.length === 0) return alert('교육을 등록할 직원을 선택해주세요.');
   if (!form.value.eduName || !form.value.institution || !form.value.eduDate) {
     return alert('필수 정보(교육명, 기관, 이수일)를 입력해주세요.');
   }
 
-  emit('submit', { ids: selectedIds.value, data: form.value });
+  try {
+    // API 명세: 선택된 직원들의 보유 ID(careWorkerCertIds)와 교육 정보(educationInfo)
+    const payload = {
+      careWorkerCertIds: selectedIds.value.map(id => Number(id)),
+      educationInfo: { 
+        eduName: form.value.eduName,
+        institution: form.value.institution,
+        eduDate: form.value.eduDate,
+        nextEduDate: form.value.nextEduDate,
+        status: Number(form.value.status)
+      }
+    };
+    
+    console.log('Sending Bulk Payload:', payload);
+
+    await registerBulkEducation(payload);
+
+    alert('보수교육이 일괄 등록되었습니다.');
+    emit('submit'); // 부모에게 알림 (새로고침 등)
+    emit('close');
+  } catch (error) {
+    console.error('일괄 등록 실패:', error);
+    alert('등록 중 오류가 발생했습니다.');
+  }
 };
 </script>
 
@@ -110,36 +175,43 @@ const handleSubmit = () => {
         <!-- 1. 자격증 선택 영역 (가장 먼저 선택) -->
         <div class="mb-6">
           <label class="block-label mb-2">대상 자격증 선택</label>
-          <select v-model="form.targetCertName" class="input highlight-input">
+          <select v-model="form.targetCertId" class="input highlight-input" :disabled="isLoadingTypes">
             <option value="" disabled>자격증을 선택하세요</option>
-            <option v-for="name in certOptions" :key="name" :value="name">{{ name }}</option>
+            <!-- 서버에서 주는 { id, name } 구조 가정 -->
+            <option v-for="cert in certTypes" :key="cert.id" :value="cert.id">
+              {{ cert.name }}
+            </option>
           </select>
-          <p class="guide-text" v-if="!form.targetCertName">☝️ 자격증을 선택하면 해당 자격증을 보유한 직원이 표시됩니다.</p>
+          <p class="guide-text" v-if="!form.targetCertId">☝️ 자격증을 선택하면 해당 자격증을 보유한 직원이 표시됩니다.</p>
         </div>
 
-        <div class="section-title-row" :class="{ 'opacity-50': !form.targetCertName }">
+        <div class="section-title-row" :class="{ 'opacity-50': !form.targetCertId }">
           <svg class="icon-blue" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           <span class="main-title">대상 직원 선택</span>
-          <span class="count-badge" v-if="form.targetCertName">{{ selectedIds.length }} / {{ filteredEmployees.length }}명</span>
+          <span class="count-badge" v-if="form.targetCertId">{{ selectedIds.length }} / {{ holders.length }}명</span>
         </div>
 
-        <div class="selection-box" v-if="form.targetCertName">
+        <div class="selection-box" v-if="form.targetCertId">
           <div class="check-row header-row">
-            <input type="checkbox" @change="toggleAll" :checked="selectedIds.length === filteredEmployees.length && filteredEmployees.length > 0" class="checkbox" />
+            <input type="checkbox" @change="toggleAll" :checked="holders.length > 0 && selectedIds.length === holders.length" class="checkbox" />
             <label class="check-label">전체 선택</label>
           </div>
           <div class="list-scroll custom-scrollbar">
-            <div v-for="emp in filteredEmployees" :key="emp.id" class="check-row item-row" @click="selectedIds.includes(emp.id) ? selectedIds = selectedIds.filter(id => id !== emp.id) : selectedIds.push(emp.id)">
-              <input type="checkbox" :value="emp.id" v-model="selectedIds" class="checkbox" @click.stop />
+            <div v-if="isLoadingHolders" class="empty-list">로딩 중...</div>
+            <div v-else v-for="emp in holders" :key="emp.cwc_id || emp.id" class="check-row item-row" 
+                 @click="(selectedIds.includes(emp.cwc_id || emp.id)) ? selectedIds = selectedIds.filter(id => id !== (emp.cwc_id || emp.id)) : selectedIds.push(emp.cwc_id || emp.id)">
+              <input type="checkbox" :value="emp.cwc_id || emp.id" v-model="selectedIds" class="checkbox" @click.stop />
               <div class="item-info">
                 <div class="info-top">
-                  <span class="name">{{ emp.name }}</span>
-                  <span class="status-tag" :class="emp.status === '활동중' ? 'tag-green' : 'tag-yellow'">{{ emp.status }}</span>
+                  <span class="name">{{ emp.employeeName || emp.name }}</span>
+                  <!-- 직책이나 다른 정보가 있다면 표시 -->
+                  <span v-if="emp.status" class="status-tag" :class="emp.status === '활동중' ? 'tag-green' : 'tag-yellow'">{{ emp.status }}</span>
                 </div>
-                <p class="phone">{{ emp.phone }}</p>
+                <!-- 핸드폰 번호가 없을 수도 있음 -->
+                <p v-if="emp.phone" class="phone">{{ emp.phone }}</p>
               </div>
             </div>
-            <div v-if="filteredEmployees.length === 0" class="empty-list">
+            <div v-if="!isLoadingHolders && holders.length === 0" class="empty-list">
               해당 자격증을 보유한 직원이 없습니다.
             </div>
           </div>
@@ -150,7 +222,7 @@ const handleSubmit = () => {
 
         <h4 class="form-title mt-6">교육 정보</h4>
         <div class="form-container">
-          <!-- targetCertName 입력 필드 제거 (위에서 선택함) -->
+          <!-- targetCertId 입력 필드 제거 (위에서 선택함) -->
 
           <div class="form-group"><label>교육명</label><input v-model="form.eduName" type="text" class="input" placeholder="예: 2025 직무교육" /></div>
           <div class="form-group"><label>교육기관</label><input v-model="form.institution" type="text" class="input" /></div>
