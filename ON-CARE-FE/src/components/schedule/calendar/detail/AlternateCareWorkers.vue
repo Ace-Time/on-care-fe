@@ -2,7 +2,7 @@
   <div class="alternate-box">
     <div class="alternate-header">
       <span class="title">{{ headerTitle }}</span>
-      <span class="count">{{ alternatives.length }}명 가능</span>
+      <span class="count">{{ totalCount }}명 가능</span>
     </div>
 
     <div class="alternate-body">
@@ -35,14 +35,14 @@
           <span class="assign-chip">배정가능</span>
         </button>
 
-        <div v-if="!alternatives.length" class="empty">
+        <div v-if="!pagedAlternatives.length" class="empty">
           대체 가능한 요양보호사가 없습니다.
         </div>
 
-        <div v-if="alternatives.length" class="pagination">
-          <button @click="prevPage" :disabled="page === 1">〈</button>
-          <span>{{ page }} / {{ totalPages }}</span>
-          <button @click="nextPage" :disabled="page === totalPages">〉</button>
+        <div v-if="totalCount > 0" class="pagination">
+          <button @click="prevPage" :disabled="uiPage === 1">〈</button>
+          <span>{{ uiPage }} / {{ totalPages }}</span>
+          <button @click="nextPage" :disabled="uiPage === totalPages">〉</button>
         </div>
       </template>
     </div>
@@ -96,9 +96,8 @@ const props = defineProps({
 
   beneficiaryName: { type: String, default: '' },
   currentCareWorkerName: { type: String, default: '' },
-  scheduleDate: { type: String, default: '' }, // 'YYYY-MM-DD' 권장
+  scheduleDate: { type: String, default: '' }, // 'YYYY-MM-DD'
 
-  // 둘 중 하나 방식으로 들어와도 되게 처리
   startDt: { type: String, default: '' }, // 'YYYY-MM-DD HH:mm:ss' or 'YYYY-MM-DDTHH:mm:ss'
   endDt: { type: String, default: '' },
   startTime: { type: String, default: '' }, // 'HH:mm'
@@ -107,46 +106,46 @@ const props = defineProps({
 
 const emit = defineEmits(['changed'])
 
-const alternatives = ref([])
+/** =========================
+ * paging rules
+ * =========================
+ * CONFIRMED: server size=3 fixed
+ * NORMAL: server size=8 fixed(기존 화면 유지) + 이 화면에서만 UI size=3
+ */
+const UI_PAGE_SIZE = 3
+const NORMAL_SERVER_SIZE = 8
+
+const uiPage = ref(1) // 1-based
 const loading = ref(false)
 const error = ref('')
 
-const page = ref(1)
-const pageSize = 3
+// 실제 렌더링할 3개
+const pagedAlternatives = ref([])
 
-const totalPages = computed(() => Math.max(1, Math.ceil(alternatives.value.length / pageSize)))
-const pagedAlternatives = computed(() =>
-  alternatives.value.slice((page.value - 1) * pageSize, page.value * pageSize)
-)
+// 헤더/페이지 계산용 total
+const totalCount = ref(0)
+
+const totalPages = computed(() => Math.max(1, Math.ceil((totalCount.value || 0) / UI_PAGE_SIZE)))
 
 const prevPage = () => {
-  if (page.value > 1) page.value--
+  if (uiPage.value > 1) uiPage.value--
 }
 const nextPage = () => {
-  if (page.value < totalPages.value) page.value++
+  if (uiPage.value < totalPages.value) uiPage.value++
 }
 
 const isValid = (v) => v !== null && v !== undefined && String(v).trim() !== ''
-
-const pickArray = (res) => {
-  if (Array.isArray(res?.data)) return res.data
-  if (Array.isArray(res?.data?.data)) return res.data.data
-  return []
-}
 
 const normalizeDate = (v) => {
   const s = String(v ?? '').trim()
   if (!s) return ''
   return s.includes('T') ? s.split('T')[0] : s.slice(0, 10)
 }
-
-// '2025-12-23T09:00:00' -> '2025-12-23 09:00:00'
 const normalizeDt = (s) => {
   const v = String(s ?? '').trim()
   if (!v) return ''
   return v.includes('T') ? v.replace('T', ' ') : v
 }
-
 const buildDtFromDateAndTime = (date, hm) => {
   const d = normalizeDate(date)
   const t = String(hm ?? '').trim()
@@ -158,22 +157,53 @@ const resolvedStartDt = computed(() => {
   if (isValid(props.startDt)) return normalizeDt(props.startDt)
   return buildDtFromDateAndTime(props.scheduleDate, props.startTime)
 })
-
 const resolvedEndDt = computed(() => {
   if (isValid(props.endDt)) return normalizeDt(props.endDt)
   return buildDtFromDateAndTime(props.scheduleDate, props.endTime)
 })
 
+/**
+ * ✅ 응답 파싱:
+ * - 배열 직접 반환: res.data가 Array
+ * - 페이지 객체: res.data.data가 Array + res.data.total 존재
+ */
+const pickPage = (res) => {
+  const d = res?.data
+  if (Array.isArray(d)) {
+    return { list: d, total: d.length }
+  }
+  const list =
+    Array.isArray(d?.data) ? d.data
+    : Array.isArray(d?.list) ? d.list
+    : Array.isArray(d?.content) ? d.content
+    : []
+  const total =
+    Number.isFinite(Number(d?.total)) ? Number(d.total)
+    : Number.isFinite(Number(d?.totalElements)) ? Number(d.totalElements)
+    : list.length
+  return { list, total }
+}
+
+const changeMode = computed(() => (props.source === 'CONFIRMED' ? 'CONFIRMED' : 'NORMAL'))
+const headerTitle = computed(() =>
+  changeMode.value === 'CONFIRMED' ? '대체 가능한 요양보호사' : '대체 가능한 담당 요양보호사'
+)
+
+/**
+ * ✅ 핵심 로드:
+ * - CONFIRMED: uiPage(1-based) -> server page(0-based)
+ * - NORMAL: uiPage(3개 단위) -> serverPage(8개 단위)로 변환해서 받고,
+ *           서버에서 받은 8개 중에서 다시 3개만 잘라서 렌더
+ */
 const load = async () => {
-  alternatives.value = []
   error.value = ''
-  page.value = 1
+  pagedAlternatives.value = []
+  totalCount.value = 0
 
   if (!isValid(props.beneficiaryId)) return
 
   const isConfirmed = props.source === 'CONFIRMED'
 
-  // ✅ CONFIRMED는 필수값 없으면 호출 자체를 안 함 (로딩도 켜지지 않게)
   if (isConfirmed) {
     if (!isValid(props.vsId)) return
     if (!isValid(resolvedStartDt.value) || !isValid(resolvedEndDt.value)) return
@@ -182,16 +212,37 @@ const load = async () => {
   try {
     loading.value = true
 
-    const res = isConfirmed
-      ? await getVisitAvailableCareWorkerCards({
-          beneficiaryId: props.beneficiaryId,
-          vsId: props.vsId,
-          startDt: resolvedStartDt.value,
-          endDt: resolvedEndDt.value,
-        })
-      : await getCandidateCareWorkerCards(props.beneficiaryId)
+    if (isConfirmed) {
+      const res = await getVisitAvailableCareWorkerCards({
+        vsId: props.vsId,
+        startDt: resolvedStartDt.value,
+        endDt: resolvedEndDt.value,
+        page: Math.max(uiPage.value - 1, 0), // 서버는 0-based
+      })
 
-    alternatives.value = pickArray(res)
+      const { list, total } = pickPage(res)
+      pagedAlternatives.value = list // 서버가 이미 3개로 잘라줌
+      totalCount.value = total
+      return
+    }
+
+    // NORMAL: 서버는 8개 페이징 유지
+    const uiIndex0 = (uiPage.value - 1) * UI_PAGE_SIZE            // 0-based item index (3단위)
+    const serverPage = Math.floor(uiIndex0 / NORMAL_SERVER_SIZE)  // 8개 단위로 어느 page?
+    const serverOffsetInPage = uiIndex0 % NORMAL_SERVER_SIZE      // 그 8개 중 어디서부터?
+
+    const res = await getCandidateCareWorkerCards({
+      beneficiaryId: props.beneficiaryId,
+      page: serverPage,
+      size: NORMAL_SERVER_SIZE,
+      keyword: null,
+    })
+
+    const { list, total } = pickPage(res)
+    totalCount.value = total
+
+    // 서버에서 받은 8개 중에서 UI는 3개만 보여줌
+    pagedAlternatives.value = list.slice(serverOffsetInPage, serverOffsetInPage + UI_PAGE_SIZE)
   } catch (e) {
     error.value = '대체 요양보호사를 불러오지 못했습니다.'
   } finally {
@@ -199,6 +250,10 @@ const load = async () => {
   }
 }
 
+// ✅ uiPage 바뀌면 다음 3개 로드
+watch(() => uiPage.value, load)
+
+// ✅ 입력값 바뀌면 1페이지로 리셋 후 로드
 watch(
   () => [
     props.beneficiaryId,
@@ -210,22 +265,21 @@ watch(
     props.startTime,
     props.endTime,
   ],
-  load,
+  () => {
+    uiPage.value = 1
+    load()
+  },
   { immediate: true }
 )
 
+/* =========================
+ * UI helpers
+ * ========================= */
 const badgeClass = (g) => ({
   male: g === '남자' || g === 'M',
   female: g === '여자' || g === 'F',
 })
-
 const displayGender = (g) => (g === 'M' ? '남자' : g === 'F' ? '여자' : g || '-')
-
-const changeMode = computed(() => (props.source === 'CONFIRMED' ? 'CONFIRMED' : 'NORMAL'))
-
-const headerTitle = computed(() =>
-  changeMode.value === 'CONFIRMED' ? '대체 가능한 요양보호사' : '대체 가능한 담당 요양보호사'
-)
 
 /* =========================
  * Detail Modal
@@ -252,14 +306,12 @@ const dayLabel = (v) => {
   if (n >= 0 && n <= 6) return map0to6[n] || s
   return s
 }
-
 const timeHM = (t) => {
   const s = String(t ?? '').trim()
   if (!s) return ''
   if (s.includes('T')) return (s.split('T')[1] || '').slice(0, 5)
   return s.slice(0, 5)
 }
-
 const normalizeDetailForModal = (raw) => {
   const d = raw && typeof raw === 'object' ? raw : {}
   const wt = Array.isArray(d.workingTimes) ? d.workingTimes : []
@@ -350,33 +402,28 @@ const onFinalConfirm = async () => {
   border-radius: 16px;
   overflow: hidden;
 }
-
 .alternate-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 12px 16px;
 }
-
 .title {
   font-size: 14px;
   font-weight: 700;
   color: #2563eb;
 }
-
 .count {
   font-size: 12px;
   color: #2563eb;
   font-weight: 600;
 }
-
 .alternate-body {
   padding: 10px;
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
-
 .alternate-item {
   width: 100%;
   display: flex;
@@ -390,11 +437,9 @@ const onFinalConfirm = async () => {
   cursor: pointer;
   text-align: left;
 }
-
 .alternate-item:hover {
   background: #f8fbff;
 }
-
 .item-left {
   display: flex;
   align-items: center;
@@ -402,14 +447,12 @@ const onFinalConfirm = async () => {
   min-width: 0;
   flex: 1;
 }
-
 .name {
   font-size: 14px;
   font-weight: 700;
   color: #111827;
   white-space: nowrap;
 }
-
 .gender {
   padding: 6px 12px;
   border-radius: 999px;
@@ -417,24 +460,20 @@ const onFinalConfirm = async () => {
   font-weight: 700;
   white-space: nowrap;
 }
-
 .gender.male {
   background: #e0f2fe;
   color: #0284c7;
 }
-
 .gender.female {
   background: #fde2e8;
   color: #ec4899;
 }
-
 .tags {
   display: flex;
   gap: 6px;
   flex-wrap: nowrap;
   overflow: hidden;
 }
-
 .tag {
   background: #dcfce7;
   color: #15803d;
@@ -444,12 +483,10 @@ const onFinalConfirm = async () => {
   font-weight: 700;
   white-space: nowrap;
 }
-
 .tag-empty {
   font-size: 12px;
   color: #9ca3af;
 }
-
 .assign-chip {
   background: #dcfce7;
   color: #15803d;
@@ -459,7 +496,6 @@ const onFinalConfirm = async () => {
   border-radius: 999px;
   white-space: nowrap;
 }
-
 .loading,
 .error,
 .empty {
@@ -467,11 +503,9 @@ const onFinalConfirm = async () => {
   color: #6b7280;
   padding: 6px 4px;
 }
-
 .error {
   color: #b91c1c;
 }
-
 .pagination {
   display: flex;
   justify-content: center;
@@ -479,7 +513,6 @@ const onFinalConfirm = async () => {
   gap: 14px;
   padding-top: 6px;
 }
-
 .pagination button {
   border: none;
   background: transparent;
@@ -490,7 +523,6 @@ const onFinalConfirm = async () => {
   opacity: 0.3;
   cursor: not-allowed;
 }
-
 .pagination span {
   font-size: 13px;
   color: #6b7280;

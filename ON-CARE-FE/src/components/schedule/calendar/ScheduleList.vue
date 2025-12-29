@@ -4,7 +4,7 @@
       <div class="schedule-title-row">
         <h3 class="schedule-title">{{ headerTitle }}</h3>
 
-        <div class="tag-row" v-if="dailySchedules.length">
+        <div class="tag-row" v-if="summary.care || summary.bath || summary.nurse">
           <span v-if="summary.care" class="service-tag type-care">요양 {{ summary.care }}</span>
           <span v-if="summary.bath" class="service-tag type-bath">목욕 {{ summary.bath }}</span>
           <span v-if="summary.nurse" class="service-tag type-nurse">간호 {{ summary.nurse }}</span>
@@ -26,10 +26,10 @@
 
         <tbody>
           <tr
-            v-for="(item, idx) in pagedSchedules"
+            v-for="(item, idx) in dailySchedules"
             :key="item.matchingId ?? item.vsId ?? idx"
             class="table-row"
-            :class="{ selected: (item.matchingId ?? item.vsId) === selectedMatchingId }"
+            :class="{ selected: (item.matchingId ?? item.vsId) === selectedKey }"
             @click="onRowClick(item)"
           >
             <td class="col-time">
@@ -54,10 +54,14 @@
         </tbody>
       </table>
 
-      <div v-else class="empty-row">선택한 날짜에 일정이 없습니다.</div>
+      <div v-else class="empty-row">
+        <template v-if="loading">불러오는 중...</template>
+        <template v-else-if="error">{{ error }}</template>
+        <template v-else>선택한 날짜에 일정이 없습니다.</template>
+      </div>
     </div>
 
-    <div v-if="dailySchedules.length" class="pagination">
+    <div v-if="totalPages > 1" class="pagination">
       <button @click="prevPage" :disabled="page === 1">〈</button>
       <span>{{ page }} / {{ totalPages }}</span>
       <button @click="nextPage" :disabled="page === totalPages">〉</button>
@@ -80,7 +84,16 @@ const props = defineProps({
 const emit = defineEmits(['select-schedule'])
 
 const weekdays = ['일', '월', '화', '수', '목', '금', '토']
-const selectedMatchingId = ref(null)
+const selectedKey = ref(null)
+
+const loading = ref(false)
+const error = ref('')
+
+const dailySchedules = ref([])
+const total = ref(0)
+
+const page = ref(1)
+const pageSize = 5
 
 const headerTitle = computed(() => {
   if (!props.selectedDate) return '일정을 선택해주세요'
@@ -92,25 +105,11 @@ const headerTitle = computed(() => {
   return `${month}월 ${date}일 (${weekday}) 일정`
 })
 
-const dailySchedules = ref([])
-
-const page = ref(1)
-const pageSize = 5
-
-const totalPages = computed(() =>
-  Math.max(1, Math.ceil(dailySchedules.value.length / pageSize))
-)
-
-const pagedSchedules = computed(() =>
-  dailySchedules.value.slice((page.value - 1) * pageSize, page.value * pageSize)
-)
-
-const prevPage = () => {
-  if (page.value > 1) page.value--
-}
-const nextPage = () => {
-  if (page.value < totalPages.value) page.value++
-}
+const totalPages = computed(() => {
+  const t = Number(total.value)
+  if (!Number.isFinite(t) || t <= 0) return 1
+  return Math.max(1, Math.ceil(t / pageSize))
+})
 
 const summary = computed(() => {
   const result = { care: 0, bath: 0, nurse: 0 }
@@ -144,15 +143,8 @@ const formatDuration = (minutes) => {
 
 const today = new Date()
 const monthIndex = (y, m) => y * 12 + m
-  
-  /**
-   * ✅ N월 기준 규칙 적용
-   * - N 전달 이전(view <= N-1): 무조건 Confirmed
-   * - 25일 기준 분기:
-   *    <25:  N월 confirmed, N+1월 normal
-   *    >=25: N월, N+1월 confirmed, N+2월 normal
-   */
-  const getDayListFetcherBySelectedDate = (selectedDateStr) => {
+
+const getDayListFetcherBySelectedDate = (selectedDateStr) => {
   if (!selectedDateStr) return getScheduleDayList
 
   const d = new Date(selectedDateStr)
@@ -200,12 +192,34 @@ const isConfirmedMonthBySelectedDate = (selectedDateStr) => {
   return false
 }
 
+const normalizePageResponse = (res) => {
+  const items = Array.isArray(res?.items)
+    ? res.items
+    : Array.isArray(res?.content)
+      ? res.content
+      : Array.isArray(res)
+        ? res
+        : []
+
+  const t =
+    Number(res?.total) ||
+    Number(res?.totalElements) ||
+    Number(res?.totalCount) ||
+    (Array.isArray(items) ? items.length : 0)
+
+  return { items, total: Number.isFinite(t) ? t : items.length }
+}
+
 const loadDay = async () => {
-  selectedMatchingId.value = null
-  page.value = 1
+  selectedKey.value = null
+  error.value = ''
+  loading.value = true
+
+  dailySchedules.value = []
+  total.value = 0
 
   if (!props.selectedDate) {
-    dailySchedules.value = []
+    loading.value = false
     return
   }
 
@@ -214,13 +228,37 @@ const loadDay = async () => {
 
   const fetcher = getDayListFetcherBySelectedDate(props.selectedDate)
 
-  const data = await fetcher({
-    date: props.selectedDate,
-    keyword: props.keyword,
-    searchField,
-  })
+  try {
+    const res = await fetcher({
+      date: props.selectedDate,
+      page: Math.max(0, page.value - 1),
+      size: pageSize,
+      keyword: props.keyword,
+      searchField,
+    })
 
-  dailySchedules.value = Array.isArray(data) ? data : []
+    const normalized = normalizePageResponse(res)
+    dailySchedules.value = normalized.items
+    total.value = normalized.total
+
+    if (page.value > totalPages.value) page.value = totalPages.value
+  } catch (e) {
+    error.value = e?.response?.data?.message || '일정 목록을 불러오지 못했습니다.'
+  } finally {
+    loading.value = false
+  }
+}
+
+const prevPage = async () => {
+  if (page.value <= 1) return
+  page.value -= 1
+  await loadDay()
+}
+
+const nextPage = async () => {
+  if (page.value >= totalPages.value) return
+  page.value += 1
+  await loadDay()
 }
 
 let timer = null
@@ -228,14 +266,19 @@ watch(
   () => [props.selectedDate, props.keyword, props.searchScope, props.refreshKey],
   () => {
     clearTimeout(timer)
+    page.value = 1
     timer = setTimeout(loadDay, 250)
   },
   { immediate: true }
 )
 
-const onRowClick = (item) => {
-  selectedMatchingId.value = item.matchingId ?? item.vsId ?? null
+watch(
+  () => page.value,
+  () => loadDay()
+)
 
+const onRowClick = (item) => {
+  selectedKey.value = item.matchingId ?? item.vsId ?? null
   const confirmed = isConfirmedMonthBySelectedDate(props.selectedDate)
 
   emit('select-schedule', {
