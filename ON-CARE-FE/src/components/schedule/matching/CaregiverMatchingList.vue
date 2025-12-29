@@ -20,6 +20,7 @@
             v-for="item in pagedList"
             :key="item.careWorkerId ?? item.id"
             class="list-row"
+            :class="{ selected: selectedCareWorkerId === (item.careWorkerId ?? item.id) }"
             @click="handleSelect(item)"
           >
             <td class="name">{{ item.name }}</td>
@@ -55,10 +56,17 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import searchIcon from '@/assets/img/common/search.png'
-import { getCandidateCareWorkerCards } from '@/api/schedule/matching.js'
+import {
+  getCandidateCareWorkerCards,
+  getCreateVisitAvailableCareWorkerCards,
+} from '@/api/schedule/matching.js'
 
 const props = defineProps({
   recipient: { type: Object, default: null },
+  startDt: { type: String, default: '' },
+  endDt: { type: String, default: '' },
+  // ✅ 추가: 드롭다운에서 선택한 서비스 타입
+  serviceTypeId: { type: Number, default: null },
 })
 
 const emit = defineEmits(['select-caregiver'])
@@ -71,12 +79,23 @@ const loading = ref(false)
 const error = ref('')
 const caregiversRaw = ref([])
 
+const selectedCareWorkerId = ref(null)
+
 const getBeneficiaryId = (obj) => obj?.beneficiaryId ?? obj?.id ?? null
+const beneficiaryId = computed(() => getBeneficiaryId(props.recipient))
+
+// ✅ 생성모드: start/end가 있으면 생성 흐름
+const isCreateVisitMode = computed(() => Boolean(props.startDt && props.endDt))
 
 const loadCareWorkers = async () => {
-  const beneficiaryId = getBeneficiaryId(props.recipient)
+  if (!beneficiaryId.value) {
+    caregiversRaw.value = []
+    error.value = ''
+    return
+  }
 
-  if (!beneficiaryId) {
+  // ✅ 생성모드에서는 서비스타입도 필수(드롭다운 선택 전엔 빈 목록)
+  if (isCreateVisitMode.value && (!props.startDt || !props.endDt || !props.serviceTypeId)) {
     caregiversRaw.value = []
     error.value = ''
     return
@@ -86,31 +105,40 @@ const loadCareWorkers = async () => {
     loading.value = true
     error.value = ''
 
-    const res = await getCandidateCareWorkerCards(beneficiaryId)
+    const res = isCreateVisitMode.value
+      ? await getCreateVisitAvailableCareWorkerCards({
+          beneficiaryId: beneficiaryId.value,
+          startDt: props.startDt,
+          endDt: props.endDt,
+          // ✅ 추가: 백엔드에서 이 값으로 서비스 타입 필터
+          serviceTypeId: props.serviceTypeId,
+        })
+      : await getCandidateCareWorkerCards(beneficiaryId.value)
+
     const list = Array.isArray(res?.data) ? res.data : []
 
-    caregiversRaw.value = list.map((c) => {
-      const careWorkerId = c?.careWorkerId ?? c?.id ?? null
-      return {
-        careWorkerId,
-        name: c?.name ?? '-',
-        gender: c?.gender ?? '-',
-        tags: Array.isArray(c?.tags) ? c.tags : [],
-      }
-    })
+    caregiversRaw.value = list.map((c) => ({
+      careWorkerId: c?.careWorkerId ?? c?.id ?? null,
+      name: c?.name ?? '-',
+      gender: c?.gender ?? '-',
+      tags: Array.isArray(c?.tags) ? c.tags : [],
+    }))
   } catch (e) {
-    error.value = e?.response?.data?.message || '요양보호사 목록을 불러오지 못했습니다.'
     caregiversRaw.value = []
+    error.value =
+      e?.response?.data?.message || '요양보호사 목록을 불러오지 못했습니다.'
   } finally {
     loading.value = false
   }
 }
 
+// ✅ serviceTypeId 변경에도 다시 로드
 watch(
-  () => getBeneficiaryId(props.recipient),
+  () => [beneficiaryId.value, props.startDt, props.endDt, props.serviceTypeId, isCreateVisitMode.value],
   () => {
     page.value = 1
     search.value = ''
+    selectedCareWorkerId.value = null
     loadCareWorkers()
   },
   { immediate: true }
@@ -148,6 +176,7 @@ const nextPage = () => {
 
 const handleSelect = (item) => {
   const careWorkerId = item?.careWorkerId ?? item?.id ?? null
+  selectedCareWorkerId.value = careWorkerId
   emit('select-caregiver', { ...item, careWorkerId })
 }
 
@@ -159,6 +188,7 @@ const badgeClass = (gender) => ({
 </script>
 
 <style scoped>
+/* ✅ 스타일은 그대로 사용하셔도 됩니다 */
 .matching-panel {
   background: #ffffff;
   border-radius: 16px;
@@ -170,7 +200,6 @@ const badgeClass = (gender) => ({
   height: 480px;
 }
 
-/* 제목 */
 .panel-header {
   display: flex;
   justify-content: space-between;
@@ -192,7 +221,6 @@ const badgeClass = (gender) => ({
   color: #9333ea;
 }
 
-/* 검색바 */
 .search-bar {
   display: flex;
   align-items: center;
@@ -218,7 +246,6 @@ const badgeClass = (gender) => ({
   outline: none;
 }
 
-/* 리스트 스크롤 영역 */
 .table-scroll {
   flex: 1;
   overflow-y: auto;
@@ -234,19 +261,28 @@ const badgeClass = (gender) => ({
   border-radius: 8px;
 }
 
-/* 테이블 */
 .list-table {
   width: 100%;
   border-collapse: collapse;
 }
 
-/* 행 */
 .list-row {
   cursor: pointer;
   transition: background-color 0.15s ease;
 }
 .list-row:hover {
   background: #f9fafb;
+}
+
+.list-row.selected {
+  background: #ecfdf5;
+}
+.list-row.selected:hover {
+  background: #d1fae5;
+}
+.list-row.selected td {
+  font-weight: 600;
+  color: #065f46;
 }
 
 .list-table td {
@@ -263,7 +299,6 @@ const badgeClass = (gender) => ({
   color: #9ca3af;
 }
 
-/* 성별 뱃지 */
 .badge {
   padding: 3px 8px;
   border-radius: 999px;
@@ -281,7 +316,6 @@ const badgeClass = (gender) => ({
   color: #ec4899;
 }
 
-/* 태그 */
 .tags {
   display: flex;
   flex-wrap: wrap;
@@ -296,7 +330,6 @@ const badgeClass = (gender) => ({
   font-size: 12px;
 }
 
-/* 페이지네이션 */
 .pagination {
   display: flex;
   justify-content: center;
