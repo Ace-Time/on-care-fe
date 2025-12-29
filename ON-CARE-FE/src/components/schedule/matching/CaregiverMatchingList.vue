@@ -54,137 +54,154 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
-import searchIcon from '@/assets/img/common/search.png'
-import {
-  getCandidateCareWorkerCards,
-  getCreateVisitAvailableCareWorkerCards,
-} from '@/api/schedule/matching.js'
-
-const props = defineProps({
-  recipient: { type: Object, default: null },
-  startDt: { type: String, default: '' },
-  endDt: { type: String, default: '' },
-  // ✅ 추가: 드롭다운에서 선택한 서비스 타입
-  serviceTypeId: { type: Number, default: null },
-})
-
-const emit = defineEmits(['select-caregiver'])
-
-const search = ref('')
-const page = ref(1)
-const pageSize = 10
-
-const loading = ref(false)
-const error = ref('')
-const caregiversRaw = ref([])
-
-const selectedCareWorkerId = ref(null)
-
-const getBeneficiaryId = (obj) => obj?.beneficiaryId ?? obj?.id ?? null
-const beneficiaryId = computed(() => getBeneficiaryId(props.recipient))
-
-// ✅ 생성모드: start/end가 있으면 생성 흐름
-const isCreateVisitMode = computed(() => Boolean(props.startDt && props.endDt))
-
-const loadCareWorkers = async () => {
-  if (!beneficiaryId.value) {
-    caregiversRaw.value = []
-    error.value = ''
-    return
+  import { ref, computed, watch } from 'vue'
+  import searchIcon from '@/assets/img/common/search.png'
+  import {
+    getCandidateCareWorkerCards,
+    getCreateVisitAvailableCareWorkerCards,
+  } from '@/api/schedule/matching.js'
+  
+  const props = defineProps({
+    recipient: { type: Object, default: null },
+    startDt: { type: String, default: '' },
+    endDt: { type: String, default: '' },
+    // ✅ 드롭다운에서 선택한 서비스 타입
+    serviceTypeId: { type: Number, default: null },
+  })
+  
+  const emit = defineEmits(['select-caregiver'])
+  
+  const search = ref('')
+  const page = ref(1)
+  const pageSize = 10
+  
+  const loading = ref(false)
+  const error = ref('')
+  const caregiversRaw = ref([])
+  
+  const selectedCareWorkerId = ref(null)
+  
+  const getBeneficiaryId = (obj) => obj?.beneficiaryId ?? obj?.id ?? null
+  const beneficiaryId = computed(() => getBeneficiaryId(props.recipient))
+  
+  // ✅ 생성모드: start/end가 있으면 생성 흐름
+  const isCreateVisitMode = computed(() => Boolean(props.startDt && props.endDt))
+  
+  // ✅ 이번 로드가 끝나면 첫 번째 자동 선택할지 여부
+  const shouldAutoPickFirst = ref(false)
+  
+  const handleSelect = (item) => {
+    const careWorkerId = item?.careWorkerId ?? item?.id ?? null
+    selectedCareWorkerId.value = careWorkerId
+    emit('select-caregiver', { ...item, careWorkerId })
   }
-
-  // ✅ 생성모드에서는 서비스타입도 필수(드롭다운 선택 전엔 빈 목록)
-  if (isCreateVisitMode.value && (!props.startDt || !props.endDt || !props.serviceTypeId)) {
-    caregiversRaw.value = []
-    error.value = ''
-    return
+  
+  const loadCareWorkers = async () => {
+    if (!beneficiaryId.value) {
+      caregiversRaw.value = []
+      error.value = ''
+      shouldAutoPickFirst.value = false
+      return
+    }
+  
+    // ✅ 생성모드에서는 서비스타입도 필수(드롭다운 선택 전엔 빈 목록)
+    if (isCreateVisitMode.value && (!props.startDt || !props.endDt || !props.serviceTypeId)) {
+      caregiversRaw.value = []
+      error.value = ''
+      shouldAutoPickFirst.value = false
+      return
+    }
+  
+    try {
+      loading.value = true
+      error.value = ''
+  
+      const res = isCreateVisitMode.value
+        ? await getCreateVisitAvailableCareWorkerCards({
+            beneficiaryId: beneficiaryId.value,
+            startDt: props.startDt,
+            endDt: props.endDt,
+            serviceTypeId: props.serviceTypeId,
+          })
+        : await getCandidateCareWorkerCards(beneficiaryId.value)
+  
+      const list = Array.isArray(res?.data) ? res.data : []
+  
+      caregiversRaw.value = list.map((c) => ({
+        careWorkerId: c?.careWorkerId ?? c?.id ?? null,
+        name: c?.name ?? '-',
+        gender: c?.gender ?? '-',
+        tags: Array.isArray(c?.tags) ? c.tags : [],
+      }))
+  
+      // ✅ 첫 번째 자동 선택 (필터링 전 "원본 목록" 기준)
+      if (
+        shouldAutoPickFirst.value &&
+        caregiversRaw.value.length > 0 &&
+        !selectedCareWorkerId.value
+      ) {
+        handleSelect(caregiversRaw.value[0])
+      }
+    } catch (e) {
+      caregiversRaw.value = []
+      error.value = e?.response?.data?.message || '요양보호사 목록을 불러오지 못했습니다.'
+    } finally {
+      loading.value = false
+      shouldAutoPickFirst.value = false
+    }
   }
-
-  try {
-    loading.value = true
-    error.value = ''
-
-    const res = isCreateVisitMode.value
-      ? await getCreateVisitAvailableCareWorkerCards({
-          beneficiaryId: beneficiaryId.value,
-          startDt: props.startDt,
-          endDt: props.endDt,
-          // ✅ 추가: 백엔드에서 이 값으로 서비스 타입 필터
-          serviceTypeId: props.serviceTypeId,
-        })
-      : await getCandidateCareWorkerCards(beneficiaryId.value)
-
-    const list = Array.isArray(res?.data) ? res.data : []
-
-    caregiversRaw.value = list.map((c) => ({
-      careWorkerId: c?.careWorkerId ?? c?.id ?? null,
-      name: c?.name ?? '-',
-      gender: c?.gender ?? '-',
-      tags: Array.isArray(c?.tags) ? c.tags : [],
-    }))
-  } catch (e) {
-    caregiversRaw.value = []
-    error.value =
-      e?.response?.data?.message || '요양보호사 목록을 불러오지 못했습니다.'
-  } finally {
-    loading.value = false
-  }
-}
-
-// ✅ serviceTypeId 변경에도 다시 로드
-watch(
-  () => [beneficiaryId.value, props.startDt, props.endDt, props.serviceTypeId, isCreateVisitMode.value],
-  () => {
-    page.value = 1
-    search.value = ''
-    selectedCareWorkerId.value = null
-    loadCareWorkers()
-  },
-  { immediate: true }
-)
-
-watch(search, () => {
-  page.value = 1
-})
-
-const caregivers = computed(() => {
-  const q = search.value.toLowerCase().trim()
-  if (!q) return caregiversRaw.value
-
-  return caregiversRaw.value.filter((c) =>
-    [c.name, c.gender, ...(c.tags || [])].some((f) =>
-      String(f ?? '').toLowerCase().includes(q)
-    )
+  
+  // ✅ recipient/start/end/serviceType 변경에도 다시 로드
+  watch(
+    () => [beneficiaryId.value, props.startDt, props.endDt, props.serviceTypeId, isCreateVisitMode.value],
+    () => {
+      page.value = 1
+      search.value = ''
+      selectedCareWorkerId.value = null
+  
+      // ✅ 이번 로드 끝나면 첫 번째 자동 선택
+      shouldAutoPickFirst.value = true
+  
+      loadCareWorkers()
+    },
+    { immediate: true }
   )
-})
-
-const totalPages = computed(() =>
-  Math.max(1, Math.ceil(caregivers.value.length / pageSize))
-)
-
-const pagedList = computed(() =>
-  caregivers.value.slice((page.value - 1) * pageSize, page.value * pageSize)
-)
-
-const prevPage = () => {
-  if (page.value > 1) page.value--
-}
-const nextPage = () => {
-  if (page.value < totalPages.value) page.value++
-}
-
-const handleSelect = (item) => {
-  const careWorkerId = item?.careWorkerId ?? item?.id ?? null
-  selectedCareWorkerId.value = careWorkerId
-  emit('select-caregiver', { ...item, careWorkerId })
-}
-
-const badgeClass = (gender) => ({
-  badge: true,
-  male: gender === '남자',
-  female: gender === '여자',
-})
+  
+  watch(search, () => {
+    page.value = 1
+  })
+  
+  const caregivers = computed(() => {
+    const q = search.value.toLowerCase().trim()
+    if (!q) return caregiversRaw.value
+  
+    return caregiversRaw.value.filter((c) =>
+      [c.name, c.gender, ...(c.tags || [])].some((f) =>
+        String(f ?? '').toLowerCase().includes(q)
+      )
+    )
+  })
+  
+  const totalPages = computed(() =>
+    Math.max(1, Math.ceil(caregivers.value.length / pageSize))
+  )
+  
+  const pagedList = computed(() =>
+    caregivers.value.slice((page.value - 1) * pageSize, page.value * pageSize)
+  )
+  
+  const prevPage = () => {
+    if (page.value > 1) page.value--
+  }
+  const nextPage = () => {
+    if (page.value < totalPages.value) page.value++
+  }
+  
+  const badgeClass = (gender) => ({
+    badge: true,
+    male: gender === '남자',
+    female: gender === '여자',
+  })
 </script>
 
 <style scoped>
