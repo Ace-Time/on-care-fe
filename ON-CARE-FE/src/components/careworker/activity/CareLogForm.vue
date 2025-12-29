@@ -1,60 +1,174 @@
 <script setup>
-import { ref, computed } from 'vue';
-import { careLogFormData, fallRiskAssessment } from '@/mock/careworker/careLogData';
+import { ref, onMounted } from 'vue';
+import { careLogFormData } from '@/mock/careworker/careLogData';
+import { getMyBeneficiaries } from '@/api/careworker';
+import { useUserStore } from '@/stores/user';
+
+// Props
+const props = defineProps({
+  initialData: {
+    type: Object,
+    default: null
+  },
+  readOnly: {
+    type: Boolean,
+    default: false
+  },
+  hideActions: {
+    type: Boolean,
+    default: false
+  }
+});
+
+// Emits
+const emit = defineEmits(['submit']);
+
+// User store
+const userStore = useUserStore();
+
+// 담당 수급자 목록
+const beneficiaries = ref([]);
+const loadingBeneficiaries = ref(false);
+
+// 담당 수급자 목록 불러오기
+const loadBeneficiaries = async () => {
+  try {
+    loadingBeneficiaries.value = true;
+    const response = await getMyBeneficiaries();
+    const data = response?.data ?? response;
+
+    console.log('📊 담당 수급자 목록:', data);
+
+    // 배열인지 확인하고, 객체라면 배열로 변환
+    if (Array.isArray(data)) {
+      beneficiaries.value = data;
+    } else if (data && typeof data === 'object') {
+      // 만약 { data: [...] } 형태라면
+      beneficiaries.value = data.data || [];
+    } else {
+      beneficiaries.value = [];
+    }
+
+    console.log('✅ 수급자 목록 설정 완료:', beneficiaries.value);
+  } catch (error) {
+    console.error('❌ 담당 수급자 목록 불러오기 실패:', error);
+    beneficiaries.value = [];
+  } finally {
+    loadingBeneficiaries.value = false;
+  }
+};
+
+// Form data initialization (DB 스키마에 맞게 초기화)
+const initializeFormData = () => {
+  const baseData = {
+    // 기본 정보
+    beneficiaryId: '',
+    recipientName: '',
+    careWorkerName: userStore.name || '',
+    careDate: new Date().toISOString().split('T')[0],
+    startTime: '',
+    endTime: '',
+    serviceType: '방문요양',
+
+    // 식사 제공
+    isBreakfast: false,
+    isLunch: false,
+    isDinner: false,
+    isSnack: false,
+
+    // 배설 도움
+    diaperCount: 0,
+    toiletCount: 0,
+    isPortableToilet: false,
+    isUrine: false,
+    isStool: false,
+
+    // 대변 상태
+    stoolNormal: false,
+    stoolDiarrhea: false,
+    stoolConstipation: false,
+
+    // 위생 관리
+    isFaceWash: false,
+    isOralCare: false,
+    isHairWash: false,
+    isBodyWash: false,
+    isChangeClothes: false,
+
+    // 일상 생활 지원
+    isMealPrep: false,
+    isBedCare: false,
+    isPositionChange: false,
+    isGetUpHelp: false,
+    isIndoorMove: false,
+    isWalkHelp: false,
+
+    // 인지활동 지원
+    isEmotionalTalk: false,
+    isCommunication: false,
+    isCounseling: false,
+    isCognitiveCare: false,
+    isBehaviorCare: false,
+
+    // 건강 상태
+    isHealthGood: false,
+    isPain: false,
+    isEdema: false,
+    isSkinIssue: false,
+    isBodyEtc: false,
+
+    // 기분/정서 상태
+    isMoodCalm: false,
+    isMoodAnxious: false,
+    isMoodDepressed: false,
+    isMoodAngry: false,
+    isMoodEtc: false,
+
+    // 기타 관찰 사항
+    isExcretionMistake: false,
+    isSleepLack: false,
+    isNapExcess: false,
+
+    // 특이사항
+    specialNotes: ''
+  };
+
+  // initialData가 있으면 병합
+  if (props.initialData) {
+    const merged = {
+      ...baseData,
+      ...props.initialData
+    };
+
+    // careWorkerName이 없으면 userStore.name 사용
+    if (!merged.careWorkerName) {
+      merged.careWorkerName = userStore.name || '';
+    }
+
+    return merged;
+  }
+
+  return baseData;
+};
 
 // Form data
-const formData = ref({
-  recipientName: '',
-  careWorkerName: '',
-  careDate: new Date().toISOString().split('T')[0],
-  startTime: '',
-  endTime: '',
-  serviceType: 'visit',
-  physicalSupport: {},
-  cognitiveSupport: {},
-  physicalObservation: {},
-  specialNotes: '',
-  fallRisk: {}
-});
-
-// 신체활동 지원 항목은 다중 선택이 가능하므로 각 항목을 배열로 초기화
-careLogFormData.physicalSupport.items.forEach((item) => {
-  formData.value.physicalSupport[item.code] = [];
-});
-
-// 낙상위험도 점수 계산
-const totalFallRiskScore = computed(() => {
-  let total = 0;
-  Object.values(formData.value.fallRisk).forEach(score => {
-    if (typeof score === 'number') total += score;
-  });
-  return total;
-});
-
-// 낙상위험도 등급
-const fallRiskGrade = computed(() => {
-  const score = totalFallRiskScore.value;
-  const grade = fallRiskAssessment.grading.ranges.find(
-    r => score >= r.min && score <= r.max
-  );
-  return grade || fallRiskAssessment.grading.ranges[0];
-});
-
-// 낙상위험도 항목 선택
-const selectFallRisk = (itemCode, choice) => {
-  formData.value.fallRisk[itemCode] = choice.score;
-};
-
-// 선택된 항목인지 확인
-const isSelected = (itemCode, score) => {
-  return formData.value.fallRisk[itemCode] === score;
-};
+const formData = ref(initializeFormData());
 
 // 폼 제출
 const handleSubmit = () => {
+  if (props.readOnly) return;
   console.log('요양일지 제출:', formData.value);
-  alert('요양일지가 저장되었습니다.');
+  emit('submit', formData.value);
 };
+
+// 컴포넌트 마운트 시 수급자 목록 로드
+onMounted(async () => {
+  console.log('🔧 CareLogForm 마운트됨, readOnly:', props.readOnly);
+  if (!props.readOnly) {
+    console.log('🔧 수급자 목록 로드 시작...');
+    await loadBeneficiaries();
+  }
+});
 </script>
 
 <template>
@@ -66,26 +180,51 @@ const handleSubmit = () => {
 
       <div class="info-grid">
         <div class="info-row">
-          <label>성명</label>
-          <input v-model="formData.recipientName" type="text" placeholder="수급자명" />
+          <label>수급자명</label>
+          <input
+            v-if="readOnly || (props.initialData && props.initialData.recipientName)"
+            :value="formData.recipientName || '정보 없음'"
+            type="text"
+            disabled
+          />
+          <template v-else>
+            <select
+              v-if="beneficiaries.length > 0"
+              v-model="formData.beneficiaryId"
+              :disabled="loadingBeneficiaries"
+              @change="console.log('수급자 선택됨:', formData.beneficiaryId, typeof formData.beneficiaryId)"
+            >
+              <option value="">{{ loadingBeneficiaries ? '불러오는 중...' : '수급자를 선택하세요' }}</option>
+              <option v-for="beneficiary in beneficiaries" :key="beneficiary.beneficiaryId" :value="beneficiary.beneficiaryId">
+                {{ beneficiary.name }}
+              </option>
+            </select>
+            <input
+              v-else
+              v-model.number="formData.beneficiaryId"
+              type="number"
+              placeholder="수급자 ID를 입력하세요 (임시)"
+              @input="console.log('수급자 ID 입력:', formData.beneficiaryId)"
+            />
+          </template>
         </div>
         <div class="info-row">
           <label>작성자 성명</label>
-          <input v-model="formData.careWorkerName" type="text" placeholder="요양보호사" />
+          <input v-model="formData.careWorkerName" type="text" placeholder="요양보호사" :disabled="readOnly" />
         </div>
       </div>
 
       <div class="info-grid">
         <div class="info-row">
           <label>제공일</label>
-          <input v-model="formData.careDate" type="date" />
+          <input v-model="formData.careDate" type="date" :disabled="readOnly" />
         </div>
         <div class="info-row time-row">
           <label>서비스 시간</label>
           <div class="time-inputs">
-            <input v-model="formData.startTime" type="time" />
+            <input v-model="formData.startTime" type="time" :disabled="readOnly" />
             <span>-</span>
-            <input v-model="formData.endTime" type="time" />
+            <input v-model="formData.endTime" type="time" :disabled="readOnly" />
           </div>
         </div>
       </div>
@@ -95,7 +234,7 @@ const handleSubmit = () => {
           <label>서비스 유형</label>
           <div class="radio-group">
             <label v-for="type in careLogFormData.serviceTypes" :key="type.value" class="radio-label">
-              <input v-model="formData.serviceType" type="radio" :value="type.value" />
+              <input v-model="formData.serviceType" type="radio" :value="type.value" :disabled="readOnly" />
               <span>{{ type.label }}</span>
             </label>
           </div>
@@ -103,38 +242,69 @@ const handleSubmit = () => {
       </div>
     </section>
 
+    <!-- 1. 신체활동 지원 -->
     <section class="form-section">
       <h3 class="section-title">{{ careLogFormData.physicalSupport.title }}</h3>
 
       <div class="checklist">
-        <div v-for="item in careLogFormData.physicalSupport.items" :key="item.code" class="checklist-item">
-          <div class="item-label">{{ item.label }}</div>
+        <div v-for="section in careLogFormData.physicalSupport.sections" :key="section.code" class="checklist-item">
+          <div class="item-label">{{ section.label }}</div>
           <div class="item-options">
-            <label v-for="option in item.options" :key="option.value" class="checkbox-label">
-              <input
-                v-model="formData.physicalSupport[item.code]"
-                type="checkbox"
-                :value="option.value"
-              />
-              <span>{{ option.label }}</span>
-            </label>
+            <!-- 체크박스 타입 -->
+            <template v-if="section.type === 'checkbox'">
+              <label v-for="option in section.options" :key="option.value" class="checkbox-label">
+                <input
+                  v-model="formData[option.field]"
+                  type="checkbox"
+                  :disabled="readOnly"
+                />
+                <span>{{ option.label }}</span>
+              </label>
+            </template>
+
+            <!-- 혼합 타입 (배설 도움 - 숫자 + 체크박스) -->
+            <template v-else-if="section.type === 'mixed'">
+              <div v-for="option in section.options" :key="option.value" class="mixed-input">
+                <label v-if="option.type === 'number'" class="number-label">
+                  <span>{{ option.label }}</span>
+                  <input
+                    v-model.number="formData[option.field]"
+                    type="number"
+                    min="0"
+                    :disabled="readOnly"
+                    class="number-input"
+                  />
+                  <span class="unit">{{ option.unit }}</span>
+                </label>
+                <label v-else class="checkbox-label">
+                  <input
+                    v-model="formData[option.field]"
+                    type="checkbox"
+                    :disabled="readOnly"
+                  />
+                  <span>{{ option.label }}</span>
+                </label>
+              </div>
+            </template>
           </div>
         </div>
       </div>
     </section>
 
+    <!-- 2. 인지 및 정서 지원 -->
     <section class="form-section">
       <h3 class="section-title">{{ careLogFormData.cognitiveSupport.title }}</h3>
 
       <div class="checklist">
-        <div v-for="item in careLogFormData.cognitiveSupport.items" :key="item.code" class="checklist-item">
-          <div class="item-label">{{ item.label }}</div>
+        <div v-for="section in careLogFormData.cognitiveSupport.sections" :key="section.code" class="checklist-item">
+          <div class="item-label">{{ section.label }}</div>
           <div class="item-options">
-            <label v-for="option in item.options" :key="option.value" class="radio-label">
+            <label v-for="option in section.options" :key="option.value" class="checkbox-label">
               <input
-                v-model="formData.cognitiveSupport[item.code]"
-                type="radio"
-                :value="option.value"
+                v-model="formData[option.field]"
+                type="checkbox"
+                :disabled="readOnly"
+                @change="console.log('체크박스 변경:', option.field, formData[option.field])"
               />
               <span>{{ option.label }}</span>
             </label>
@@ -143,92 +313,45 @@ const handleSubmit = () => {
       </div>
     </section>
 
+    <!-- 3. 상태 관찰 및 특이사항 -->
     <section class="form-section">
-      <h3 class="section-title">{{ careLogFormData.physicalObservation.title }}</h3>
+      <h3 class="section-title">{{ careLogFormData.observationStatus.title }}</h3>
 
-      <div class="observation-grid">
-        <div v-for="item in careLogFormData.physicalObservation.items" :key="item.code" class="observation-item">
-          <div class="obs-label">{{ item.label }}</div>
-          <div class="obs-fields">
-            <div v-for="field in item.fields" :key="field.code" class="field-group">
-              <label>{{ field.label }}</label>
-              <select v-if="field.type === 'select'" v-model="formData.physicalObservation[field.code]">
-                <option value="">선택</option>
-                <option v-for="opt in field.options" :key="opt.value" :value="opt.value">
-                  {{ opt.label }}
-                </option>
-              </select>
-              <div v-else-if="field.type === 'text'" class="text-with-unit">
-                <input
-                  v-model="formData.physicalObservation[field.code]"
-                  type="text"
-                  :placeholder="field.label"
-                />
-                <span class="unit">{{ field.unit }}</span>
-              </div>
-            </div>
+      <div class="checklist">
+        <div v-for="section in careLogFormData.observationStatus.sections" :key="section.code" class="checklist-item">
+          <div class="item-label">{{ section.label }}</div>
+          <div class="item-options">
+            <label v-for="option in section.options" :key="option.value" class="checkbox-label">
+              <input
+                v-model="formData[option.field]"
+                type="checkbox"
+                :disabled="readOnly"
+              />
+              <span>{{ option.label }}</span>
+            </label>
           </div>
         </div>
       </div>
     </section>
 
-    <section class="form-section fall-risk-section">
-      <h3 class="section-title">{{ fallRiskAssessment.title }}</h3>
-
-      <div class="fall-risk-table">
-        <div class="risk-table-header">
-          <div class="header-label">평가항목</div>
-          <div class="header-scores">
-            <div v-for="col in fallRiskAssessment.columns" :key="col.score" class="score-col">
-              {{ col.label }}
-            </div>
-          </div>
-        </div>
-
-        <div v-for="item in fallRiskAssessment.items" :key="item.code" class="risk-row">
-          <div class="row-label">{{ item.label }}</div>
-          <div class="row-choices">
-            <div
-              v-for="choice in item.choices"
-              :key="choice.score"
-              class="choice-cell"
-              :class="{ active: isSelected(item.code, choice.score) }"
-              @click="selectFallRisk(item.code, choice)"
-            >
-              <input
-                type="radio"
-                :name="`risk-${item.code}`"
-                :value="choice.score"
-                :checked="isSelected(item.code, choice.score)"
-              />
-              <span class="choice-text">{{ choice.label }}</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="risk-result">
-          <div class="result-score">
-            <strong>총점:</strong> {{ totalFallRiskScore }}점
-          </div>
-          <div class="result-grade" :class="`grade-${fallRiskGrade.color}`">
-            {{ fallRiskGrade.label }}
-          </div>
-        </div>
-      </div>
-
-      <div class="fall-risk-comment">
-        <label>특이사항 및 건강상태 메모</label>
+    <!-- 특이사항 -->
+    <section class="form-section">
+      <h3 class="section-title">특이사항</h3>
+      <div class="special-notes">
         <textarea
           v-model="formData.specialNotes"
           :placeholder="careLogFormData.specialNotes.placeholder"
           rows="4"
+          :disabled="readOnly"
         ></textarea>
       </div>
     </section>
 
-    <div class="form-actions">
+    <div v-if="!hideActions" class="form-actions">
       <button type="button" class="btn-secondary">임시저장</button>
-      <button type="button" class="btn-primary" @click="handleSubmit">제출하기</button>
+      <button type="button" class="btn-primary" @click="handleSubmit">
+        {{ props.initialData && !readOnly ? '수정 저장' : '제출하기' }}
+      </button>
     </div>
   </div>
 </template>
@@ -293,12 +416,48 @@ const handleSubmit = () => {
 
 .info-row input[type="text"],
 .info-row input[type="date"],
-.info-row input[type="time"] {
+.info-row input[type="time"],
+.info-row select {
   flex: 1;
   padding: 0.5rem;
   border: 1px solid #d1d5db;
   border-radius: 0.375rem;
   font-size: 0.875rem;
+}
+
+.info-row input:disabled,
+.info-row select:disabled,
+textarea:disabled,
+.field-group input:disabled,
+.field-group select:disabled {
+  background-color: #f3f4f6;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.choice-cell.active {
+  border-color: #16a34a;
+  background: #dcfce7;
+  pointer-events: none;
+}
+
+input[type="radio"]:disabled,
+input[type="checkbox"]:disabled {
+  cursor: not-allowed;
+}
+
+.choice-cell:has(input:disabled) {
+  cursor: not-allowed;
+}
+
+.choice-cell:has(input:disabled):hover {
+  border-color: #e5e7eb;
+  background: transparent;
+}
+
+.choice-cell.active:has(input:disabled):hover {
+  border-color: #16a34a;
+  background: #dcfce7;
 }
 
 .time-inputs {
@@ -365,6 +524,43 @@ const handleSubmit = () => {
   color: #4b5563;
 }
 
+/* 혼합 입력 (숫자 + 체크박스) */
+.mixed-input {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.number-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: #4b5563;
+}
+
+.number-input {
+  width: 80px;
+  padding: 0.375rem 0.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+.number-input:disabled {
+  background-color: #f3f4f6;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.unit {
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin-left: 0.25rem;
+}
+
 /* 관찰 그리드 */
 .observation-grid {
   display: flex;
@@ -427,165 +623,22 @@ const handleSubmit = () => {
   white-space: nowrap;
 }
 
-/* 낙상위험도 평가 */
-.fall-risk-section {
-  background: #fffbeb;
-}
-
-.fall-risk-table {
-  border: 1px solid #d1d5db;
-  border-radius: 0.5rem;
-  overflow: hidden;
-  margin-bottom: 1rem;
-}
-
-.risk-table-header {
-  display: grid;
-  grid-template-columns: 200px 1fr;
-  background: #f3f4f6;
-  border-bottom: 2px solid #d1d5db;
-}
-
-.header-label {
-  padding: 0.75rem;
-  font-weight: 700;
-  color: #1f2937;
-  border-right: 1px solid #d1d5db;
-}
-
-.header-scores {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-}
-
-.score-col {
-  padding: 0.75rem;
-  text-align: center;
-  font-weight: 600;
-  color: #4b5563;
-  border-right: 1px solid #e5e7eb;
-}
-
-.score-col:last-child {
-  border-right: none;
-}
-
-.risk-row {
-  display: grid;
-  grid-template-columns: 200px 1fr;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.risk-row:last-child {
-  border-bottom: none;
-}
-
-.row-label {
-  padding: 1rem 0.75rem;
-  font-weight: 600;
-  color: #374151;
-  border-right: 1px solid #d1d5db;
-  font-size: 0.875rem;
-  display: flex;
-  align-items: center;
-}
-
-.row-choices {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 0.5rem;
-  padding: 0.75rem;
-}
-
-.choice-cell {
-  padding: 0.75rem;
-  border: 2px solid #e5e7eb;
-  border-radius: 0.375rem;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: flex;
-  align-items: start;
-  gap: 0.5rem;
-}
-
-.choice-cell:hover {
-  border-color: #16a34a;
-  background: #f0fdf4;
-}
-
-.choice-cell.active {
-  border-color: #16a34a;
-  background: #dcfce7;
-}
-
-.choice-cell input[type="radio"] {
-  margin-top: 0.25rem;
-  cursor: pointer;
-}
-
-.choice-text {
-  font-size: 0.75rem;
-  color: #374151;
-  line-height: 1.4;
-  flex: 1;
-}
-
-.risk-result {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1rem;
-  background: #f9fafb;
-  border-top: 2px solid #d1d5db;
-}
-
-.result-score {
-  font-size: 1.125rem;
-  font-weight: 700;
-  color: #1f2937;
-}
-
-.result-grade {
-  padding: 0.5rem 1rem;
-  border-radius: 9999px;
-  font-weight: 700;
-  font-size: 0.875rem;
-}
-
-.grade-green {
-  background: #dcfce7;
-  color: #16a34a;
-}
-
-.grade-yellow {
-  background: #fef3c7;
-  color: #d97706;
-}
-
-.grade-red {
-  background: #fee2e2;
-  color: #dc2626;
-}
-
-.fall-risk-comment {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.fall-risk-comment label {
-  font-weight: 600;
-  color: #374151;
-  font-size: 0.875rem;
-}
-
-.fall-risk-comment textarea {
+/* 특이사항 */
+.special-notes textarea {
+  width: 100%;
   padding: 0.75rem;
   border: 1px solid #d1d5db;
   border-radius: 0.375rem;
   font-size: 0.875rem;
   resize: vertical;
   font-family: inherit;
+  line-height: 1.6;
+}
+
+.special-notes textarea:focus {
+  outline: none;
+  border-color: #16a34a;
+  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.1);
 }
 
 /* 버튼 */

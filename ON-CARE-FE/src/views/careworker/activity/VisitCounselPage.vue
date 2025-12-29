@@ -1,7 +1,7 @@
 <script setup>
-import { onMounted, ref } from "vue";
+import { onMounted, ref, computed } from "vue";
 import VisitCounselForm from "@/components/careworker/activity/VisitCounselForm.vue";
-import { counselHistoryMock } from "@/mock/careworker/activityHistory";
+import { createCounselingLog, getCounselingLogList, updateCounselingLog, deleteCounselingLog } from '@/api/careworker/counselingLogApi';
 
 const mainTab = ref("write");
 const mainTabs = [
@@ -9,7 +9,101 @@ const mainTabs = [
   { key: "history", label: "작성 내역", icon: "📑" },
 ];
 
-const counselHistory = ref([...counselHistoryMock]);
+const counselHistory = ref([]);
+const loading = ref(false);
+
+// 방문상담 목록 불러오기
+const loadCounselingHistory = async () => {
+  try {
+    loading.value = true;
+    const response = await getCounselingLogList();
+    const data = response?.data ?? response;
+
+    console.log('📊 방문상담 원본 데이터:', data);
+
+    // 백엔드 응답 데이터를 프론트엔드 형식으로 변환
+    counselHistory.value = (data || []).map(item => {
+      console.log('📋 개별 항목:', item);
+      console.log('📋 항목 키:', Object.keys(item));
+
+      // 날짜 포맷 변환 (visitDate -> YYYY-MM-DD 형식)
+      const visitDate = item.counselingDate || item.visitDate || item.visit_date || '';
+      const dateObj = visitDate ? new Date(visitDate) : new Date();
+      const dayNames = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
+      const dayOfWeek = dayNames[dateObj.getDay()];
+      const formattedDate = visitDate ? `${visitDate.split('T')[0]} (${dayOfWeek})` : '-';
+
+      // 상담 유형 레이블 변환 (백엔드는 띄어쓰기 없는 한글로 저장됨)
+      const counselTypeMap = {
+        // 띄어쓰기 없는 형태 (백엔드 실제 값)
+        '초기상담': '초기 상담',
+        '정기상담': '정기 상담',
+        '긴급상담': '긴급 상담',
+        '종결상담': '종결 상담',
+        '보호자상담': '보호자 상담',
+        // 짧은 형태
+        '초기': '초기 상담',
+        '정기': '정기 상담',
+        '긴급': '긴급 상담',
+        '종결': '종결 상담',
+        '보호자': '보호자 상담',
+        // 영어 코드 (프론트엔드에서 전송하는 값)
+        'initial': '초기 상담',
+        'regular': '정기 상담',
+        'emergency': '긴급 상담',
+        'intermediate': '종결 상담',
+        'guardian': '보호자 상담'
+      };
+
+      // 반응 레이블 변환 (백엔드는 띄어쓰기 없는 한글로 저장됨)
+      const reactionMap = {
+        // 띄어쓰기 없는 형태 (백엔드 실제 값)
+        '매우만족': '매우 만족',
+        '만족': '만족',
+        '보통': '보통',
+        '불만족': '불만족',
+        '매우불만족': '매우 불만족',
+        // 영어 코드 (프론트엔드에서 전송하는 값)
+        'very_good': '매우 만족',
+        'good': '만족',
+        'normal': '보통',
+        'bad': '불만족',
+        'very_bad': '매우 불만족'
+      };
+
+      return {
+        id: item.counselingId || item.id,
+        counselingId: item.counselingId || item.id,
+        beneficiaryId: item.beneficiaryId,
+        date: formattedDate,
+        visitDate: visitDate, // 원본 날짜 저장 (수정 시 사용)
+        recipientName: item.beneficiaryName || item.recipientName || '-',
+        counselType: counselTypeMap[item.counselingType] || item.counselingType || '-',
+        reaction: reactionMap[item.satisfaction] || item.satisfaction || '-',
+        // 백엔드가 목록 조회 시 상세 필드를 반환하지 않음 (null로 설정)
+        visitPurpose: item.visitPurpose || null,
+        observedCondition: item.attendees || null,
+        subjectiveNeeds: item.discussionContent || null,
+        counselorNotes: item.agreementContent || null,
+        counselorSignUrl: item.counselorSignUrl || '',
+        guardianSignUrl: item.guardianSignUrl || '',
+        nextVisit: item.nextVisitDate ? item.nextVisitDate.split('T')[0] : null,
+        // 상세 정보 로드 여부 플래그
+        detailsLoaded: false,
+        status: item.status || '완료',
+        recipientSigned: !!item.guardianSignUrl,
+        caregiverSigned: !!item.counselorSignUrl,
+      };
+    });
+
+    console.log('📊 변환된 방문상담 목록:', counselHistory.value);
+  } catch (error) {
+    console.error('❌ 방문상담 목록 불러오기 실패:', error);
+    counselHistory.value = [];
+  } finally {
+    loading.value = false;
+  }
+};
 
 // 서명 모달
 const showSignatureModal = ref(false);
@@ -25,20 +119,104 @@ const showEditModal = ref(false);
 const editForm = ref(null);
 const editingItemId = ref(null);
 
-const handleSubmit = (data) => {
-  console.log("방문상담 제출:", data);
-  alert("방문상담이 접수되었습니다.");
+// 방문상담 제출 처리
+const handleSubmit = async (formData) => {
+  try {
+    console.log("📝 방문상담 제출 데이터:", formData);
+
+    // 필수 필드 검증
+    if (!formData.beneficiaryId) {
+      alert('수급자를 선택해주세요.');
+      return;
+    }
+
+    // 상담 유형을 백엔드 형식으로 변환 (띄어쓰기 없는 한글)
+    const counselTypeReverseMap = {
+      'initial': '초기상담',
+      'regular': '정기상담',
+      'emergency': '긴급상담',
+      'intermediate': '종결상담',
+      'guardian': '보호자상담'
+    };
+
+    // 만족도를 백엔드 형식으로 변환 (띄어쓰기 없는 한글)
+    const reactionReverseMap = {
+      'very_good': '매우만족',
+      'good': '만족',
+      'normal': '보통',
+      'bad': '불만족',
+      'very_bad': '매우불만족'
+    };
+
+    // 프론트엔드 formData를 백엔드 API 형식으로 변환
+    const submitData = {
+      beneficiaryId: parseInt(formData.beneficiaryId, 10),
+      counselingDate: formData.visit_date, // datetime-local (백엔드 필드명에 맞춤)
+      counselingType: counselTypeReverseMap[formData.visit_type] || formData.visit_type || '정기상담', // 필수: 상담 유형 (띄어쓰기 없음)
+      satisfaction: reactionReverseMap[formData.reaction] || formData.reaction || '보통', // 필수: 만족도
+      visitPurpose: formData.visit_detail || '방문 상담', // 필수
+      attendees: formData.observed_condition || '수급자', // 필수: 참석자
+      discussionContent: formData.subjective_needs || '상담 진행', // 필수: 논의 내용
+      agreementContent: formData.counselor_notes || '상담 완료', // 필수: 합의 내용
+      counselorSignUrl: '', // 필수: 요양보호사 서명 URL (빈 문자열)
+      guardianSignUrl: '', // 필수: 보호자 서명 URL (빈 문자열)
+      nextVisitDate: formData.next_action || null // 선택
+    };
+
+    console.log('📤 API 전송 데이터:', submitData);
+
+    const result = await createCounselingLog(submitData);
+    console.log('✅ 방문상담 작성 완료. API 응답:', result);
+
+    alert('방문상담이 성공적으로 제출되었습니다.');
+
+    // 작성 내역 탭으로 전환하고 목록 새로고침
+    mainTab.value = 'history';
+    await loadCounselingHistory();
+  } catch (error) {
+    console.error('❌ 방문상담 제출 실패:', error);
+    alert('방문상담 제출에 실패했습니다.');
+  }
 };
 
 const handleSaveDraft = (data) => {
   console.log("방문상담 임시저장:", data);
-  alert("임시저장되었습니다.");
+  alert("임시저장 기능은 추후 구현 예정입니다.");
 };
 
-const openEditModal = (item) => {
-  editingItemId.value = item.id;
-  editForm.value = { ...item };
-  showEditModal.value = true;
+const openEditModal = async (item) => {
+  try {
+    editingItemId.value = item.id;
+
+    // 백엔드에서 상세 정보 조회
+    console.log('📝 방문상담 상세 조회:', item.counselingId);
+    const { getCounselingLogDetail } = await import('@/api/careworker/counselingLogApi');
+    const detailResponse = await getCounselingLogDetail(item.counselingId);
+    const detailData = detailResponse?.data ?? detailResponse;
+
+    console.log('📝 상세 응답 데이터:', detailData);
+
+    // 상세 데이터와 목록 데이터 병합
+    editForm.value = {
+      ...item,
+      // 상세 정보로 덮어쓰기
+      visitPurpose: detailData.visitPurpose || item.visitPurpose,
+      observedCondition: detailData.attendees || item.observedCondition,
+      subjectiveNeeds: detailData.discussionContent || item.subjectiveNeeds,
+      counselorNotes: detailData.agreementContent || item.counselorNotes,
+      counselorSignUrl: detailData.counselorSignUrl || item.counselorSignUrl,
+      guardianSignUrl: detailData.guardianSignUrl || item.guardianSignUrl,
+      nextVisit: detailData.nextVisitDate || item.nextVisit,
+    };
+
+    console.log('📝 최종 편집 폼 데이터:', editForm.value);
+    showEditModal.value = true;
+  } catch (error) {
+    console.error('❌ 방문상담 상세 조회 실패:', error);
+    // 조회 실패 시 기존 데이터로 진행
+    editForm.value = { ...item };
+    showEditModal.value = true;
+  }
 };
 
 const closeEditModal = () => {
@@ -47,25 +225,143 @@ const closeEditModal = () => {
   editForm.value = null;
 };
 
-const saveEdit = () => {
-  if (!editForm.value) return;
-  const idx = counselHistory.value.findIndex((i) => i.id === editingItemId.value);
-  if (idx === -1) {
-    alert("수정할 작성 내역을 찾지 못했습니다.");
+// 상세 정보 토글 함수
+const toggleDetails = async (item) => {
+  // 이미 로드된 경우 토글만
+  if (item.detailsLoaded) {
+    item.showDetails = !item.showDetails;
     return;
   }
-  counselHistory.value.splice(idx, 1, { ...editForm.value });
-  alert("작성 내역이 수정되었습니다.");
-  closeEditModal();
+
+  // 상세 정보 로드
+  try {
+    console.log('📝 상세 정보 조회:', item.counselingId);
+    const { getCounselingLogDetail } = await import('@/api/careworker/counselingLogApi');
+    const detailResponse = await getCounselingLogDetail(item.counselingId);
+    const detailData = detailResponse?.data ?? detailResponse;
+
+    console.log('📝 상세 데이터:', detailData);
+
+    // 항목에 상세 정보 추가
+    item.visitPurpose = detailData.visitPurpose || '정보 없음';
+    item.observedCondition = detailData.attendees || '정보 없음';
+    item.subjectiveNeeds = detailData.discussionContent || '정보 없음';
+    item.counselorNotes = detailData.agreementContent || '정보 없음';
+    item.nextVisit = detailData.nextVisitDate ? detailData.nextVisitDate.split('T')[0] : '-';
+    item.detailsLoaded = true;
+    item.showDetails = true;
+  } catch (error) {
+    console.error('❌ 상세 정보 조회 실패:', error);
+    alert('상세 정보를 불러올 수 없습니다.');
+  }
 };
 
-const deleteHistory = (id) => {
+// 수정 폼 데이터 변환 (백엔드 응답 → 프론트엔드 폼 형식)
+const editFormData = computed(() => {
+  if (!editForm.value) return null;
+
+  // 상담 유형 코드로 역변환
+  const counselTypeCodeMap = {
+    '초기 상담': 'initial',
+    '정기 상담': 'regular',
+    '긴급 상담': 'emergency',
+    '종결 상담': 'intermediate',
+    '보호자 상담': 'guardian'
+  };
+
+  // 만족도 코드로 역변환
+  const satisfactionCodeMap = {
+    '매우 만족': 'very_good',
+    '만족': 'good',
+    '보통': 'normal',
+    '불만족': 'bad',
+    '매우 불만족': 'very_bad'
+  };
+
+  return {
+    beneficiaryId: editForm.value.beneficiaryId,
+    visit_date: editForm.value.visitDate,
+    visit_type: counselTypeCodeMap[editForm.value.counselType] || editForm.value.counselType,
+    reaction: satisfactionCodeMap[editForm.value.reaction] || editForm.value.reaction,
+    visit_detail: editForm.value.visitPurpose,
+    observed_condition: editForm.value.observedCondition,
+    subjective_needs: editForm.value.subjectiveNeeds,
+    counselor_notes: editForm.value.counselorNotes,
+    next_action: editForm.value.nextVisit
+  };
+});
+
+// 수정 폼 제출 처리
+const handleEditSubmit = async (formData) => {
+  try {
+    console.log('📝 방문상담 수정 데이터:', formData);
+
+    // 상담 유형을 백엔드 형식으로 변환 (띄어쓰기 없는 한글)
+    const counselTypeReverseMap = {
+      'initial': '초기상담',
+      'regular': '정기상담',
+      'emergency': '긴급상담',
+      'intermediate': '종결상담',
+      'guardian': '보호자상담'
+    };
+
+    // 만족도를 백엔드 형식으로 변환 (띄어쓰기 없는 한글)
+    const reactionReverseMap = {
+      'very_good': '매우만족',
+      'good': '만족',
+      'normal': '보통',
+      'bad': '불만족',
+      'very_bad': '매우불만족'
+    };
+
+    // 프론트엔드 formData를 백엔드 API 형식으로 변환
+    const updateData = {
+      beneficiaryId: parseInt(formData.beneficiaryId, 10),
+      counselingDate: formData.visit_date, // 백엔드 필드명에 맞춤
+      counselingType: counselTypeReverseMap[formData.visit_type] || formData.visit_type || '정기상담', // 필수 (띄어쓰기 없음)
+      satisfaction: reactionReverseMap[formData.reaction] || formData.reaction || '보통', // 필수
+      visitPurpose: formData.visit_detail || '방문 상담', // 필수
+      attendees: formData.observed_condition || '수급자', // 필수
+      discussionContent: formData.subjective_needs || '상담 진행', // 필수
+      agreementContent: formData.counselor_notes || '상담 완료', // 필수
+      counselorSignUrl: editForm.value.counselorSignUrl || '', // 필수
+      guardianSignUrl: editForm.value.guardianSignUrl || '', // 필수
+      nextVisitDate: formData.next_action || null // 선택
+    };
+
+    console.log('📤 API 전송 데이터:', updateData);
+
+    await updateCounselingLog(editingItemId.value, updateData);
+
+    // 목록 새로고침
+    await loadCounselingHistory();
+
+    alert("방문상담 내역이 수정되었습니다.");
+    closeEditModal();
+  } catch (error) {
+    console.error('❌ 방문상담 수정 실패:', error);
+    alert("방문상담 내역 수정에 실패했습니다.");
+  }
+};
+
+const deleteHistory = async (id) => {
   const targetId = id ?? editingItemId.value;
   if (!targetId) return;
-  if (!confirm("이 상담 내역을 삭제하시겠습니까?")) return;
-  counselHistory.value = counselHistory.value.filter((i) => i.id !== targetId);
-  if (editingItemId.value === targetId) {
-    closeEditModal();
+  if (!confirm("이 방문상담 내역을 삭제하시겠습니까?")) return;
+
+  try {
+    await deleteCounselingLog(targetId);
+
+    // 목록 새로고침
+    await loadCounselingHistory();
+
+    if (editingItemId.value === targetId) {
+      closeEditModal();
+    }
+    alert("삭제되었습니다.");
+  } catch (error) {
+    console.error('❌ 방문상담 삭제 실패:', error);
+    alert("방문상담 내역 삭제에 실패했습니다.");
   }
 };
 
@@ -143,7 +439,10 @@ const saveSignature = () => {
   closeSignatureModal();
 };
 
-onMounted(resetCanvas);
+onMounted(() => {
+  resetCanvas();
+  loadCounselingHistory();
+});
 </script>
 
 <template>
@@ -196,31 +495,41 @@ onMounted(resetCanvas);
               </div>
             </div>
 
-            <div class="section-box">
-              <h4 class="section-title">방문 목적</h4>
-              <p class="section-content">{{ item.visitPurpose }}</p>
+            <!-- 상세보기 버튼 -->
+            <div v-if="!item.detailsLoaded" class="details-toggle">
+              <button @click="toggleDetails(item)" class="btn-show-details">
+                📋 상세 정보 보기
+              </button>
             </div>
 
-            <div class="section-box">
-              <h4 class="section-title">관찰 내용</h4>
-              <p class="section-content">{{ item.observedCondition }}</p>
-            </div>
+            <!-- 상세 정보 (로드 후 표시) -->
+            <template v-if="item.detailsLoaded">
+              <div class="section-box">
+                <h4 class="section-title">방문 목적</h4>
+                <p class="section-content">{{ item.visitPurpose }}</p>
+              </div>
 
-            <div class="section-box highlight">
-              <h4 class="section-title">주요 요구사항</h4>
-              <p class="section-content">{{ item.subjectiveNeeds }}</p>
-            </div>
+              <div class="section-box">
+                <h4 class="section-title">참석 가족</h4>
+                <p class="section-content">{{ item.observedCondition }}</p>
+              </div>
 
-            <div class="section-box success">
-              <h4 class="section-title">조치 및 상담 내용</h4>
-              <p class="section-content">{{ item.counselorNotes }}</p>
-            </div>
+              <div class="section-box highlight">
+                <h4 class="section-title">주요 논의사항</h4>
+                <p class="section-content">{{ item.subjectiveNeeds }}</p>
+              </div>
 
-            <div class="next-visit">
-              <span class="calendar-icon">📅</span>
-              <span class="next-visit-label">다음 방문 예정:</span>
-              <span class="next-visit-date">{{ item.nextVisit }}</span>
-            </div>
+              <div class="section-box success">
+                <h4 class="section-title">합의 사항</h4>
+                <p class="section-content">{{ item.counselorNotes }}</p>
+              </div>
+
+              <div class="next-visit">
+                <span class="calendar-icon">📅</span>
+                <span class="next-visit-label">다음 방문 예정:</span>
+                <span class="next-visit-date">{{ item.nextVisit }}</span>
+              </div>
+            </template>
 
             <div class="card-footer">
               <div class="signature-section">
@@ -251,58 +560,17 @@ onMounted(resetCanvas);
       </div>
 
       <div v-if="showEditModal" class="modal-overlay" @click="closeEditModal">
-        <div class="modal-content" @click.stop>
+        <div class="modal-content edit-modal" @click.stop>
           <div class="modal-header">
-            <h3>작성 내역 수정</h3>
+            <h3>방문상담 수정</h3>
             <button class="modal-close-btn" @click="closeEditModal">×</button>
           </div>
           <div class="modal-body">
-            <div class="edit-grid" v-if="editForm">
-              <label class="edit-field">
-                <span>수급자</span>
-                <input v-model="editForm.recipientName" type="text" />
-              </label>
-              <label class="edit-field">
-                <span>작성일</span>
-                <input v-model="editForm.date" type="date" />
-              </label>
-              <label class="edit-field">
-                <span>상담 유형</span>
-                <input v-model="editForm.counselType" type="text" />
-              </label>
-              <label class="edit-field">
-                <span>만족도</span>
-                <input v-model="editForm.reaction" type="text" />
-              </label>
-              <label class="edit-field full">
-                <span>방문 목적</span>
-                <textarea v-model="editForm.visitPurpose" rows="2"></textarea>
-              </label>
-              <label class="edit-field full">
-                <span>관찰 내용</span>
-                <textarea v-model="editForm.observedCondition" rows="2"></textarea>
-              </label>
-              <label class="edit-field full">
-                <span>주요 요구사항</span>
-                <textarea v-model="editForm.subjectiveNeeds" rows="2"></textarea>
-              </label>
-              <label class="edit-field full">
-                <span>조치 및 상담 내용</span>
-                <textarea v-model="editForm.counselorNotes" rows="2"></textarea>
-              </label>
-              <label class="edit-field">
-                <span>다음 방문 예정</span>
-                <input v-model="editForm.nextVisit" type="date" />
-              </label>
-              <label class="edit-field">
-                <span>상태</span>
-                <input v-model="editForm.status" type="text" />
-              </label>
-            </div>
-          </div>
-          <div class="modal-footer">
-            <button class="btn-cancel" @click="closeEditModal">취소</button>
-            <button class="btn-save" @click="saveEdit">저장</button>
+            <VisitCounselForm
+              v-if="editForm"
+              :initialData="editFormData"
+              @submit="handleEditSubmit"
+            />
           </div>
         </div>
       </div>
@@ -680,6 +948,34 @@ onMounted(resetCanvas);
   box-shadow: 0 4px 8px rgba(239, 68, 68, 0.3);
 }
 
+/* 상세보기 버튼 */
+.details-toggle {
+  margin: 1rem 0;
+  text-align: center;
+}
+
+.btn-show-details {
+  padding: 0.75rem 1.5rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  box-shadow: 0 4px 6px rgba(102, 126, 234, 0.3);
+}
+
+.btn-show-details:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(102, 126, 234, 0.4);
+}
+
+.btn-show-details:active {
+  transform: translateY(0);
+}
+
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -700,6 +996,12 @@ onMounted(resetCanvas);
   max-width: 600px;
   width: 100%;
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+}
+
+.modal-content.edit-modal {
+  max-width: 900px;
+  max-height: 90vh;
+  overflow-y: auto;
 }
 
 .modal-header {
