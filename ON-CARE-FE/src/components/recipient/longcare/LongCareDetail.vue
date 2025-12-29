@@ -14,121 +14,122 @@
     <div v-else-if="errorMsg" class="state error">{{ errorMsg }}</div>
 
     <template v-else>
-      <!-- 기본 정보 -->
-      <section class="info-section">
-        <div class="info-grid">
-          <div class="info-item">
-            <div class="label">수급자명</div>
-            <div class="value">{{ detail?.beneficiaryName || '-' }}</div>
+      <div class="detail-body">
+        <!-- 기본 정보 (고정) -->
+        <section class="info-section">
+          <div class="info-grid">
+            <div class="info-item">
+              <div class="label">수급자명</div>
+              <div class="value">{{ detail?.beneficiaryName || '-' }}</div>
+            </div>
+            <div class="info-item">
+              <div class="label">등급</div>
+              <div class="value">{{ detail?.careLevel || '-' }}</div>
+            </div>
+            <div class="info-item">
+              <div class="label">만료일</div>
+              <div class="value">{{ detail?.endDate || '-' }}</div>
+            </div>
+            <div class="info-item">
+              <div class="label">D-Day</div>
+              <div class="value">{{ detail?.ddayLabel || '-' }}</div>
+            </div>
+            <div class="info-item">
+              <div class="label">담당 요양보호사</div>
+              <div class="value">{{ detail?.careWorkerName || '-' }}</div>
+            </div>
+            <div class="info-item">
+              <div class="label">보호자 연락처</div>
+              <div class="value">{{ detail?.guardianPhone || '-' }}</div>
+            </div>
           </div>
-          <div class="info-item">
-            <div class="label">등급</div>
-            <div class="value">{{ detail?.careLevel || '-' }}</div>
-          </div>
-          <div class="info-item">
-            <div class="label">만료일</div>
-            <div class="value">{{ detail?.endDate || '-' }}</div>
-          </div>
-          <div class="info-item">
-            <div class="label">D-Day</div>
-            <div class="value">{{ detail?.ddayLabel || '-' }}</div>
-          </div>
-          <div class="info-item">
-            <div class="label">담당 요양보호사</div>
-            <div class="value">{{ detail?.careWorkerName || '-' }}</div>
-          </div>
-          <div class="info-item">
-            <div class="label">보호자 연락처</div>
-            <div class="value">{{ detail?.guardianPhone || '-' }}</div>
-          </div>
-        </div>
-      </section>
+        </section>
 
-      <!-- ✅ 등급 연장 예정 체크 -->
-      <section class="extend-section">
-        <label class="extend-checkbox">
-          <input type="checkbox" v-model="extendPlanned" />
-          <span class="extend-label">등급 연장 예정</span>
-        </label>
-        <p class="extend-help">체크 해제 시 만료 예정 리스트에서 제외됩니다</p>
-      </section>
+        <!-- 등급 연장 예정 (고정) -->
+        <section class="extend-section">
+          <label class="extend-checkbox">
+            <input type="checkbox" v-model="extendPlanned" />
+            <span class="extend-label">등급 연장 예정</span>
+          </label>
+          <p class="extend-help">체크 해제 시 만료 예정 리스트에서 제외됩니다</p>
+        </section>
 
-      <!-- 안내 이력 -->
-      <section class="history-section">
-        <div class="section-title-row">
-          <span class="section-title">안내 이력 [{{ history.length }}회]</span>
-        </div>
+        <!-- 안내 이력 (여기만 스크롤) -->
+        <section class="history-section">
+          <div class="section-title-row">
+            <span class="section-title">안내 이력 [{{ history.length }}회]</span>
+          </div>
 
-        <div class="history-list">
-          <div
-            v-for="log in history"
-            :key="log.noticeId"
-            class="history-item"
-          >
-            <div class="history-top">
-              <span class="history-date">{{ log.noticeDate }}</span>
+          <div class="history-list scroll-history">
+            <div
+              v-for="log in history"
+              :key="log.noticeId"
+              class="history-item"
+            >
+              <div class="history-top">
+                <span class="history-date">{{ log.noticeDate }}</span>
 
-              <div class="history-right">
-                <span
-                  class="history-type"
-                  :class="log.type === '완료' ? 'type-complete' : 'type-missed'"
-                >
-                  {{ log.type }}
-                </span>
+                <div class="history-right">
+                  <span
+                    class="history-type"
+                    :class="log.type === '완료' ? 'type-complete' : 'type-missed'"
+                  >
+                    {{ log.type }}
+                  </span>
 
-                <!-- ✅ 수정/삭제 (디자인 크게 안 깨는 작은 버튼) -->
-                <button type="button" class="icon-btn" @click="startEdit(log)">수정</button>
-                <button type="button" class="icon-btn danger" @click="removeLog(log.noticeId)">삭제</button>
+                  <button type="button" class="icon-btn" @click="startEdit(log)">수정</button>
+                  <button type="button" class="icon-btn danger" @click="removeLog(log.noticeId)">삭제</button>
+                </div>
+              </div>
+
+              <div class="history-body">
+                <div class="history-title">{{ log.title }}</div>
+                <div class="history-memo">{{ log.memo }}</div>
               </div>
             </div>
 
-            <div class="history-body">
-              <div class="history-title">{{ log.title }}</div>
-              <div class="history-memo">{{ log.memo }}</div>
+            <div v-if="history.length === 0" class="history-empty">
+              아직 등록된 안내 이력이 없습니다.
+            </div>
+          </div>
+        </section>
+
+        <!-- 입력 폼 (고정) -->
+        <section class="form-section">
+          <div class="form-grid">
+            <div class="form-item">
+              <label class="label">연락일자</label>
+              <input type="date" v-model="form.date" />
+            </div>
+            <div class="form-item">
+              <label class="label">담당자</label>
+              <input
+                type="text"
+                v-model="form.staff"
+                placeholder="담당자 이름을 입력하세요"
+              />
             </div>
           </div>
 
-          <div v-if="history.length === 0" class="history-empty">
-            아직 등록된 안내 이력이 없습니다.
-          </div>
-        </div>
-      </section>
-
-      <!-- 입력 폼 -->
-      <section class="form-section">
-        <div class="form-grid">
-          <div class="form-item">
-            <label class="label">연락일자</label>
-            <input type="date" v-model="form.date" />
-          </div>
-          <div class="form-item">
-            <label class="label">담당자</label>
-            <input
-              type="text"
-              v-model="form.staff"
-              placeholder="담당자 이름을 입력하세요"
+          <div class="form-item full">
+            <label class="label">안내 내용</label>
+            <textarea
+              rows="3"
+              v-model="form.memo"
+              placeholder="보호자와 통화 내용, 재평가 일정 안내 등 상세 내용을 입력하세요."
             />
           </div>
-        </div>
 
-        <div class="form-item full">
-          <label class="label">안내 내용</label>
-          <textarea
-            rows="3"
-            v-model="form.memo"
-            placeholder="보호자와 통화 내용, 재평가 일정 안내 등 상세 내용을 입력하세요."
-          />
-        </div>
-
-        <div class="form-item full" v-if="isEditing">
-          <div class="edit-hint">
-            현재 이력 수정 중입니다. (noticeId: {{ editingNoticeId }})
-            <button type="button" class="mini-btn" @click="cancelEdit">수정 취소</button>
+          <div class="form-item full" v-if="isEditing">
+            <div class="edit-hint">
+              현재 이력 수정 중입니다. (noticeId: {{ editingNoticeId }})
+              <button type="button" class="mini-btn" @click="cancelEdit">수정 취소</button>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      </div>
 
-      <!-- 하단 버튼 -->
+      <!-- 하단 버튼 (고정) -->
       <footer class="detail-footer">
         <button
           type="button"
@@ -174,23 +175,17 @@ const props = defineProps({
 const emit = defineEmits(['close', 'refresh'])
 
 const userStore = useUserStore()
-const myEmpId = computed(() => {
-  // ✅ empId가 없으면 null 반환
-  return userStore?.user?.empId ?? userStore?.empId ?? 1    // 로그인 적용하면 empId를 확보해서 자동 주입해야 함
-})
+const myEmpId = computed(() => userStore?.user?.empId ?? userStore?.empId ?? 1)
 
 const loading = ref(false)
 const errorMsg = ref('')
-
 const actionLoading = ref(false)
 
 const detail = ref(null)
 const history = ref([])
 
-/** 연장 예정 체크박스 */
 const extendPlanned = ref(true)
 
-/** 폼 */
 const today = () => new Date().toISOString().slice(0, 10)
 const form = ref({
   date: today(),
@@ -198,7 +193,6 @@ const form = ref({
   memo: '',
 })
 
-/** 수정 모드 */
 const isEditing = ref(false)
 const editingNoticeId = ref(null)
 
@@ -223,11 +217,8 @@ const fetchDetail = async () => {
   try {
     const { data } = await api.get(`/api/care-level/expirations/${props.expirationId}`)
     detail.value = data || null
-
-    // ✅ extendsStatus: null or 'Y' => 체크 true / 'N' => false
     extendPlanned.value = (detail.value?.extendsStatus ?? 'Y') !== 'N'
 
-    // form 기본값
     form.value.staff = detail.value?.careWorkerName || ''
     form.value.date = today()
     form.value.memo = ''
@@ -243,8 +234,7 @@ const fetchDetail = async () => {
 const fetchNotices = async () => {
   try {
     const { data } = await api.get(`/api/care-level/expirations/${props.expirationId}/notices`)
-    const items = data?.items ?? []
-    history.value = items.map(toHistoryItem)
+    history.value = (data?.items ?? []).map(toHistoryItem)
   } catch (e) {
     console.error(e)
     history.value = []
@@ -256,31 +246,20 @@ const reloadAll = async () => {
   await fetchNotices()
 }
 
-/** ✅ 연장예정 체크 변경 -> PATCH */
 watch(extendPlanned, async (val) => {
-  // detail 로딩 전에는 실행하지 않게
   if (!detail.value) return
-
   try {
     const extendsStatus = val ? 'Y' : 'N'
-    await api.patch(`/api/care-level/expirations/${props.expirationId}/extends`, {
-      extendsStatus
-    })
-
-    // ✅ detail에도 반영
+    await api.patch(`/api/care-level/expirations/${props.expirationId}/extends`, { extendsStatus })
     detail.value.extendsStatus = extendsStatus
-
-    // ✅ 체크 해제 시 목록에서 제외되므로 부모에게 refresh 신호
     emit('refresh')
   } catch (e) {
     console.error(e)
-    // 실패 시 UI 롤백
     extendPlanned.value = !val
     alert('연장 예정 상태 변경에 실패했습니다.')
   }
 })
 
-/** ✅ 부재중 기록 */
 const recordAbsent = async () => {
   actionLoading.value = true
   try {
@@ -288,7 +267,7 @@ const recordAbsent = async () => {
       params: { empId: myEmpId.value }
     })
     await fetchNotices()
-    emit('refresh') // 목록 noticeLabel 갱신 필요할 수 있음
+    emit('refresh')
   } catch (e) {
     console.error(e)
     alert('부재중/미완료 기록에 실패했습니다.')
@@ -297,7 +276,6 @@ const recordAbsent = async () => {
   }
 }
 
-/** ✅ 안내 완료 처리 (insertNotice + outbound Y) */
 const addComplete = async () => {
   if (!form.value.memo) {
     alert('안내 내용을 입력해주세요.')
@@ -305,14 +283,11 @@ const addComplete = async () => {
   }
   actionLoading.value = true
   try {
-    // 백엔드가 "yyyy-MM-dd HH:mm:ss"도 허용하지만
-    // 여기서는 date input만 쓰니까 "YYYY-MM-DD"로 전달
     await api.post(`/api/care-level/expirations/${props.expirationId}/notices/complete`, {
       noticeDate: form.value.date,
       memo: form.value.memo,
       empId: myEmpId.value
     })
-
     form.value.memo = ''
     await fetchNotices()
     emit('refresh')
@@ -324,20 +299,14 @@ const addComplete = async () => {
   }
 }
 
-/** ✅ 수정 시작 (폼에 채우기) */
 const startEdit = (log) => {
   isEditing.value = true
   editingNoticeId.value = log.noticeId
-
-  // 날짜 input은 YYYY-MM-DD만 받으니까 noticeDate에서 앞부분만
   const d = String(log.noticeDate || '').slice(0, 10)
   form.value.date = d || today()
   form.value.memo = log.memo || ''
-  // staff는 화면 유지용
-  form.value.staff = form.value.staff || ''
 }
 
-/** ✅ 수정 취소 */
 const cancelEdit = () => {
   isEditing.value = false
   editingNoticeId.value = null
@@ -345,7 +314,6 @@ const cancelEdit = () => {
   form.value.memo = ''
 }
 
-/** ✅ 안내 이력 변경 PUT */
 const saveEdit = async () => {
   if (!editingNoticeId.value) return
   if (!form.value.memo) {
@@ -360,7 +328,6 @@ const saveEdit = async () => {
       memo: form.value.memo,
       empId: myEmpId.value
     })
-
     await fetchNotices()
     cancelEdit()
     emit('refresh')
@@ -372,7 +339,6 @@ const saveEdit = async () => {
   }
 }
 
-/** ✅ 안내 이력 삭제 DELETE */
 const removeLog = async (noticeId) => {
   if (!confirm('해당 안내 이력을 삭제할까요?')) return
   actionLoading.value = true
@@ -404,12 +370,28 @@ watch(
 
 <style scoped>
 .detail-card {
+  box-sizing: border-box;
+  max-width: 100%;
+  min-width: 0;
+
   width: 100%;
   height: 100%;
   border-radius: 16px;
   border: 1px solid #e2e8f0;
   background: #ffffff;
   padding: 16px 18px;
+
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+
+  overflow: hidden; /* 바깥으로 삐져나오는 것 컷 */
+}
+
+.detail-body {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -468,7 +450,7 @@ watch(
   color: #111827;
 }
 
-/* ✅ 등급 연장 예정 체크 */
+/* 연장 예정 */
 .extend-section {
   margin-top: -4px;
   padding: 8px 12px 4px;
@@ -496,7 +478,30 @@ watch(
   border-radius: 12px;
   background: #f9fafb;
   padding: 10px 12px;
+
+  /* history가 길어져도 아래 폼/버튼을 밀어내지 않도록 */
+  min-height: 0;
 }
+
+/* 여기만 스크롤 */
+.scroll-history {
+  max-height: 240px;   /* 여기 숫자만 조절하면 됨 */
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+/* 스크롤바 */
+.scroll-history::-webkit-scrollbar {
+  width: 6px;
+}
+.scroll-history::-webkit-scrollbar-thumb {
+  background-color: #d1d5db;
+  border-radius: 4px;
+}
+.scroll-history::-webkit-scrollbar-track {
+  background-color: transparent;
+}
+
 .section-title-row {
   display: flex;
   justify-content: space-between;
@@ -507,11 +512,13 @@ watch(
   font-size: 13px;
   font-weight: 600;
 }
+
 .history-list {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
+
 .history-item {
   border-radius: 8px;
   background: #e0f2fe;
@@ -527,13 +534,11 @@ watch(
   font-size: 11px;
   color: #1e3a8a;
 }
-
 .history-right{
   display:flex;
   align-items:center;
   gap:6px;
 }
-
 .history-type {
   font-size: 11px;
   padding: 2px 8px;
@@ -547,7 +552,6 @@ watch(
   background: #fee2e2;
   color: #b91c1c;
 }
-
 .icon-btn{
   border:none;
   background: transparent;
@@ -559,7 +563,6 @@ watch(
 .icon-btn.danger{
   color:#b91c1c;
 }
-
 .history-title {
   font-size: 12px;
   font-weight: 600;
@@ -574,7 +577,7 @@ watch(
   color: #9ca3af;
 }
 
-/* 폼 영역 */
+/* 폼 */
 .form-section {
   border-radius: 12px;
   background: #f9fafb;
@@ -602,6 +605,8 @@ watch(
 }
 input,
 textarea {
+  box-sizing: border-box;
+  width: 100%;
   border-radius: 8px;
   border: 1px solid #e5e7eb;
   font-size: 12px;
