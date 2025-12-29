@@ -82,6 +82,10 @@
           </div>
         </div>
       </div>
+      <div class="tag-description">
+        요양보호사는 수급자의 태그 매칭을 바탕으로 
+        거리가 가까운 요양보호사를 추천합니다.
+      </div>
     </template>
   </section>
 </template>
@@ -335,5 +339,13 @@ const viewModel = computed(() => {
 .pill.soft {
   background: #e0f2fe;
   color: #0369a1;
+}
+.tag-description {
+  margin-top: 20px;          /* 서비스/태그 줄과 간격 */
+  max-width: 220px;         
+  font-size: 13px;
+  line-height: 1.6;
+  color: #6b7280;
+  word-break: keep-all;
 }
 </style>
