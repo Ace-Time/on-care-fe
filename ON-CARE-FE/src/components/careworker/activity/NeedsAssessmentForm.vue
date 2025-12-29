@@ -1,35 +1,77 @@
 <script setup>
-import { ref, computed, defineProps, defineEmits } from 'vue';
+import { ref, computed, watch, defineProps, defineEmits, onMounted } from 'vue';
+// [수정됨] 파일명을 실제 존재하는 'needsData'로 변경
 import { needsAssessment } from '@/mock/careworker/needsData';
+import { getMyBeneficiaries } from '@/api/careworker';
+import { useUserStore } from '@/stores/user';
 
 // Props
 const props = defineProps({
   initialData: {
     type: Object,
-    default: () => ({})
+    default: null
+  },
+  readOnly: {
+    type: Boolean,
+    default: false
   }
 });
 
 // Emits
 const emit = defineEmits(['submit', 'save-draft']);
 
+// User store
+const userStore = useUserStore();
+
+// 담당 수급자 목록
+const beneficiaries = ref([]);
+const loadingBeneficiaries = ref(false);
+
+// 담당 수급자 목록 불러오기
+const loadBeneficiaries = async () => {
+  try {
+    loadingBeneficiaries.value = true;
+    const response = await getMyBeneficiaries();
+    const data = response?.data ?? response;
+    beneficiaries.value = Array.isArray(data) ? data : [];
+  } catch (error) {
+    console.error('❌ 담당 수급자 목록 불러오기 실패:', error);
+    beneficiaries.value = [];
+  } finally {
+    loadingBeneficiaries.value = false;
+  }
+};
+
 // Form data
 const formData = ref({
-  recipientName: props.initialData.recipientName || '',
-  careWorkerName: props.initialData.careWorkerName || '',
-  assessmentDate: props.initialData.assessmentDate || new Date().toISOString().split('T')[0],
-  responses: props.initialData.responses || {},
-  textInputs: props.initialData.textInputs || {}
+  beneficiaryId: props.initialData?.beneficiaryId ?? 0,
+  recipientName: props.initialData?.recipientName || '',
+  careWorkerName: props.initialData?.careWorkerName || userStore.name || '',
+  assessmentDate: props.initialData?.assessmentDate || new Date().toISOString().split('T')[0],
+  responses: props.initialData?.responses || props.initialData?.needsItems || {}, // 답변 저장: { weight: 60, diet_type: ['일반식'] }
+  textResponses: props.initialData?.textResponses || {}, // 기타 텍스트 저장: { diet_type_기타: '...' }
 });
 
-// 현재 페이지 (섹션 단위로 표시)
+// Watch for initialData changes (for edit mode)
+watch(() => props.initialData, (newData) => {
+  // initialData에 실제 데이터가 있을 때만 업데이트 (beneficiaryId가 있는 경우만)
+  if (newData && Object.keys(newData).length > 0 && newData.beneficiaryId) {
+    formData.value = {
+      beneficiaryId: newData.beneficiaryId,
+      recipientName: newData.recipientName || formData.value.recipientName,
+      careWorkerName: newData.careWorkerName || userStore.name || '',
+      assessmentDate: newData.assessmentDate || formData.value.assessmentDate,
+      responses: newData.responses || newData.needsItems || formData.value.responses || {},
+      textResponses: newData.textResponses || formData.value.textResponses || {}
+    };
+  }
+}, { deep: true, immediate: true });
+
+// --- 페이지네이션 (섹션 단위) ---
 const currentPage = ref(1);
-const sectionsPerPage = 3;
+const sectionsPerPage = 3; // 한 페이지당 3개 섹션
 
-// 페이지별 섹션 계산
-const totalPages = computed(() => {
-  return Math.ceil(needsAssessment.sections.length / sectionsPerPage);
-});
+const totalPages = computed(() => Math.ceil(needsAssessment.sections.length / sectionsPerPage));
 
 const currentSections = computed(() => {
   const start = (currentPage.value - 1) * sectionsPerPage;
@@ -37,7 +79,6 @@ const currentSections = computed(() => {
   return needsAssessment.sections.slice(start, end);
 });
 
-// 페이지 이동
 const goToPage = (page) => {
   if (page >= 1 && page <= totalPages.value) {
     currentPage.value = page;
@@ -45,63 +86,50 @@ const goToPage = (page) => {
   }
 };
 
-const nextPage = () => goToPage(currentPage.value + 1);
-const prevPage = () => goToPage(currentPage.value - 1);
+// --- 로직 헬퍼 함수 ---
 
-// 응답 선택/토글
-const toggleCheckbox = (itemCode, choice) => {
-  if (!formData.value.responses[itemCode]) {
-    formData.value.responses[itemCode] = [];
-  }
-  const index = formData.value.responses[itemCode].indexOf(choice);
-  if (index > -1) {
-    formData.value.responses[itemCode].splice(index, 1);
+// 체크박스 토글
+const toggleCheckbox = (code, value) => {
+  if (!formData.value.responses[code]) formData.value.responses[code] = [];
+  
+  const index = formData.value.responses[code].indexOf(value);
+  if (index === -1) {
+    formData.value.responses[code].push(value);
   } else {
-    formData.value.responses[itemCode].push(choice);
+    formData.value.responses[code].splice(index, 1);
+    // 선택 해제 시 관련 텍스트도 삭제
+    if (formData.value.textResponses[`${code}_${value}`]) {
+      delete formData.value.textResponses[`${code}_${value}`];
+    }
   }
 };
 
-const selectRadio = (itemCode, choice) => {
-  formData.value.responses[itemCode] = choice;
+// 조건부 표시 (showWhen)
+const checkShowCondition = (condition) => {
+  if (!condition) return true;
+  // condition: { has_children: '유' } -> responses['has_children'] === '유' 인지 확인
+  return Object.keys(condition).every(key => formData.value.responses[key] === condition[key]);
 };
 
-const selectTableRadio = (itemCode, row, column) => {
-  if (!formData.value.responses[itemCode]) {
-    formData.value.responses[itemCode] = {};
-  }
-  formData.value.responses[itemCode][row] = column;
-};
-
-// 체크박스 선택 여부 확인
-const isCheckboxChecked = (itemCode, choice) => {
-  return formData.value.responses[itemCode]?.includes(choice) || false;
-};
-
-// 라디오 선택 여부 확인
-const isRadioSelected = (itemCode, choice) => {
-  return formData.value.responses[itemCode] === choice;
-};
-
-// 테이블 라디오 선택 여부 확인
-const isTableRadioSelected = (itemCode, row, column) => {
-  return formData.value.responses[itemCode]?.[row] === column;
-};
-
-// 텍스트 입력 필요 여부 확인
-const needsTextInput = (item, choice) => {
+// 텍스트 입력창 표시 여부 (hasTextWhen)
+const shouldShowTextInput = (item, choice) => {
   if (!item.hasTextWhen) return false;
-  if (item.type === 'radio') {
-    return item.hasTextWhen.includes(choice) && isRadioSelected(item.code, choice);
-  } else if (item.type === 'checkbox') {
-    return item.hasTextWhen.includes(choice) && isCheckboxChecked(item.code, choice);
+  
+  // 체크박스인 경우: 배열에 포함되어 있고, hasTextWhen 리스트에도 있을 때
+  if (item.type === 'checkbox') {
+    return formData.value.responses[item.code]?.includes(choice) && item.hasTextWhen.includes(choice);
+  } 
+  // 라디오인 경우: 값이 일치하고, hasTextWhen 리스트에도 있을 때
+  else if (item.type === 'radio') {
+    return formData.value.responses[item.code] === choice && item.hasTextWhen.includes(choice);
   }
   return false;
 };
 
 // 폼 제출
 const handleSubmit = () => {
-  if (!formData.value.recipientName) {
-    alert('수급자명을 입력해주세요.');
+  if (!formData.value.beneficiaryId) {
+    alert('수급자를 선택해주세요.');
     return;
   }
   if (!formData.value.careWorkerName) {
@@ -109,162 +137,156 @@ const handleSubmit = () => {
     return;
   }
 
-  emit('submit', {
-    ...formData.value
-  });
+  emit('submit', { ...formData.value });
 };
 
-// 임시저장
 const handleSaveDraft = () => {
-  emit('save-draft', {
-    ...formData.value
-  });
+  emit('save-draft', { ...formData.value });
 };
+
+onMounted(() => {
+  loadBeneficiaries();
+});
 </script>
 
 <template>
   <div class="needs-assessment-form">
-    <!-- 기본 정보 -->
     <section class="form-section basic-info">
       <div class="section-header">
         <h2>{{ needsAssessment.title }}</h2>
-        <p class="section-desc">수급자의 전반적인 욕구를 파악하고 맞춤형 서비스를 계획합니다</p>
+        <p class="section-desc">수급자의 전반적인 상태와 욕구를 파악하고 맞춤형 서비스를 계획합니다</p>
       </div>
 
       <div class="info-grid">
         <div class="info-row">
-          <label>수급자명 <span class="required">*</span></label>
+          <label>수급자명 <span v-if="!readOnly" class="required">*</span></label>
           <input
+            v-if="readOnly"
             v-model="formData.recipientName"
             type="text"
-            placeholder="수급자명을 입력하세요"
+            disabled
+            class="readonly-field"
           />
+          <select v-else v-model.number="formData.beneficiaryId" :disabled="loadingBeneficiaries">
+            <option :value="0">{{ loadingBeneficiaries ? '불러오는 중...' : '선택하세요' }}</option>
+            <option v-for="b in beneficiaries" :key="b.beneficiaryId" :value="b.beneficiaryId">{{ b.name }}</option>
+          </select>
         </div>
         <div class="info-row">
-          <label>작성자명 <span class="required">*</span></label>
-          <input
-            v-model="formData.careWorkerName"
-            type="text"
-            placeholder="요양보호사명을 입력하세요"
-          />
+          <label>작성자명 <span v-if="!readOnly" class="required">*</span></label>
+          <input v-model="formData.careWorkerName" type="text" placeholder="입력하세요" :disabled="readOnly" />
         </div>
         <div class="info-row">
           <label>평가일</label>
-          <input
-            v-model="formData.assessmentDate"
-            type="date"
-          />
+          <input v-model="formData.assessmentDate" type="date" :disabled="readOnly" />
         </div>
       </div>
     </section>
 
-    <!-- 페이지 인디케이터 -->
     <div class="page-indicator">
-      <span class="page-text">{{ currentPage }} / {{ totalPages }} 페이지</span>
+      <div class="page-numbers">
+        <button 
+          v-for="page in totalPages" 
+          :key="page" 
+          class="page-dot"
+          :class="{ active: page === currentPage }"
+          @click="goToPage(page)"
+        >
+          {{ page }}
+        </button>
+      </div>
+      <span class="page-text">{{ currentPage }} / {{ totalPages }} 단계</span>
     </div>
 
-    <!-- 평가 섹션들 (페이지별) -->
     <section
       v-for="section in currentSections"
       :key="section.code"
       class="form-section needs-section"
     >
-      <h3 class="section-title">{{ section.code }}. {{ section.title }}</h3>
+      <div class="sec-header">
+        <span class="sec-code">{{ section.code }}</span>
+        <h3 class="sec-title">{{ section.title }}</h3>
+      </div>
 
       <div class="items-container">
-        <div
-          v-for="item in section.items"
-          :key="item.code"
+        <div 
+          v-for="item in section.items" 
+          :key="item.code" 
           class="item-group"
+          v-show="checkShowCondition(item.showWhen)"
         >
-          <label class="item-label">{{ item.label }}</label>
+          <label v-if="item.type !== 'compound' && item.type !== 'table_radio'" class="item-label">
+            {{ item.label }}
+          </label>
 
-          <!-- 숫자 입력 -->
-          <div v-if="item.type === 'number'" class="number-input-group">
-            <input
-              v-model="formData.responses[item.code]"
-              type="number"
+          <div v-if="['text', 'number'].includes(item.type)" class="input-wrapper">
+            <input 
+              :type="item.type" 
+              v-model="formData.responses[item.code]" 
               :placeholder="`${item.label} 입력`"
+              class="form-input"
             />
             <span v-if="item.unit" class="unit">{{ item.unit }}</span>
           </div>
 
-          <!-- 텍스트 입력 -->
-          <div v-else-if="item.type === 'text'" class="text-input-group">
-            <input
-              v-model="formData.responses[item.code]"
-              type="text"
-              :placeholder="`${item.label} 입력`"
-            />
-          </div>
-
-          <!-- 텍스트영역 -->
-          <div v-else-if="item.type === 'textarea'" class="textarea-group">
-            <textarea
-              v-model="formData.responses[item.code]"
-              :placeholder="`${item.label}을(를) 입력하세요`"
-              rows="5"
+          <div v-else-if="item.type === 'textarea'" class="textarea-wrapper">
+            <textarea 
+              v-model="formData.responses[item.code]" 
+              rows="4" 
+              placeholder="내용을 입력하세요"
             ></textarea>
           </div>
 
-          <!-- 라디오 -->
           <div v-else-if="item.type === 'radio'" class="radio-group">
-            <label
-              v-for="choice in item.choices"
-              :key="choice"
-              class="radio-label"
-              :class="{ active: isRadioSelected(item.code, choice) }"
-            >
-              <input
-                type="radio"
-                :name="item.code"
-                :value="choice"
-                :checked="isRadioSelected(item.code, choice)"
-                @change="selectRadio(item.code, choice)"
+            <div v-for="choice in item.choices" :key="choice" class="choice-wrap">
+              <label class="radio-label" :class="{ active: formData.responses[item.code] === choice }">
+                <input 
+                  type="radio" 
+                  :name="item.code" 
+                  :value="choice" 
+                  v-model="formData.responses[item.code]"
+                />
+                {{ choice }}
+              </label>
+              <input 
+                v-if="shouldShowTextInput(item, choice)"
+                type="text" 
+                v-model="formData.textResponses[`${item.code}_${choice}`]" 
+                class="sub-text-input" 
+                :placeholder="item.textLabel?.[choice] || '내용 입력'"
               />
-              <span>{{ choice }}</span>
-            </label>
-            <!-- 추가 텍스트 입력 -->
-            <input
-              v-for="choice in item.choices"
-              v-if="needsTextInput(item, choice)"
-              :key="`${item.code}_${choice}_text`"
-              v-model="formData.textInputs[`${item.code}_${choice}`]"
-              type="text"
-              class="additional-text"
-              placeholder="상세 입력"
-            />
+            </div>
           </div>
 
-          <!-- 체크박스 -->
           <div v-else-if="item.type === 'checkbox'" class="checkbox-group">
-            <label
-              v-for="choice in item.choices"
-              :key="choice"
-              class="checkbox-label"
-              :class="{ active: isCheckboxChecked(item.code, choice) }"
-            >
-              <input
-                type="checkbox"
-                :checked="isCheckboxChecked(item.code, choice)"
-                @change="toggleCheckbox(item.code, choice)"
+            <div v-for="choice in item.choices" :key="choice" class="choice-wrap">
+              <label class="checkbox-label" :class="{ active: formData.responses[item.code]?.includes(choice) }">
+                <input 
+                  type="checkbox" 
+                  :value="choice" 
+                  :checked="formData.responses[item.code]?.includes(choice)"
+                  @change="toggleCheckbox(item.code, choice)"
+                />
+                {{ choice }}
+              </label>
+              <input 
+                v-if="shouldShowTextInput(item, choice)"
+                type="text" 
+                v-model="formData.textResponses[`${item.code}_${choice}`]" 
+                class="sub-text-input" 
+                :placeholder="item.textLabel?.[choice] || '내용 입력'"
               />
-              <span>{{ choice }}</span>
-            </label>
-            <!-- 추가 텍스트 입력 -->
-            <input
-              v-for="choice in item.choices"
-              v-if="needsTextInput(item, choice)"
-              :key="`${item.code}_${choice}_text`"
-              v-model="formData.textInputs[`${item.code}_${choice}`]"
-              type="text"
-              class="additional-text"
-              placeholder="상세 입력"
-            />
+              <div v-if="item.subItems && formData.responses[item.code]?.includes(choice)" class="sub-items">
+                <div v-for="sub in item.subItems" :key="sub.code">
+                  <span v-if="sub.showWhen === choice">
+                    <input type="text" v-model="formData.responses[sub.code]" :placeholder="sub.label" class="mini-input" />
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <!-- 테이블 라디오 (ADL) -->
-          <div v-else-if="item.type === 'table_radio'" class="table-container">
+          <div v-else-if="item.type === 'table_radio'" class="table-wrapper">
             <table class="adl-table">
               <thead>
                 <tr>
@@ -274,451 +296,155 @@ const handleSaveDraft = () => {
               </thead>
               <tbody>
                 <tr v-for="row in item.rows" :key="row">
-                  <td class="row-label">{{ row }}</td>
-                  <td
-                    v-for="col in item.columns"
-                    :key="`${row}_${col}`"
-                    class="radio-cell"
-                  >
-                    <input
-                      type="radio"
-                      :name="`${item.code}_${row}`"
-                      :checked="isTableRadioSelected(item.code, row, col)"
-                      @change="selectTableRadio(item.code, row, col)"
+                  <td class="row-head">{{ row }}</td>
+                  <td v-for="col in item.columns" :key="col" class="center-td">
+                    <input 
+                      type="radio" 
+                      :name="`${item.code}_${row}`" 
+                      :value="col"
+                      v-model="formData.responses[`${item.code}_${row}`]"
                     />
                   </td>
                 </tr>
               </tbody>
             </table>
           </div>
+
+          <div v-else-if="item.type === 'compound'" class="compound-wrapper">
+            <span class="compound-label">{{ item.label }}</span>
+            <div class="compound-fields">
+              <div 
+                v-for="field in item.fields" 
+                :key="field.code" 
+                class="sub-field"
+                v-show="checkShowCondition(field.showWhen)"
+              >
+                <label v-if="field.label" class="sub-label">{{ field.label }}</label>
+                
+                <input 
+                  v-if="field.type === 'text' || field.type === 'number'"
+                  :type="field.type" 
+                  v-model="formData.responses[field.code]"
+                  class="form-input mini"
+                />
+                
+                <div v-else-if="field.type === 'radio'" class="radio-inline">
+                  <label v-for="c in field.choices" :key="c" class="radio-label small">
+                    <input type="radio" :name="field.code" :value="c" v-model="formData.responses[field.code]" />
+                    {{ c }}
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+
         </div>
       </div>
     </section>
 
-    <!-- 페이지네이션 -->
-    <div class="pagination">
-      <button
-        type="button"
-        class="page-btn"
-        :disabled="currentPage === 1"
-        @click="prevPage"
-      >
-        ← 이전
-      </button>
-      <div class="page-numbers">
-        <button
-          v-for="page in totalPages"
-          :key="page"
-          type="button"
-          class="page-number"
-          :class="{ active: page === currentPage }"
-          @click="goToPage(page)"
-        >
-          {{ page }}
-        </button>
+    <div class="nav-buttons">
+      <button v-if="currentPage > 1" class="btn-nav" @click="goToPage(currentPage - 1)">← 이전</button>
+      <div class="spacer"></div>
+      <button v-if="currentPage < totalPages" class="btn-nav next" @click="goToPage(currentPage + 1)">다음 단계 →</button>
+      
+      <div v-if="currentPage === totalPages" class="submit-group">
+        <button class="btn-sec" @click="handleSaveDraft">임시저장</button>
+        <button class="btn-pri" @click="handleSubmit">제출하기</button>
       </div>
-      <button
-        type="button"
-        class="page-btn"
-        :disabled="currentPage === totalPages"
-        @click="nextPage"
-      >
-        다음 →
-      </button>
-    </div>
-
-    <!-- 제출 버튼 (마지막 페이지에만 표시) -->
-    <div v-if="currentPage === totalPages" class="form-actions">
-      <button type="button" class="btn-secondary" @click="handleSaveDraft">
-        임시저장
-      </button>
-      <button type="button" class="btn-primary" @click="handleSubmit">
-        제출하기
-      </button>
     </div>
   </div>
 </template>
 
 <style scoped>
 .needs-assessment-form {
-  max-width: 1200px;
+  max-width: 1000px;
   margin: 0 auto;
-  padding: 1.5rem;
+  padding: 20px;
+  font-family: 'Noto Sans KR', sans-serif;
+  color: #333;
 }
 
-/* 섹션 공통 */
-.form-section {
-  background: white;
-  border-radius: 0.5rem;
-  padding: 1.5rem;
-  margin-bottom: 1.5rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
+/* 헤더 & 기본정보 */
+.form-section { background: white; border-radius: 8px; padding: 20px; margin-bottom: 20px; border: 1px solid #e5e7eb; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+.section-header h2 { text-align: center; color: #10b981; font-size: 1.5rem; margin-bottom: 5px; }
+.section-desc { text-align: center; color: #6b7280; font-size: 0.9rem; }
 
-.section-header h2 {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: #1f2937;
-  margin: 0 0 0.5rem 0;
-  text-align: center;
-}
-
-.section-desc {
-  text-align: center;
-  color: #6b7280;
-  font-size: 0.875rem;
-  margin: 0 0 1.5rem 0;
-}
-
-.section-title {
-  font-size: 1.125rem;
-  font-weight: 700;
-  color: #10b981;
-  margin: 0 0 1.5rem 0;
-  padding-bottom: 0.5rem;
-  border-bottom: 2px solid #d1fae5;
-}
-
-.required {
-  color: #ef4444;
-  margin-left: 0.25rem;
-}
-
-/* 기본 정보 */
-.info-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1rem;
-}
-
-.info-row {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.info-row label {
-  font-weight: 600;
-  color: #4b5563;
-  font-size: 0.875rem;
-}
-
-.info-row input {
-  padding: 0.625rem;
-  border: 1px solid #d1d5db;
-  border-radius: 0.375rem;
-  font-size: 0.875rem;
-}
-
-.info-row input:focus {
-  outline: none;
-  border-color: #10b981;
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
-}
+.info-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-top: 15px; }
+.info-row { display: flex; flex-direction: column; gap: 5px; }
+.info-row label { font-size: 0.85rem; font-weight: 600; color: #4b5563; }
+.info-row input, .info-row select { padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; }
 
 /* 페이지 인디케이터 */
-.page-indicator {
-  text-align: center;
-  padding: 1rem;
-  background: #ecfdf5;
-  border-radius: 0.5rem;
-  margin-bottom: 1.5rem;
-}
+.page-indicator { display: flex; flex-direction: column; align-items: center; margin-bottom: 20px; gap: 8px; }
+.page-numbers { display: flex; gap: 8px; }
+.page-dot { width: 10px; height: 10px; border-radius: 50%; background: #e5e7eb; border: none; padding: 0; cursor: pointer; transition: all 0.3s; text-indent: -9999px; }
+.page-dot.active { background: #10b981; transform: scale(1.2); }
+.page-text { font-size: 0.85rem; color: #10b981; font-weight: 600; }
 
-.page-text {
-  font-size: 0.9375rem;
-  font-weight: 600;
-  color: #10b981;
-}
+/* 섹션 스타일 */
+.needs-section { border-top: 4px solid #10b981; }
+.sec-header { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; border-bottom: 1px solid #f3f4f6; padding-bottom: 10px; }
+.sec-code { background: #10b981; color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.85rem; }
+.sec-title { font-size: 1.1rem; color: #374151; margin: 0; }
 
-/* 욕구사정 섹션 */
-.needs-section {
-  background: #f0fdf4;
-}
+/* 아이템 공통 */
+.item-group { margin-bottom: 20px; }
+.item-label { display: block; font-weight: 600; font-size: 0.9rem; margin-bottom: 8px; color: #1f2937; }
 
-.items-container {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-.item-group {
-  background: white;
-  padding: 1.25rem;
-  border-radius: 0.5rem;
-  border: 1px solid #e5e7eb;
-}
-
-.item-label {
-  display: block;
-  font-weight: 600;
-  color: #374151;
-  font-size: 0.9375rem;
-  margin-bottom: 0.75rem;
-}
-
-/* 숫자/텍스트 입력 */
-.number-input-group,
-.text-input-group {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.number-input-group input,
-.text-input-group input {
-  flex: 1;
-  padding: 0.625rem;
-  border: 1px solid #d1d5db;
-  border-radius: 0.375rem;
-  font-size: 0.875rem;
-}
-
-.number-input-group input {
-  max-width: 150px;
-}
-
-.unit {
-  font-size: 0.875rem;
-  color: #6b7280;
-}
-
-/* 텍스트영역 */
-.textarea-group textarea {
-  width: 100%;
-  padding: 0.75rem;
-  border: 1px solid #d1d5db;
-  border-radius: 0.375rem;
-  font-size: 0.875rem;
-  resize: vertical;
-  font-family: inherit;
-}
-
-.textarea-group textarea:focus {
-  outline: none;
-  border-color: #10b981;
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
-}
+/* 입력 필드 */
+.input-wrapper { display: flex; align-items: center; gap: 5px; }
+.form-input { padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 0.9rem; flex: 1; max-width: 300px; }
+.unit { color: #6b7280; font-size: 0.85rem; }
+.textarea-wrapper textarea { width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 4px; resize: vertical; }
 
 /* 라디오/체크박스 */
-.radio-group,
-.checkbox-group {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-}
+.radio-group, .checkbox-group { display: flex; flex-wrap: wrap; gap: 10px; }
+.choice-wrap { display: flex; align-items: center; gap: 5px; }
+.radio-label, .checkbox-label { display: flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1px solid #e5e7eb; border-radius: 20px; cursor: pointer; font-size: 0.9rem; transition: all 0.2s; background: #fff; }
+.radio-label:hover, .checkbox-label:hover { background: #f0fdf4; border-color: #10b981; }
+.radio-label.active, .checkbox-label.active { background: #d1fae5; border-color: #10b981; color: #065f46; font-weight: 600; }
+.radio-label input, .checkbox-label input { accent-color: #10b981; display: none; }
 
-.radio-label,
-.checkbox-label {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.625rem 1rem;
-  border: 2px solid #e5e7eb;
-  border-radius: 0.375rem;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-size: 0.875rem;
-}
+/* 추가 텍스트 입력 */
+.sub-text-input { border: none; border-bottom: 1px solid #9ca3af; padding: 2px 5px; outline: none; font-size: 0.85rem; width: 120px; transition: border 0.2s; }
+.sub-text-input:focus { border-bottom: 2px solid #10b981; }
 
-.radio-label:hover,
-.checkbox-label:hover {
-  border-color: #10b981;
-  background: #f0fdf4;
-}
+/* 테이블 (ADL) */
+.table-wrapper { overflow-x: auto; }
+.adl-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.adl-table th, .adl-table td { border: 1px solid #e5e7eb; padding: 8px; text-align: center; }
+.adl-table th { background: #f9fafb; font-weight: 600; color: #374151; }
+.adl-table .row-head { text-align: left; font-weight: 500; background: #fff; }
+.adl-table input { accent-color: #10b981; cursor: pointer; }
 
-.radio-label.active,
-.checkbox-label.active {
-  border-color: #10b981;
-  background: #d1fae5;
-}
+/* 복합 필드 */
+.compound-wrapper { background: #f9fafb; padding: 12px; border-radius: 6px; border: 1px solid #f3f4f6; }
+.compound-label { display: block; font-weight: 600; margin-bottom: 8px; font-size: 0.9rem; }
+.compound-fields { display: flex; flex-wrap: wrap; gap: 15px; align-items: center; }
+.sub-field { display: flex; align-items: center; gap: 6px; }
+.sub-label { font-size: 0.85rem; color: #555; }
+.radio-inline { display: flex; gap: 8px; }
+.radio-label.small { padding: 4px 8px; font-size: 0.8rem; }
+.mini { max-width: 80px; }
 
-.radio-label input,
-.checkbox-label input {
-  cursor: pointer;
-  accent-color: #10b981;
-}
+/* 하단 네비게이션 */
+.nav-buttons { display: flex; align-items: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; }
+.spacer { flex: 1; }
+.btn-nav { padding: 10px 20px; border: 1px solid #d1d5db; background: white; border-radius: 6px; cursor: pointer; font-weight: 600; color: #4b5563; }
+.btn-nav:hover { background: #f9fafb; }
+.btn-nav.next { background: #10b981; color: white; border: none; }
+.btn-nav.next:hover { background: #059669; }
 
-.additional-text {
-  width: 100%;
-  margin-top: 0.5rem;
-  padding: 0.625rem;
-  border: 1px solid #d1d5db;
-  border-radius: 0.375rem;
-  font-size: 0.875rem;
-}
+.submit-group { display: flex; gap: 10px; }
+.btn-sec { padding: 10px 20px; border: 1px solid #d1d5db; background: white; border-radius: 6px; cursor: pointer; font-weight: 600; }
+.btn-pri { padding: 10px 25px; border: none; background: #10b981; color: white; border-radius: 6px; cursor: pointer; font-weight: 600; }
 
-/* 테이블 */
-.table-container {
-  overflow-x: auto;
-}
-
-.adl-table {
-  width: 100%;
-  border-collapse: collapse;
-  background: white;
-}
-
-.adl-table th,
-.adl-table td {
-  padding: 0.875rem;
-  border: 1px solid #e5e7eb;
-  text-align: center;
-  font-size: 0.875rem;
-}
-
-.adl-table th {
-  background: #f9fafb;
-  font-weight: 600;
-  color: #374151;
-}
-
-.adl-table .row-label {
-  text-align: left;
-  font-weight: 500;
-  color: #4b5563;
-}
-
-.adl-table .radio-cell {
-  cursor: pointer;
-}
-
-.adl-table input[type="radio"] {
-  cursor: pointer;
-  accent-color: #10b981;
-  width: 18px;
-  height: 18px;
-}
-
-/* 페이지네이션 */
-.pagination {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 1rem;
-  margin: 2rem 0;
-}
-
-.page-btn {
-  padding: 0.75rem 1.5rem;
-  border: 1px solid #d1d5db;
-  border-radius: 0.375rem;
-  background: white;
-  color: #374151;
-  font-weight: 600;
-  font-size: 0.875rem;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.page-btn:hover:not(:disabled) {
-  border-color: #10b981;
-  background: #f0fdf4;
-  color: #10b981;
-}
-
-.page-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.page-numbers {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.page-number {
-  width: 40px;
-  height: 40px;
-  border: 1px solid #d1d5db;
-  border-radius: 0.375rem;
-  background: white;
-  color: #374151;
-  font-weight: 600;
-  font-size: 0.875rem;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.page-number:hover {
-  border-color: #10b981;
-  background: #f0fdf4;
-}
-
-.page-number.active {
-  border-color: #10b981;
-  background: #10b981;
-  color: white;
-}
-
-/* 버튼 */
-.form-actions {
-  display: flex;
-  justify-content: center;
-  gap: 1rem;
-  margin-top: 2rem;
-}
-
-.btn-primary,
-.btn-secondary {
-  padding: 0.875rem 2.5rem;
-  border-radius: 0.5rem;
-  font-weight: 700;
-  font-size: 0.875rem;
-  border: none;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-primary {
-  background: #10b981;
-  color: white;
-}
-
-.btn-primary:hover {
-  background: #059669;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
-}
-
-.btn-secondary {
-  background: white;
-  color: #4b5563;
-  border: 1px solid #d1d5db;
-}
-
-.btn-secondary:hover {
-  background: #f9fafb;
-  border-color: #9ca3af;
-}
-
-/* 반응형 */
 @media (max-width: 768px) {
-  .info-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .radio-group,
-  .checkbox-group {
-    flex-direction: column;
-  }
-
-  .radio-label,
-  .checkbox-label {
-    width: 100%;
-  }
-
-  .page-numbers {
-    flex-wrap: wrap;
-  }
-
-  .table-container {
-    font-size: 0.75rem;
-  }
-
-  .adl-table th,
-  .adl-table td {
-    padding: 0.5rem;
-  }
+  .info-grid { grid-template-columns: 1fr; }
+  .compound-fields { flex-direction: column; align-items: flex-start; }
+  .radio-group, .checkbox-group { flex-direction: column; align-items: flex-start; }
+  .choice-wrap { width: 100%; }
 }
 </style>
+
+

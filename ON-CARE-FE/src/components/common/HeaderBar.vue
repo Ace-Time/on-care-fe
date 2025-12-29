@@ -121,7 +121,7 @@
   // 역할별 메뉴
   const menuList = computed(() => {
     console.log("currentRole.value::", currentRole.value);
-    return MENU_CONFIG[currentRole.value[0]] || MENU_CONFIG.ROLE_CENTER_MANAGER
+    return MENU_CONFIG[currentRole.value[0]] || MENU_CONFIG.ROLE_CAREGIVER
   })
   
   // 현재 라우트 기준 활성 메뉴
