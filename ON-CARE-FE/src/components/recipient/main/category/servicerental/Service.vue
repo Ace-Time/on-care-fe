@@ -7,7 +7,8 @@
         <h3 class="title">서비스 내역</h3>
       </div>
 
-      <ul class="svc-card-list">
+      <!-- ✅ 목록만 스크롤 -->
+      <ul class="svc-card-list scroll-list">
         <li v-if="!beneficiaryId" class="empty">수급자를 선택해주세요.</li>
         <li v-else-if="loading" class="empty">불러오는 중...</li>
         <li v-else-if="months.length === 0" class="empty">데이터가 없습니다.</li>
@@ -132,7 +133,6 @@ watch(
 );
 </script>
 
-
 <style scoped>
 .page-head {
   display: flex;
@@ -150,6 +150,14 @@ watch(
   margin: 0;
   padding: 0;
 }
+
+/* ✅ 스크롤바: 목록 영역에만 적용 */
+.scroll-list {
+  max-height: 360px;  /* 필요하면 320/400 등으로 조절 */
+  overflow-y: auto;
+  padding-right: 4px; /* 스크롤바로 인한 가림 방지 */
+}
+
 .svc-card {
   display: flex;
   justify-content: space-between;

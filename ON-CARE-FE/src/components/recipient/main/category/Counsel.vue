@@ -1,6 +1,6 @@
 <!-- src/components/recipient/category/Counsel.vue -->
 <template>
-  <div class="list-column">
+  <div class="list-column scroll-wrapper">
     <!-- 로딩/빈상태 -->
     <div v-if="loading" class="empty">불러오는 중...</div>
     <div v-else-if="!counselList.length" class="empty">상담 이력이 없습니다.</div>
@@ -58,13 +58,15 @@ const counselList = ref([])
 const showModal = ref(false)
 const selectedCounselingId = ref(null)
 
-// ✅ 목록 조회만
+// 목록 조회만
 const fetchCounselingList = async () => {
   if (!props.beneficiaryId) return
   loading.value = true
 
   try {
-    const { data } = await api.get(`/api/beneficiaries/${props.beneficiaryId}/counselings`)
+    const { data } = await api.get(
+      `/api/beneficiaries/${props.beneficiaryId}/counselings`
+    )
     counselList.value = data?.items ?? []
   } catch (e) {
     console.error('상담 목록 조회 실패:', e)
@@ -91,8 +93,6 @@ watch(
     selectedCounselingId.value = null
     fetchCounselingList()
   }
-  // },
-  // { immediate: true }
 )
 </script>
 
@@ -101,6 +101,13 @@ watch(
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+/* 스크롤바 추가 */
+.scroll-wrapper {
+  max-height: 360px;   /* Inquiry.vue랑 맞추는 게 UX상 좋음 (상담이 7개정도면 스크롤바가 나타남)*/
+  overflow-y: auto;
+  padding-right: 4px; /* 스크롤바로 인한 잘림 방지 */
 }
 
 .list-card {
@@ -136,6 +143,7 @@ watch(
   padding: 2px 8px;
   font-size: 11px;
 }
+
 .status-pill.done {
   background-color: #dcfce7;
   color: #15803d;

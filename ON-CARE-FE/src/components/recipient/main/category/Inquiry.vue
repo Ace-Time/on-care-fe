@@ -1,6 +1,6 @@
 <!-- src/components/recipient/main/category/Inquiry.vue -->
 <template>
-  <div class="list-column">
+  <div class="list-column scroll-wrapper">
     <!-- 로딩/빈상태 -->
     <div v-if="loading" class="empty">불러오는 중...</div>
     <div v-else-if="!inquiryList.length" class="empty">문의 이력이 없습니다.</div>
@@ -14,22 +14,22 @@
       @click="openModal(item.counselHistoryId)"
     >
       <div class="list-header-row">
-        <!-- ✅ 전화문의 등: categoryName -->
+        <!-- 전화문의 등: categoryName -->
         <span class="badge-type type-phone">
           {{ item.categoryName }}
         </span>
 
-        <!-- ✅ 날짜만 표시(시간 제거): consultDate -->
+        <!-- 날짜만 표시(시간 제거): consultDate -->
         <span class="list-date">{{ item.consultDate }}</span>
       </div>
 
-      <!-- ✅ 내용: detail -->
+      <!-- 내용: detail -->
       <p v-if="item.detail" class="list-text">
         {{ item.detail }}
       </p>
     </div>
 
-    <!-- ✅ 문의 이력 모달: id만 넘김 -->
+    <!-- 문의 이력 모달: id만 넘김 -->
     <InquiryModal
       v-model="showModal"
       :beneficiary-id="beneficiaryId"
@@ -57,7 +57,7 @@ const inquiryList = ref([])
 const showModal = ref(false)
 const selectedCounselHistoryId = ref(null)
 
-// ✅ 목록 조회 API만
+// 목록 조회 API만
 const fetchInquiryList = async () => {
   if (!props.beneficiaryId) return
   loading.value = true
@@ -104,6 +104,13 @@ watch(
   gap: 6px;
 }
 
+/* 스크롤바 추가 (목록이 길어지면 이 영역 안에서만 스크롤) */
+.scroll-wrapper {
+  max-height: 360px;   /* 필요하면 320/400 등으로 조절 */
+  overflow-y: auto;
+  padding-right: 4px;  /* 스크롤바 때문에 내용 가려지는 거 방지 */
+}
+
 .list-card {
   padding: 10px 12px;
   border-radius: 10px;
@@ -139,7 +146,7 @@ watch(
   font-size: 11px;
 }
 
-/* ✅ 색상은 기존 phone 스타일을 재사용 */
+/* 색상은 기존 phone 스타일을 재사용 */
 .type-phone {
   background-color: #dcfce7;
   color: #15803d;

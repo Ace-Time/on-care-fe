@@ -2,6 +2,7 @@
 import { ref, onMounted, watch, onActivated } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { getTodaySchedules, startVisit, completeVisit } from '@/api/careworker';
+import { getCareLogList } from '@/api/careworker/careLogApi';
 import { useScheduleStore } from '@/stores/schedule';
 import BeneficiaryDetailModal from './BeneficiaryDetailModal.vue';
 
@@ -24,6 +25,43 @@ const loadSchedules = async () => {
     const dataArray = response.data || [];
     console.log('데이터 배열 길이:', dataArray.length);
 
+    // 모든 요양일지를 한 번에 가져오기
+    let careLogsMap = new Map(); // vsId -> reportId 매핑
+    try {
+      console.log('📋 요양일지 목록 조회 중...');
+      const careLogsResponse = await getCareLogList();
+      console.log('📋 요양일지 목록 응답:', careLogsResponse);
+      console.log('📋 요양일지 데이터 배열:', careLogsResponse?.data);
+
+      if (careLogsResponse && careLogsResponse.data && Array.isArray(careLogsResponse.data)) {
+        console.log(`📋 총 ${careLogsResponse.data.length}개의 요양일지 발견`);
+
+        // vsId를 키로 하는 Map 생성 (가장 최근 요양일지만 저장)
+        careLogsResponse.data.forEach((log, index) => {
+          console.log(`📋 요양일지 [${index}]:`, log);
+          console.log(`📋 요양일지 [${index}] 키:`, Object.keys(log));
+
+          const vsId = log.vsId || log.scheduleId || log.vs_id || log.schedule_id;
+          const logId = log.logId || log.id || log.careLogId || log.care_log_id || log.log_id;
+
+          console.log(`📋 요양일지 [${index}] 추출: vsId=${vsId}, logId=${logId}`);
+
+          if (vsId && logId) {
+            // 이미 있는 경우 나중 것으로 덮어쓰기 (최신 것 유지)
+            careLogsMap.set(vsId, logId);
+            console.log(`✅ 요양일지 매핑 성공: vsId=${vsId} -> logId=${logId}`);
+          } else {
+            console.warn(`⚠️ 요양일지 [${index}] 매핑 실패: vsId 또는 logId 없음`);
+          }
+        });
+        console.log(`📋 총 ${careLogsMap.size}개의 요양일지 매핑 완료`);
+        console.log('📋 매핑된 Map:', Array.from(careLogsMap.entries()));
+      }
+    } catch (error) {
+      console.warn('⚠️ 요양일지 목록 조회 실패:', error);
+    }
+
+    // 일정 데이터 매핑
     scheduleItems.value = dataArray.map(schedule => {
       console.log('개별 일정 데이터:', schedule);
       console.log('schedule의 모든 키:', Object.keys(schedule));
@@ -39,7 +77,6 @@ const loadSchedules = async () => {
         || schedule.recipient?.id;
 
       // beneficiaryId가 없으면 scheduleId 사용 (임시)
-      // TODO: 백엔드에서도 beneficiaryId를 전달해주도록 요청
       if (!beneficiaryId) {
         console.warn('beneficiaryId를 찾을 수 없어 scheduleId를 사용합니다.');
         beneficiaryId = scheduleId;
@@ -47,6 +84,27 @@ const loadSchedules = async () => {
 
       console.log('추출된 scheduleId:', scheduleId);
       console.log('추출된 beneficiaryId:', beneficiaryId);
+
+      // Map에서 reportId 조회
+      let reportId = schedule.reportId || schedule.careLogId || schedule.report_id;
+
+      if (schedule.status === 'DONE' && scheduleId) {
+        const mappedReportId = careLogsMap.get(scheduleId);
+        if (mappedReportId) {
+          reportId = mappedReportId;
+          console.log(`✅ 일정 ${scheduleId}에 대한 요양일지 발견! reportId: ${reportId}`);
+        } else {
+          console.log(`ℹ️ 일정 ${scheduleId}에 대한 요양일지 없음`);
+        }
+      }
+
+      console.log('📋 최종 reportId 확인:', {
+        scheduleId,
+        reportId,
+        status: schedule.status,
+        originalReportId: schedule.reportId,
+        careLogId: schedule.careLogId
+      });
 
       return {
         id: scheduleId,
@@ -60,11 +118,11 @@ const loadSchedules = async () => {
         status: getStatusText(schedule.status),
         statusColor: getStatusColor(schedule.status),
         showAttendance: schedule.status === 'SCHEDULED',
-        buttons: getButtons(schedule.status, schedule.reportId),
+        buttons: getButtons(schedule.status, reportId),
         originalStatus: schedule.status,
         actualStartTime: schedule.actualStartTime,
         actualEndTime: schedule.actualEndTime,
-        reportId: schedule.reportId
+        reportId: reportId
       };
     });
 
@@ -101,6 +159,8 @@ const getStatusColor = (status) => {
 
 // 버튼 구성 - 상태에 따라 버튼만 표시
 const getButtons = (status, reportId) => {
+  console.log('🔘 버튼 결정:', { status, reportId, hasReportId: !!reportId });
+
   if (status === 'SCHEDULED') {
     return [
       { text: '서비스 시작', type: 'primary', color: 'green', action: 'start' }
@@ -112,10 +172,12 @@ const getButtons = (status, reportId) => {
   } else if (status === 'DONE') {
     // 요양일지가 작성되었으면 확인으로 변경
     if (reportId) {
+      console.log('✅ reportId 있음 -> 요양일지 보기 버튼');
       return [
-        { text: '요양일지 확인', type: 'primary', color: 'orange', action: 'viewLog' }
+        { text: '요양일지 보기', type: 'primary', color: 'orange', action: 'viewLog' }
       ];
     } else {
+      console.log('❌ reportId 없음 -> 요양일지 작성 버튼');
       return [
         { text: '요양일지 작성', type: 'primary', color: 'purple', action: 'writeLog' }
       ];
@@ -175,12 +237,29 @@ const handleAction = async (action, item) => {
     } else if (action === 'detail') {
       console.log('상세보기:', item.name);
     } else if (action === 'writeLog') {
-      // 돌봄일지 작성 페이지로 이동
-      router.push({ name: 'activity-care' });
+      // 돌봄일지 작성 페이지로 이동 - 일정 정보를 query로 전달
+      router.push({
+        name: 'activity-care',
+        query: {
+          beneficiaryId: item.beneficiaryId,
+          beneficiaryName: item.name,
+          serviceDate: new Date().toISOString().split('T')[0], // 오늘 날짜
+          startTime: item.time.split(' - ')[0]?.trim() || '',
+          endTime: item.time.split(' - ')[1]?.trim() || '',
+          serviceType: item.service,
+          scheduleId: item.id
+        }
+      });
     } else if (action === 'viewLog') {
-      // 돌봄일지 확인 페이지로 이동
+      // 돌봄일지 확인 페이지로 이동 - reportId를 query로 전달
       console.log('요양일지 확인:', item.reportId);
-      // 예시: router.push({ name: 'ActivityLogView', params: { reportId: item.reportId } });
+      router.push({
+        name: 'activity-care',
+        query: {
+          viewLogId: item.reportId,
+          tab: 'history'
+        }
+      });
     }
   } catch (error) {
     console.error('액션 처리 실패:', error);
@@ -189,10 +268,11 @@ const handleAction = async (action, item) => {
 };
 
 // 일정 업데이트 감지 시 자동 새로고침
-watch(() => scheduleStore.scheduleUpdateCounter, (newValue, oldValue) => {
-  console.log('📅 홈 화면: 일정 업데이트 감지!', { oldValue, newValue });
-  console.log('📅 홈 화면: 일정 새로고침 시작...');
-  loadSchedules();
+watch(() => scheduleStore.scheduleUpdateCounter, async (newValue, oldValue) => {
+  console.log('🔄 홈 화면: 일정 업데이트 감지!', { oldValue, newValue });
+  console.log('🔄 홈 화면: 일정 새로고침 시작... (요양일지 작성/삭제 후)');
+  await loadSchedules();
+  console.log('🔄 홈 화면: 일정 새로고침 완료!');
 }, { immediate: false });
 
 // 라우트 변경 감지 (홈 페이지로 이동 시 새로고침)

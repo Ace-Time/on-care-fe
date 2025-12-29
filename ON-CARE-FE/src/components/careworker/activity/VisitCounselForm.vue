@@ -1,6 +1,7 @@
 <script setup>
-import { ref, defineProps, defineEmits } from 'vue';
+import { ref, defineProps, defineEmits, onMounted } from 'vue';
 import { visitCounselData } from '@/mock/careworker/visitCounselData';
+import { getMyBeneficiaries } from '@/api/careworker';
 
 // Props
 const props = defineProps({
@@ -13,9 +14,31 @@ const props = defineProps({
 // Emits
 const emit = defineEmits(['submit', 'save-draft']);
 
+// 담당 수급자 목록
+const beneficiaries = ref([]);
+const loadingBeneficiaries = ref(false);
+
+// 담당 수급자 목록 불러오기
+const loadBeneficiaries = async () => {
+  try {
+    loadingBeneficiaries.value = true;
+    const response = await getMyBeneficiaries();
+    const data = response?.data ?? response;
+
+    console.log('📊 담당 수급자 목록:', data);
+    beneficiaries.value = data || [];
+  } catch (error) {
+    console.error('❌ 담당 수급자 목록 불러오기 실패:', error);
+    beneficiaries.value = [];
+  } finally {
+    loadingBeneficiaries.value = false;
+  }
+};
+
 // Form data
 const formData = ref({
   visit_date: props.initialData.visit_date || '',
+  beneficiaryId: props.initialData.beneficiaryId || '',
   recipient: props.initialData.recipient || '',
   visit_type: props.initialData.visit_type || '',
   reaction: props.initialData.reaction || '',
@@ -40,12 +63,19 @@ const getOptions = (field) => {
 
 // 폼 제출
 const handleSubmit = () => {
+  // 수급자 선택 검증 (beneficiaryId)
+  if (!formData.value.beneficiaryId) {
+    alert('수급자를 선택해주세요.');
+    return;
+  }
+
   // 필수 항목 검증
   const section = visitCounselData.sections[0];
-  const requiredFields = section.fields.filter(f => f.required);
+  const requiredFields = section.fields.filter(f => f.required && f.code !== 'recipient');
 
   for (const field of requiredFields) {
-    if (!formData.value[field.code] || formData.value[field.code].trim() === '') {
+    const value = formData.value[field.code];
+    if (!value || (typeof value === 'string' && value.trim() === '')) {
       alert(`${field.label}을(를) 입력해주세요.`);
       return;
     }
@@ -58,6 +88,11 @@ const handleSubmit = () => {
 const handleSaveDraft = () => {
   emit('save-draft', { ...formData.value });
 };
+
+// 컴포넌트 마운트 시 수급자 목록 로드
+onMounted(() => {
+  loadBeneficiaries();
+});
 </script>
 
 <template>
@@ -84,9 +119,22 @@ const handleSaveDraft = () => {
             <span v-if="field.required" class="required">*</span>
           </label>
 
+          <!-- Beneficiary dropdown (수급자 선택) -->
+          <select
+            v-if="field.code === 'recipient'"
+            :id="field.code"
+            v-model="formData.beneficiaryId"
+            :disabled="loadingBeneficiaries"
+          >
+            <option value="">{{ loadingBeneficiaries ? '불러오는 중...' : '수급자를 선택하세요' }}</option>
+            <option v-for="beneficiary in beneficiaries" :key="beneficiary.beneficiaryId" :value="beneficiary.beneficiaryId">
+              {{ beneficiary.name }}
+            </option>
+          </select>
+
           <!-- Text input -->
           <input
-            v-if="field.type === 'text'"
+            v-else-if="field.type === 'text'"
             :id="field.code"
             v-model="formData[field.code]"
             type="text"
@@ -99,6 +147,15 @@ const handleSaveDraft = () => {
             :id="field.code"
             v-model="formData[field.code]"
             type="datetime-local"
+          />
+
+          <!-- Date input -->
+          <input
+            v-else-if="field.type === 'date'"
+            :id="field.code"
+            v-model="formData[field.code]"
+            type="date"
+            :placeholder="field.placeholder"
           />
 
           <!-- Select dropdown -->
@@ -204,6 +261,7 @@ const handleSaveDraft = () => {
 
 .form-field input[type="text"],
 .form-field input[type="datetime-local"],
+.form-field input[type="date"],
 .form-field select,
 .form-field textarea {
   padding: 0.625rem 0.875rem;

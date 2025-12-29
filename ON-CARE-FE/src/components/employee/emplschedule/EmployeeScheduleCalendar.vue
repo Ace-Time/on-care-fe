@@ -57,8 +57,8 @@ const processEventsForWeek = (weekStart, weekEnd) => {
 
   props.schedules.forEach((event, index) => {
     // 1. FullCalendar 포맷(start, end) 대응 및 시간 제거 (YYYY-MM-DD)
-    const rawStart = event.start || event.startDate || event.date;
-    const rawEnd = event.end || event.endDate || event.date;
+    const rawStart = event.start || event.startDate || event.date || event.startDt;
+    const rawEnd = event.end || event.endDate || event.date || event.endDt;
     
     if (!rawStart || !rawEnd) return;
 
@@ -70,9 +70,9 @@ const processEventsForWeek = (weekStart, weekEnd) => {
 
     // 3. 타입 추론 (extendedProps.serviceType 등 활용)
     //    API에는 serviceType이 한글로 들어옴 ("방문요양", "복지용구" 등)
-    const serviceType = event.extendedProps?.serviceType || '';
+    const serviceType = event.extendedProps?.serviceType || event.extendedProps?.type || '';
     let type = 'care';
-    if (serviceType.includes('렌탈') || serviceType.includes('용구')) {
+    if (serviceType.includes('렌탈') || serviceType.includes('용구') || serviceType.includes('물품')) {
       type = 'rental';
     } else if (event.type) {
       type = event.type;
@@ -102,9 +102,11 @@ const processEventsForWeek = (weekStart, weekEnd) => {
 
     segments.push({
       ...event,
-      title: event.title || serviceType || event.recipient, // 제목 없을 경우 처리
-      time: formattedTime, // [신규] 시간 표시용
+      title: event.title || event.beneficiaryName || serviceType || event.recipient, 
+      time: formattedTime, 
       type, // 결정된 타입 (care/rental)
+      serviceTypeName: serviceType, // [신규] 템플릿 비교용 (예: '물품수령')
+      allDay: event.allDay || false, // [신규] allDay 속성 패스쓰루
       _uiKey: `evt-${index}-${startCol}`,
       gridColumnStart: startCol,
       gridColumnSpan: span,
@@ -192,17 +194,20 @@ const nextMonth = () => currentDate.value = new Date(currentYear.value, currentM
             }"
           >
             <span class="event-content">
-              <span v-if="event.type === 'rental' && !event.isContinuesLeft" class="icon-box">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+              <!-- Case A: 물품/렌탈 (아이콘 변경) -->
+              <span v-if="['물품수령', '물품회수', '복지용구'].includes(event.serviceTypeName) || event.type === 'rental'" class="icon-box">
+                 🚚
               </span>
               
-              <span v-if="event.type === 'care'" class="icon-box">
+              <!-- Case B: 일반 요양 (기본 아이콘) -->
+              <span v-else-if="event.type === 'care'" class="icon-box">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m22 4-12 12-4-4"/></svg>
               </span>
 
               <span class="event-title truncate">
-                {{ event.title || event.recipient }}
-                <span class="time-text">{{ event.time }}</span>
+                <!-- allday가 true이면 시간 숨김 -->
+                <span v-if="!event.allDay && event.time" class="time-text mr-1">⏱ {{ event.time }}</span>
+                {{ event.title }}
               </span>
             </span>
           </div>
