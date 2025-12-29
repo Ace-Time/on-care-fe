@@ -1,12 +1,12 @@
 <template>
     <!-- 선택된 용품이 있을 때만 보이도록 -->
-    <div v-if="product" class="detail-card">
+    <div v-if="totalItemCount" class="detail-card">
       <!-- 연두색 헤더 영역 -->
-      <div class="detail-header">
+      <!-- <div class="detail-header">
         <h2 class="title">
-          {{ product.name }} - 상세 현황
+          {{ selectedItem }} - 상세 현황
         </h2>
-      </div>
+      </div> -->
   
       <!-- 안쪽 테이블만 스크롤 -->
       <div class="detail-table-inner">
@@ -16,52 +16,70 @@
               <th>관리코드</th>
               <th>구매일</th>
               <th>상태</th>
-              <th>위치</th>
+              <th>렌탈비용</th>
               <th>수입 현황</th>
-              <th>AS 현황</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-if="!items.length">
+            <tr v-if="totalItemCount.length <=0">
               <td colspan="6" class="empty">
                 해당 용품의 상세 데이터가 없습니다.
               </td>
             </tr>
   
             <tr
-              v-for="row in items"
+              v-for="row in visualItems"
               :key="row.id"
               :class="{ 'row-selected': row.id === selectedDetailId }"
               @click="$emit('row-click', row)"
             >
               <td>
-                <span class="badge code-badge">{{ row.managementCode }}</span>
+                <span class="badge code-badge">{{ row.id }}</span>
               </td>
-              <td>{{ row.purchaseDate }}</td>
+              <td>{{ row.boughtDate }}</td>
               <td>
                 <span
                   class="badge"
-                  :class="row.status === '임대중' ? 'status-rent' : 'status-storage'"
+                  :class="statusClassMap[row.productStatus]"
                 >
-                  {{ row.status }}
+                  {{ row.statusName }}
                 </span>
               </td>
-              <td>{{ row.location }}</td>
+              <td>{{ formatCurrency(row.rentalAmount) }}</td>
               <td>
-                <span v-if="row.income > 0">{{ formatCurrency(row.income) }}</span>
+                <span v-if="row.cumulativeRevenue >= 0">{{ formatCurrency(row.cumulativeRevenue) }}</span>
                 <span v-else>-</span>
               </td>
-              <td>
+              <!-- <td>
                 <span
                   class="badge as-badge"
                   :class="row.asCount > 0 ? 'as-exist' : 'as-none'"
                 >
                   {{ row.asCount > 0 ? `${row.asCount}회` : '없음' }}
                 </span>
-              </td>
+              </td> -->
             </tr>
           </tbody>
         </table>
+        <div class="pagination-controls" v-if="totalItemCount > 0">
+          <button 
+            class="page-btn" 
+            :disabled="visualPage === 0"
+            @click="prevPage"
+          >
+            &lt; 이전
+          </button>
+          
+          <span class="page-info">{{ visualPage + 1 }} 페이지</span>
+
+          <button 
+            class="page-btn" 
+            :disabled="!canGoNext"
+            @click="nextPage"
+          >
+            다음 &gt;
+          </button>
+        </div>
       </div>
     </div>
   
@@ -72,13 +90,23 @@
   </template>
   
   <script setup>
+  import { computed ,watch, ref} from 'vue'
+
+  const statusClassMap = {
+    1: 'status-storage',
+    2: 'status-rent',
+    3: 'status-disuse',
+  };
+
+  let productMasterName = "";
+  
+  const visualPage = ref(0) // 현재 내가 보고 있는 화면 페이지
+  const pageSize = 5      // 화면에 보여줄 개수
+  const totalItemCount = computed(() => props.products?.length ?? 0) // 전체 아이템 개수
+
   const props = defineProps({
-    product: {
+    products: {
       type: Object,
-      default: null,
-    },
-    items: {
-      type: Array,
       default: () => [],
     },
     // 어떤 상세 행이 선택됐는지 (히스토리 패널에서 사용)
@@ -86,9 +114,89 @@
       type: [Number, String],
       default: null,
     },
+      isLastBatch: { // 서버에 더 가져올 데이터가 없는지 여부 (API의 last 값)
+        type: Boolean,
+        default: false
+      },
+    // 어떤 상세 행이 선택됐는지 (히스토리 패널에서 사용)
+    selectedItem: {
+      type: String,
+      default: null,
+    },
+    selectedProductName: {
+      type: String,
+      default: '',
+    }
   })
   
-  defineEmits(['row-click'])
+  const emit = defineEmits(['row-click','needMoreData'])
+
+  // 현재 페이지에 보여줄 pageSize만큼 slice
+  const visualItems = computed(() => {
+    if(props.selectedProductName !==  productMasterName ) {
+      productMasterName = props.selectedProductName;
+      visualPage.value = 0;
+    }
+    console.log("디테일 내부 , products:::", props.products)
+    
+    // products가 없거나 배열이 아니면 빈 배열 반환
+    if (!props.products || !Array.isArray(props.products)) {
+        return [];
+      }
+
+      const start = visualPage.value * pageSize
+      const end = start + pageSize
+      
+      // 안전하게 slice 호출
+      return props.products.slice(start, end)
+    })
+
+    //  다음 페이지로 갈 수 있는지 여부 
+    const canGoNext = computed(() => {
+    // 메모리에 이미 다음 장 데이터가 있거나
+    const hasMoreInMemory = (visualPage.value + 1) * pageSize < totalItemCount.value
+    // 아니면 서버에 데이터가 더 남아있거나 (last가 false)
+    const hasMoreInServer = !props.isLastBatch
+    
+    return hasMoreInMemory || hasMoreInServer
+  })
+
+  const prevPage = () => {
+    if (visualPage.value > 0) visualPage.value--
+  }
+
+  const nextPage = async () => {
+    // 다음 장을 보여주려면 데이터가 몇 개 필요한지 계산
+    const nextIndexStart = (visualPage.value + 1) * pageSize
+    
+    // 메모리에 데이터가 부족하면 부모에게 요청해야 함
+    if (nextIndexStart >= totalItemCount.value) {
+      if (props.isLastBatch) return; // 더 이상 없으면 중단
+      
+      // 부모에게 데이터 요청 (비동기)
+      emit('needMoreData')
+    } else {
+      // 메모리에 데이터가 있으면 그냥 페이지 넘김
+      visualPage.value++
+    }
+  }
+
+  watch(() => props.products?.length, (newLen, oldLen) => {
+    // console.log("새로운 watch... props,내부.....",props.selectedProductName, "::::" , productMasterName)
+    if (newLen === 0) {
+      visualPage.value = 0;
+      return;
+    }
+
+    if (props.selectedProductName === productMasterName && 
+      oldLen > 0 && newLen > oldLen && newLen > (visualPage.value + 1) * pageSize) {
+      visualPage.value++;
+    }
+  })
+
+  watch(() => props.selectedDetailId, (newData , oldData) => {
+    visualPage.value = 0;
+  });
   
   const formatCurrency = (value) => {
     if (value == null) return '-'
@@ -121,7 +229,7 @@
   
   /* 안쪽 스크롤 */
   .detail-table-inner {
-    max-height: 260px;
+    /* max-height: 260px; */
     overflow-y: auto;
   }
   
@@ -171,13 +279,17 @@
   }
   
   .status-rent {
-    background: #dcfce7;
-    color: #166534;
+    background: #f3e8ff; 
+    color: #6b21a8;
   }
   
   .status-storage {
     background: #e5e7eb;
     color: #374151;
+  }
+  .status-disuse {
+    background: #ffedd5;
+    color: #c2410c;
   }
   
   .as-badge {
@@ -205,4 +317,10 @@
     font-size: 14px;
     color: #6b7280;
   }
+  
+  .pagination-controls { display: flex; justify-content: flex-end; align-items: center; gap: 12px; margin-top: 10px;  margin-bottom: 10px; padding: 0 16px; }
+  .page-btn { padding: 6px 16px; border: 1px solid #e5e7eb; background-color: white; border-radius: 6px; font-size: 13px; cursor: pointer; color: #374151; transition: all 0.2s; }
+  .page-btn:hover:not(:disabled) { background-color: #f3f4f6; border-color: #d1d5db; }
+  .page-btn:disabled { opacity: 0.5; cursor: not-allowed; background-color: #f9fafb; }
+  .page-info { font-size: 13px; color: #6b7280; }
   </style>

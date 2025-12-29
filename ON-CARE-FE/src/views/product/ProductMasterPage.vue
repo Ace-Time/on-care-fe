@@ -34,7 +34,7 @@ const selectedCategory = ref('C000')
 const apiPage = ref(0)          // API 요청용 페이지 번호
 const products = ref([]) // 전체 상품 데이터
 const categoryOptions = ref([]);
-const categories = ref([]); // 전체 제외된 원본
+const categories = ref([]); 
 const isLastApiBatch = ref(false) // API 마지막 페이지 상태
 
 // 검색 

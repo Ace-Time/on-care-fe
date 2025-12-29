@@ -15,7 +15,7 @@
         <section class="info-section">
           <div class="label">관리코드</div>
           <div class="value">
-            <span class="badge code-badge">{{ detailRow.managementCode }}</span>
+            <span class="badge code-badge">{{ detailRow.id }}</span>
           </div>
   
           <div class="label">용품명</div>
@@ -38,16 +38,16 @@
             class="history-item"
           >
             <div class="history-header-row">
-              <span class="type-badge" :class="typeClass(event.type)">
-                {{ event.type }}
+              <span class="type-badge" :class="typeClass(event.status)">
+                {{ event.status }}
               </span>
-              <span class="history-date">{{ event.date }}</span>
+              <span class="history-date">{{ event.createdAt }}</span>
             </div>
             <div class="history-desc">
-              {{ event.description }}
+              {{ event.content }}
             </div>
             <div class="history-staff" v-if="event.staff">
-              담당: {{ event.staff }}
+              담당: {{ event.employeeName }}
             </div>
           </div>
         </section>
@@ -74,9 +74,9 @@
   defineEmits(['close'])
   
   const typeClass = (type) => {
-    if (type === '구매') return 'badge-purchase'
-    if (type === '입고') return 'badge-in'
-    if (type === '렌탈') return 'badge-rental'
+    if (type === '보관') return 'status-storage'
+    if (type === '폐기') return 'status-disuse'
+    if (type === '렌탈') return 'status-rent'
     return ''
   }
   </script>
@@ -194,19 +194,19 @@
     color: #7c3aed;
   }
   
-  .type-badge.badge-purchase {
-    background: #eef2ff;
-    color: #4f46e5;
+  .type-badge.status-disuse {
+    background: #ffedd5;
+    color: #c2410c;
   }
   
-  .type-badge.badge-in {
-    background: #dcfce7;
-    color: #166534;
+  .type-badge.status-storage {
+    background: #e5e7eb;
+    color: #374151;
   }
   
-  .type-badge.badge-rental {
-    background: #fee2e2;
-    color: #b91c1c;
+  .type-badge.status-rent {
+    background: #f3e8ff; 
+    color: #6b21a8;
   }
   
   .empty {
