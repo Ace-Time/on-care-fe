@@ -1,5 +1,5 @@
 <template>
-    <div class="search-container">
+  <div class="search-container">
     <div class="card-header">
       <div class="header-title">고객 검색</div>
     </div>
@@ -10,7 +10,13 @@
           <div class="icon-ring"></div>
           <div class="icon-handle"></div>
         </div>
-        <input type="text" class="search-input" placeholder="고객명, 전화번호로 검색..." />
+        <input 
+          type="text" 
+          class="search-input" 
+          placeholder="고객명, 전화번호로 검색..." 
+          v-model="searchKeyword"
+          @keyup.enter="onEnterKey"
+        />
       </div>
       
       <div class="filter-dropdown" @click="toggleDropdown">
@@ -27,51 +33,41 @@
     </div>
 
     <div class="list-body customer-list">
-      <div class="list-item">
-        <div class="item-content">
-          <span class="name">홍길동</span>
-          <span class="badge yellow">잠재고객</span>
-          <div class="info-cell">
-            <span class="icon-sq"></span>
-            <span class="text">010-9999-0000</span>
-          </div>
-          <div class="info-cell">
-            <span class="icon-sq-sm"></span>
-            <span class="text">2024-11-20</span>
-          </div>
-          <span class="count">상담 2회</span>
-        </div>
+      <div v-if="isLoading" class="no-result">검색 중...</div>
+
+      <div v-else-if="filteredList.length === 0" class="no-result">
+        검색 결과가 없습니다.
       </div>
 
-      <div class="list-item active">
+      <div 
+        v-else
+        v-for="customer in filteredList" 
+        :key="customer.id" 
+        class="list-item"
+        :class="{ 
+          'active': selectedTarget.id === customer.id && 
+                    selectedTarget.type === customer.customerCategoryName 
+        }"
+        @click="selectCustomer(customer)"
+      >
         <div class="item-content">
-          <span class="name">김미영</span>
-          <span class="badge green">기존고객</span>
+          <span class="name">{{ customer.name }}</span>
+          
+          <span class="badge" :class="{
+            'yellow': customer.customerCategoryName === '잠재고객',
+            'green': customer.customerCategoryName === '기존고객',
+            'red': customer.customerCategoryName === '이탈고객'
+          }">{{ customer.customerCategoryName }}</span>
+          
           <div class="info-cell">
             <span class="icon-sq"></span>
-            <span class="text">010-8888-1111</span>
+            <span class="text">{{ customer.phone }}</span>
           </div>
           <div class="info-cell">
             <span class="icon-sq-sm"></span>
-            <span class="text">2024-09-15</span>
+            <span class="text">{{ customer.lastDate }}</span>
           </div>
-          <span class="count">상담 3회</span>
-        </div>
-      </div>
-
-      <div class="list-item">
-        <div class="item-content">
-          <span class="name">박재현</span>
-          <span class="badge yellow">잠재고객</span>
-          <div class="info-cell">
-            <span class="icon-sq"></span>
-            <span class="text">010-7777-2222</span>
-          </div>
-          <div class="info-cell">
-            <span class="icon-sq-sm"></span>
-            <span class="text">2024-11-26</span>
-          </div>
-          <span class="count">상담 1회</span>
+          <span class="count">상담 {{ customer.count }}회</span>
         </div>
       </div>
     </div>
@@ -79,10 +75,19 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
+import { searchCustomers } from '@/api/inquiry/counselApi.js';
 
+// --- 상태 관리 ---
 const isDropdownOpen = ref(false);
 const selectedFilter = ref('전체 유형');
+
+const searchKeyword = ref(''); 
+const customerList = ref([]); 
+const isLoading = ref(false);
+const selectedTarget = ref({ id: null, type: null });
+
+const emit = defineEmits(['select-customer']); 
 
 const toggleDropdown = () => {
   isDropdownOpen.value = !isDropdownOpen.value;
@@ -91,6 +96,55 @@ const toggleDropdown = () => {
 const selectFilter = (filterName) => {
   selectedFilter.value = filterName;
   isDropdownOpen.value = false;
+};
+
+// --- 백엔드 통신 로직 ---
+const handleSearch = async () => {
+  try {
+    isLoading.value = true;
+    const response = await searchCustomers(searchKeyword.value);
+    
+    // API 응답 데이터 매핑
+    customerList.value = response.data.map(item => ({
+      id: item.customerId,           
+      name: item.name,               
+      customerCategoryName: item.customerCategoryName || '잠재고객', 
+      phone: item.phone,             
+      lastDate: item.consultDate ? item.consultDate.toString().split('T')[0] : '-', 
+      count: item.consultCount       
+    }));
+    
+    // 검색 시 선택 초기화
+    selectedTarget.value = { id: null, type: null };
+
+  } catch (error) {
+    console.error('고객 검색 실패:', error);
+    customerList.value = [];
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+const filteredList = computed(() => {
+  if (selectedFilter.value === '전체 유형') {
+    return customerList.value;
+  }
+  return customerList.value.filter(c => c.customerCategoryName === selectedFilter.value);
+});
+
+// [수정] 고객 선택 함수
+const selectCustomer = (customer) => {
+  // ID와 고객 유형(CategoryName)을 모두 저장
+  selectedTarget.value = { 
+    id: customer.id, 
+    type: customer.customerCategoryName 
+  };
+  
+  emit('select-customer', customer);
+};
+
+const onEnterKey = () => {
+  handleSearch();
 };
 </script>
 
@@ -246,9 +300,23 @@ const selectFilter = (filterName) => {
 .badge { padding: 2px 8px; border-radius: 4px; font-size: 12px; white-space: nowrap; }
 .badge.yellow { background: #FEF9C2; color: #A65F00; }
 .badge.green { background: #DCFCE7; color: #008236; }
+.badge.red { 
+  background: #FEE2E2; /* 연한 빨간색 배경 */
+  color: #DC2626;      /* 진한 빨간색 글자 */
+}
 .info-cell { display: flex; align-items: center; gap: 4px; color: #4A5565; flex: 1; }
 .icon-sq, .icon-sq-sm { width: 10px; height: 10px; border: 1px solid #4A5565; display: inline-block; }
 .icon-sq-sm { width: 9px; height: 9px; }
 .text { color: #4A5565; font-size: 12px; line-height: 16px; }
 .count { color: #6A7282; font-size: 12px; margin-left: auto; }
+.no-result {
+  padding: 20px;
+  text-align: center;
+  color: #999;
+  font-size: 14px;
+}
+.list-item.active { 
+  background-color: #F0FDF4; /* 연한 초록색 배경 */
+  border-color: #00C950;     /* 진한 초록색 테두리 */
+}
 </style>
