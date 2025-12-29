@@ -1,6 +1,6 @@
 <script setup>
 import { ref } from 'vue';
-// import draggable from 'vuedraggable';
+import draggable from 'vuedraggable';
 
 import DashboardHeader from '@/components/dashboard/dashboardHeader/DashboardHeader.vue';
 import AlertBanner from '@/components/dashboard/dashboardHeader/AlertBanner.vue';
