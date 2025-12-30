@@ -9,7 +9,10 @@
           <div class="name-row">
             <span class="name">{{ viewModel.name }}</span>
             <span class="badge grade">{{ viewModel.grade }}</span>
-            <span class="badge gender" :class="viewModel.gender === '여자' ? 'female' : 'male'">
+            <span
+              class="badge gender"
+              :class="viewModel.gender === '여자' ? 'female' : 'male'"
+            >
               {{ viewModel.gender }}
             </span>
           </div>
@@ -90,7 +93,15 @@
       <section class="assigned-section">
         <h3 class="assigned-title">배정된 요양보호사</h3>
 
-        <article v-if="viewModel.assignedCareWorker" class="assigned-card">
+        <article
+          v-if="viewModel.assignedCareWorker"
+          class="assigned-card"
+          role="button"
+          tabindex="0"
+          @click="selectAssignedCareWorker"
+          @keydown.enter.prevent="selectAssignedCareWorker"
+          @keydown.space.prevent="selectAssignedCareWorker"
+        >
           <div class="assigned-left">
             <div class="assigned-main">
               <div class="assigned-row">
@@ -109,7 +120,7 @@
             </div>
           </div>
 
-          <button type="button" class="close-btn" @click="openUnassignModal">
+          <button type="button" class="close-btn" @click.stop="openUnassignModal">
             <img :src="closeButton" alt="배정 취소" />
           </button>
         </article>
@@ -138,10 +149,14 @@ import { ref, computed, watch } from 'vue'
 import clockIcon from '@/assets/img/schedule/clock.png'
 import closeButton from '@/assets/img/common/closeButton.png'
 import { getBeneficiaryDetail, unassignMatchingCareWorker } from '@/api/schedule/matching.js'
+import { useMatchingSelectionStore } from '@/stores/matchingSelection'
 
 const props = defineProps({
   recipient: { type: Object, default: null },
 })
+
+const store = useMatchingSelectionStore()
+const emit = defineEmits(['unassigned', 'assigned-careworker'])
 
 const loading = ref(false)
 const error = ref('')
@@ -184,7 +199,6 @@ const loadDetail = async () => {
   const beneficiaryId = getBeneficiaryId(props.recipient)
   if (!beneficiaryId) {
     detail.value = null
-    error.value = '수급자 ID가 없습니다.'
     return
   }
 
@@ -193,6 +207,7 @@ const loadDetail = async () => {
     error.value = ''
     const res = await getBeneficiaryDetail(beneficiaryId)
     detail.value = res?.data ?? res ?? null
+    store.syncRecipient(detail.value)
   } catch (e) {
     error.value = e?.response?.data?.message || '상세 정보를 불러오지 못했습니다.'
     detail.value = null
@@ -217,7 +232,20 @@ const confirmUnassign = async () => {
     loading.value = true
     error.value = ''
     await unassignMatchingCareWorker(beneficiaryId)
+
     await loadDetail()
+
+    // caregiver만 비우기 (recipient 선택 유지)
+    if (typeof store.clearCaregiver === 'function') {
+      store.clearCaregiver()
+    } else {
+      // store를 아직 안 바꿨다면 임시 대응
+      store.caregiver = null
+      store.caregiverId = null
+      store.refresh()
+    }
+
+    emit('unassigned', { beneficiaryId })
   } catch (e) {
     error.value = e?.response?.data?.message || '배정 취소에 실패했습니다.'
   } finally {
@@ -244,34 +272,12 @@ const viewModel = computed(() => {
   const schedules = d.schedules || d.beneficiarySchedules || []
   const preferredFromSchedules = buildPreferredFromSchedules(schedules)
 
-  const preferredTimes =
-    d.preferredTimes || preferredFromSchedules.preferredTimes || base.preferredTimes || []
-  const preferredDays =
-    d.preferredDays || preferredFromSchedules.preferredDays || base.preferredDays || []
+  const preferredTimes = d.preferredTimes || preferredFromSchedules.preferredTimes || base.preferredTimes || []
+  const preferredDays = d.preferredDays || preferredFromSchedules.preferredDays || base.preferredDays || []
 
-  const needServices =
-    d.serviceTypes ||
-    d.needServices ||
-    base.serviceTypes ||
-    base.needServices ||
-    []
-
-  const needTags =
-    d.tags ||
-    d.needTags ||
-    base.tags ||
-    base.needTags ||
-    []
-
-  const riskFactors =
-    d.riskFactors ||
-    d.riskTags ||
-    d.risks ||
-    base.riskFactors ||
-    base.risks ||
-    []
-
-  const assignedCareWorker = d.assignedCareWorker || null
+  const needServices = d.serviceTypes || d.needServices || base.serviceTypes || base.needServices || []
+  const needTags = d.tags || d.needTags || base.tags || base.needTags || []
+  const riskFactors = d.riskFactors || d.riskTags || d.risks || base.riskFactors || base.risks || []
 
   return {
     beneficiaryId: getBeneficiaryId(base),
@@ -286,9 +292,27 @@ const viewModel = computed(() => {
     preferredDays,
     preferredTimes,
     schedules,
-    assignedCareWorker,
+    assignedCareWorker: d.assignedCareWorker || null,
   }
 })
+
+const selectAssignedCareWorker = () => {
+  const cw = viewModel.value.assignedCareWorker
+  if (!cw) return
+
+  // 원본 그대로 store에 넣는 게 가장 안전
+  store.setCaregiver(cw)
+  emit('assigned-careworker', cw)
+}
+
+watch(
+  () => viewModel.value.assignedCareWorker,
+  (cw) => {
+    if (!cw) return
+    emit('assigned-careworker', cw)
+  },
+  { immediate: true }
+)
 </script>
 
 <style scoped>
@@ -302,11 +326,7 @@ const viewModel = computed(() => {
   flex-direction: column;
   gap: 20px;
 }
-
-.loading {
-  padding: 16px;
-  color: #6b7280;
-}
+.loading { padding: 16px; color: #6b7280; }
 .error {
   padding: 16px;
   color: #b91c1c;
@@ -314,163 +334,32 @@ const viewModel = computed(() => {
   border-radius: 12px;
   border: 1px solid #fecaca;
 }
-
-.header-row {
-  display: flex;
-  gap: 16px;
-  align-items: center;
-}
-
-.basic-info {
-  flex: 1;
-}
-
-.name-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 4px;
-}
-
-.name {
-  font-size: 20px;
-  font-weight: 700;
-  color: #166534;
-}
-
-.badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-size: 12px;
-}
-
-.badge.grade {
-  background: #f3e8ff;
-  color: #6d28d9;
-}
-
-.badge.gender {
-  background: #dbeafe;
-  color: #1d4ed8;
-}
-
-.badge.gender.female {
-  background: #fee2e2;
-  color: #be123c;
-}
-
-.badge.small {
-  font-size: 11px;
-  padding: 2px 8px;
-}
-
-.address {
-  margin: 0;
-  font-size: 14px;
-  color: #4b5563;
-}
-
-.info-section {
-  display: flex;
-  gap: 40px;
-  margin-top: 12px;
-}
-
-.column {
-  flex: 1;
-}
-
-.field {
-  margin-bottom: 14px;
-}
-
-.label {
-  font-size: 13px;
-  color: #6b7280;
-  margin-bottom: 4px;
-}
-
-.value {
-  font-size: 14px;
-  color: #111827;
-}
-
-.pill {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-size: 12px;
-  margin-right: 6px;
-  margin-bottom: 6px;
-}
-
-.pill {
-  background: #dcfce7;
-  color: #15803d;
-}
-
-.pill-soft {
-  background: #eef2ff;
-  color: #4f46e5;
-}
-
-.pill-risk {
-  background: #ffedd5;
-  color: #c2410c;
-}
-
-.pill-tag {
-  background: #ecfeff;
-  color: #0f766e;
-}
-
-.day-pill {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  background: #eef2ff;
-  color: #4f46e5;
-  font-size: 13px;
-  margin-right: 6px;
-}
-
-.time-list {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.time-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 14px;
-  color: #111827;
-}
-
-.clock-icon {
-  width: 16px;
-  height: 16px;
-  object-fit: contain;
-}
-
-.assigned-section {
-  margin-top: 12px;
-}
-
-.assigned-title {
-  margin: 0 0 8px;
-  font-size: 15px;
-  font-weight: 600;
-  color: #111827;
-}
-
+.header-row { display: flex; gap: 16px; align-items: center; }
+.basic-info { flex: 1; }
+.name-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.name { font-size: 20px; font-weight: 700; color: #166534; }
+.badge { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 999px; font-size: 12px; }
+.badge.grade { background: #f3e8ff; color: #6d28d9; }
+.badge.gender { background: #dbeafe; color: #1d4ed8; }
+.badge.gender.female { background: #fee2e2; color: #be123c; }
+.badge.small { font-size: 11px; padding: 2px 8px; }
+.address { margin: 0; font-size: 14px; color: #4b5563; }
+.info-section { display: flex; gap: 40px; margin-top: 12px; }
+.column { flex: 1; }
+.field { margin-bottom: 14px; }
+.label { font-size: 13px; color: #6b7280; margin-bottom: 4px; }
+.value { font-size: 14px; color: #111827; }
+.pill { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 999px; font-size: 12px; margin-right: 6px; margin-bottom: 6px; }
+.pill { background: #dcfce7; color: #15803d; }
+.pill-soft { background: #eef2ff; color: #4f46e5; }
+.pill-risk { background: #ffedd5; color: #c2410c; }
+.pill-tag { background: #ecfeff; color: #0f766e; }
+.day-pill { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 8px; background: #eef2ff; color: #4f46e5; font-size: 13px; margin-right: 6px; }
+.time-list { display: flex; flex-direction: column; gap: 4px; }
+.time-row { display: flex; align-items: center; gap: 6px; font-size: 14px; color: #111827; }
+.clock-icon { width: 16px; height: 16px; object-fit: contain; }
+.assigned-section { margin-top: 12px; }
+.assigned-title { margin: 0 0 8px; font-size: 15px; font-weight: 600; color: #111827; }
 .assigned-empty {
   margin: 12px 0 0;
   font-size: 14px;
@@ -480,7 +369,6 @@ const viewModel = computed(() => {
   background: #f9fafb;
   border-radius: 12px;
 }
-
 .assigned-card {
   display: flex;
   justify-content: space-between;
@@ -489,63 +377,30 @@ const viewModel = computed(() => {
   border-radius: 14px;
   padding: 14px 18px;
   border: 1px solid #e5e7eb;
-
   position: relative;
+  cursor: pointer;
 }
-
-.assigned-left {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-}
-
-.assigned-main {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.assigned-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.assigned-name {
-  font-size: 15px;
-  font-weight: 600;
-  color: #111827;
-}
-
-.assigned-meta {
-  font-size: 13px;
-  color: #6b7280;
-}
-
+.assigned-card:focus { outline: none; }
+.assigned-left { display: flex; gap: 12px; align-items: center; }
+.assigned-main { display: flex; flex-direction: column; gap: 4px; }
+.assigned-row { display: flex; align-items: center; gap: 6px; }
+.assigned-name { font-size: 15px; font-weight: 600; color: #111827; }
+.assigned-meta { font-size: 13px; color: #6b7280; }
 .close-btn {
   position: absolute;
   top: 7px;
   right: 7px;
-
   width: 24px;
   height: 24px;
   border-radius: 8px;
-
   border: 1px solid #e5e7eb;
   background: #ffffff;
-
   display: flex;
   align-items: center;
   justify-content: center;
-
   cursor: pointer;
 }
-
-.close-btn img {
-  width: 16px;
-  height: 14px;
-}
-
+.close-btn img { width: 16px; height: 14px; }
 .modal-backdrop {
   position: fixed;
   inset: 0;
@@ -555,7 +410,6 @@ const viewModel = computed(() => {
   justify-content: center;
   z-index: 9999;
 }
-
 .modal {
   width: 360px;
   background: #fff;
@@ -564,26 +418,9 @@ const viewModel = computed(() => {
   border: 1px solid #e5e7eb;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
 }
-
-.modal-title {
-  margin: 0 0 6px;
-  font-size: 16px;
-  font-weight: 700;
-  color: #111827;
-}
-
-.modal-desc {
-  margin: 0 0 14px;
-  font-size: 14px;
-  color: #4b5563;
-}
-
-.modal-actions {
-  display: flex;
-  gap: 10px;
-  justify-content: flex-end;
-}
-
+.modal-title { margin: 0 0 6px; font-size: 16px; font-weight: 700; color: #111827; }
+.modal-desc { margin: 0 0 14px; font-size: 14px; color: #4b5563; }
+.modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
 .modal-btn {
   height: 36px;
   padding: 0 12px;
@@ -592,15 +429,6 @@ const viewModel = computed(() => {
   border: 1px solid transparent;
   cursor: pointer;
 }
-
-.modal-btn.cancel {
-  background: #f3f4f6;
-  color: #111827;
-  border-color: #e5e7eb;
-}
-
-.modal-btn.danger {
-  background: #ef4444;
-  color: #fff;
-}
+.modal-btn.cancel { background: #f3f4f6; color: #111827; border-color: #e5e7eb; }
+.modal-btn.danger { background: #ef4444; color: #fff; }
 </style>
