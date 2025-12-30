@@ -127,20 +127,47 @@ const removeCareer = (index) => {
 
 const handleSubmit = () => {
   const payload = {
-    ...form.value,
-    
-    // 1. 체크된 서비스 ID 배열 전송 ([1, 2] 형태)
+    // 1. 기본 정보 필드 매핑
+    name: form.value.name,
+    birth: form.value.birth,
+    gender: form.value.gender,
+    address: form.value.address,
+    email: form.value.email,
+    phone: form.value.phone,
+    emergencyNumber: form.value.emergencyNumber || form.value.emergencyContact, // 둘 중 하나
+    hireDate: form.value.hireDate,
+    deptCode: form.value.deptCode,
+    jobCode: form.value.jobCode,
+    statusId: form.value.statusId,
+    id: form.value.id, // ID 포함
+
+    // 2. 체크된 서비스 ID 배열 ([1] 형태)
     serviceTypeIds: selectedServiceIds.value,
     
-    // 2. 배열 데이터 전송
-    careers: form.value.careers,
-    certificates: form.value.certificates
+    // 3. 경력 (빈 배열일 경우 [] 그대로 전송)
+    careers: form.value.careers ? form.value.careers.map(c => ({
+      companyName: c.companyName,
+      workPeriod: c.workPeriod,
+      task: c.task
+    })) : [],
+
+    // 4. 자격증 및 교육 (중첩 구조 유지)
+    certificates: form.value.certificates ? form.value.certificates.map(c => ({
+      certificateId: c.certificateId || c.id,
+      licenseNo: c.licenseNo || c.number,
+      issueDate: c.issueDate,
+      // 자격증 내부의 교육 목록도 포함
+      educations: c.educations ? c.educations.map(e => ({
+        eduName: e.eduName,
+        institution: e.institution,
+        eduDate: e.eduDate,
+        nextEduDate: e.nextEduDate,
+        isOverdue: e.isOverdue,
+        status: e.status
+      })) : []
+    })) : []
   };
 
-  // 백엔드 전송 시 불필요한 필드 제거
-  delete payload.specialties; 
-  delete payload.serviceTypes; 
-  
   emit('submit', payload);
 };
 </script>

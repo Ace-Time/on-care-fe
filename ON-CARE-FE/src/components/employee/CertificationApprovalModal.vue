@@ -41,7 +41,7 @@ const handleReject = (id) => emit('reject', id);
 
         <div class="tabs">
           <button 
-            v-for="tab in ['대기중', '승인', '반려']" 
+            v-for="tab in ['대기중']" 
             :key="tab"
             @click="activeTab = tab"
             class="tab-btn"

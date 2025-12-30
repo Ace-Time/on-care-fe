@@ -21,7 +21,8 @@
     <div v-if="loading" class="state">불러오는 중...</div>
     <div v-else-if="errorMsg" class="state error">{{ errorMsg }}</div>
 
-    <div v-else class="table-wrap">
+    <!-- ✅ 스크롤바: wrapper에 max-height + overflow-y -->
+    <div v-else class="table-wrap scroll-wrapper">
       <table>
         <thead>
           <tr>
@@ -76,12 +77,8 @@
 import { computed, ref, watch, onMounted } from 'vue'
 import api from '@/lib/api'
 
-/**
- * ✅ v-model:selected-id 로 사용하기
- * - selectedId = expirationId
- */
 const props = defineProps({
-  items: { // (옵션) 외부에서 주입도 가능하게 열어둠
+  items: {
     type: Array,
     default: () => []
   },
@@ -102,24 +99,14 @@ const activeRange = ref('all')
 
 const loading = ref(false)
 const errorMsg = ref('')
-
-/**
- * ✅ 서버에서 받아온 원본 리스트
- * - props.items 가 있으면 그걸 우선 사용
- * - 없으면 API 호출해서 채움
- */
 const serverItems = ref([])
 
 const parseDday = (ddayLabel) => {
-  // "D-40" => 40
   const s = String(ddayLabel || '').trim()
   const m = s.match(/D-\s*(\d+)/i)
   return m ? Number(m[1]) : 999999
 }
 
-/**
- * ✅ 백엔드 응답 -> 화면에서 쓰는 row 형태로 정규화
- */
 const normalized = computed(() => {
   const list = (props.items && props.items.length) ? props.items : serverItems.value
   return (list || []).map((it) => ({
@@ -138,11 +125,7 @@ const normalized = computed(() => {
 })
 
 const filteredItems = computed(() => {
-  // ✅ 백엔드가 extends_status가 NULL 또는 'Y'만 내려주도록 되어 있으므로
-  // 프론트에서 굳이 한번 더 제외할 필요는 없지만,
-  // 혹시 props.items로 들어오는 경우를 대비해 안전필터만 추가
   let list = normalized.value.filter((i) => i.extendsStatus !== 'N')
-
   if (activeRange.value === 'all') return list
   const limit = Number(activeRange.value)
   return list.filter((i) => i.ddayNum <= limit)
@@ -157,7 +140,7 @@ const ddayClass = (ddayNum) => {
 
 const selectRow = (row) => {
   emit('update:selectedId', row.expirationId)
-  emit('select', row) // ✅ 부모가 row 자체도 받고 싶으면 사용
+  emit('select', row)
 }
 
 const fetchList = async () => {
@@ -177,27 +160,27 @@ const fetchList = async () => {
 }
 
 onMounted(() => {
-  // props.items로 받지 않는 경우만 API 호출
   if (!props.items || props.items.length === 0) fetchList()
 })
 
-// 부모에서 “완료 처리 후 목록 새로고침” 하고 싶을 때 쓸 수 있게 watch 예시
 watch(
   () => props.items,
-  (v) => {
-    // 외부 items가 주입되면 API list 대신 그걸 표시
-    // (별도 로직 없음)
-  }
+  () => {}
 )
 </script>
 
 <style scoped>
+/* ✅ 핵심: 부모 레이아웃에서 폭 계산 깨지는 것 방지 */
 .longcare-wrap {
+  box-sizing: border-box;
+  min-width: 0;
+
   background-color: #fff;
   border-radius: 12px;
   padding: 14px 16px;
   box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.04);
 }
+
 .longcare-header {
   display: flex;
   justify-content: space-between;
@@ -208,6 +191,7 @@ watch(
   margin: 0;
   font-size: 15px;
 }
+
 .filters {
   display: flex;
   gap: 4px;
@@ -225,7 +209,6 @@ watch(
   color: #fff;
 }
 
-/* 상태 */
 .state {
   padding: 10px 0;
   font-size: 12px;
@@ -235,15 +218,33 @@ watch(
   color: #b91c1c;
 }
 
-/* 테이블 */
-.table-wrap {
+/* ✅ 스크롤 wrapper */
+.scroll-wrapper {
+  max-height: 360px;
+  overflow-y: auto;
   overflow-x: auto;
+  padding-right: 4px;
 }
+
+/* 스크롤바 (선택) */
+.scroll-wrapper::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.scroll-wrapper::-webkit-scrollbar-thumb {
+  background-color: #d1d5db;
+  border-radius: 4px;
+}
+.scroll-wrapper::-webkit-scrollbar-track {
+  background-color: transparent;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
   font-size: 12px;
 }
+
 thead th {
   text-align: left;
   padding: 8px 10px;
@@ -260,19 +261,16 @@ tbody td {
   padding: 16px 10px;
 }
 
-/* 행 색 */
 .row-red { background-color: #fef2f2; }
 .row-yellow { background-color: #fff7ed; }
 .row-normal { background-color: #fefce8; }
 
-/* 선택 가능 행 */
 .clickable-row { cursor: pointer; }
 .clickable-row.is-active {
   outline: 2px solid rgba(34, 197, 94, 0.6);
   outline-offset: -2px;
 }
 
-/* D-day / 상태 */
 .dday-pill {
   display: inline-block;
   padding: 2px 8px;
