@@ -56,15 +56,19 @@
         ← 월별 보기로 돌아가기
       </button>
 
-      <h4 class="section-title">{{ selectedMonth }} 일지</h4>
+      <!-- ✅ 제목 + (오른쪽) 총 건수 : 사진 빨간박스 자리 -->
+      <div class="daily-top-row">
+        <h4 class="section-title">{{ selectedMonth }} 일지</h4>
+        <div class="total">총 {{ dailyTotalCount }}건</div>
+      </div>
 
       <div v-if="listLoading" class="hint">불러오는 중...</div>
       <div v-else-if="listError" class="hint error">{{ listError }}</div>
 
-      <!-- ✅ 리스트에만 스크롤 적용 -->
-      <ul v-else class="daily-list daily-scroll">
+      <!-- ✅ 목록(현재 페이지 10개만) -->
+      <ul v-else class="daily-list">
         <li
-          v-for="log in dailyLogList"
+          v-for="log in pagedDailyLogList"
           :key="log.logId"
           class="daily-row"
           @click="openDetail(log.logId)"
@@ -80,10 +84,35 @@
           </span>
         </li>
 
-        <li v-if="dailyLogList.length === 0" class="empty-row">
+        <li v-if="dailyTotalCount === 0" class="empty-row">
           해당 월의 요양일지가 없습니다.
         </li>
       </ul>
+
+      <!-- ✅ 하단 중앙 페이징 (페이지가 2 이상일 때만 표시) -->
+      <div v-if="dailyTotalPages > 1" class="bottom-pager">
+        <button
+          type="button"
+          class="page-btn"
+          :disabled="listLoading || dailyPage <= 0"
+          @click="dailyPage--"
+        >
+          이전
+        </button>
+
+        <span class="page-info">
+          {{ dailyPage + 1 }} / {{ dailyTotalPages }}
+        </span>
+
+        <button
+          type="button"
+          class="page-btn"
+          :disabled="listLoading || dailyPage >= dailyTotalPages - 1"
+          @click="dailyPage++"
+        >
+          다음
+        </button>
+      </div>
     </div>
 
     <!-- 상세 기록지 -->
@@ -264,6 +293,22 @@ const aiErrorByMonth = ref({})
 
 const BLOCK_EMPTY_SUMMARY_OVERWRITE = true
 
+/** ✅ dailyList 페이징 상태(문의이력과 동일) */
+const dailyPage = ref(0)
+const dailyPageSize = ref(10)
+
+/** ✅ 총 건수/총 페이지 */
+const dailyTotalCount = computed(() => dailyLogList.value.length)
+const dailyTotalPages = computed(() =>
+  dailyTotalCount.value === 0 ? 0 : Math.ceil(dailyTotalCount.value / dailyPageSize.value)
+)
+
+/** ✅ 현재 페이지에 보여줄 10개 */
+const pagedDailyLogList = computed(() => {
+  const start = dailyPage.value * dailyPageSize.value
+  return dailyLogList.value.slice(start, start + dailyPageSize.value)
+})
+
 const fetchMonthlyCardsFromLogs = async () => {
   if (!props.beneficiaryId) return
 
@@ -320,6 +365,7 @@ const fetchSavedSummariesForMonths = async (months) => {
 const openDailyList = async (month) => {
   selectedMonth.value = String(month || '')
   recordViewMode.value = 'dailyList'
+  dailyPage.value = 0 // ✅ 월 변경 시 페이지 초기화
   await fetchDailyList()
 }
 
@@ -333,9 +379,15 @@ const fetchDailyList = async () => {
       params: { month: selectedMonth.value }
     })
     dailyLogList.value = Array.isArray(data) ? data : []
+
+    // ✅ 목록 로드 후 현재 page가 범위를 벗어나면 보정
+    if (dailyPage.value > 0 && dailyPage.value >= dailyTotalPages.value) {
+      dailyPage.value = Math.max(dailyTotalPages.value - 1, 0)
+    }
   } catch (e) {
     listError.value = e?.response?.data?.message || e?.message || '일지 리스트 조회 실패'
     dailyLogList.value = []
+    dailyPage.value = 0
   } finally {
     listLoading.value = false
   }
@@ -416,6 +468,8 @@ watch(
     aiLoadingByMonth.value = {}
     aiErrorByMonth.value = {}
 
+    dailyPage.value = 0
+
     await fetchMonthlyCardsFromLogs()
   },
   { immediate: true }
@@ -437,23 +491,6 @@ const hasAnyAllPhysical = (d) => {
   cursor: pointer;
 }
 .mb-8 { margin-bottom: 8px; }
-
-/* ✅ 월별 카드 스크롤 영역 */
-.monthly-scroll {
-  max-height: 360px;
-  overflow-y: auto;
-  padding-right: 4px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px; /* record-monthly gap을 이쪽으로 옮김 */
-}
-
-/* ✅ 일지 리스트 스크롤 영역 */
-.daily-scroll {
-  max-height: 360px;
-  overflow-y: auto;
-  padding-right: 4px;
-}
 
 .record-monthly { display: flex; flex-direction: column; gap: 8px; }
 
@@ -496,7 +533,21 @@ const hasAnyAllPhysical = (d) => {
 .summary-text { margin: 0; font-size: 12px; color: #4b5563; }
 .ai-error { margin: 6px 0 0; font-size: 11px; color: #dc2626; }
 
-.section-title { margin: 0 0 6px; font-size: 14px; font-weight: 600; }
+/* ✅ dailyList: 제목줄 + 총건수(오른쪽) */
+.daily-top-row{
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 6px;
+}
+.section-title { margin: 0; font-size: 14px; font-weight: 600; }
+.total {
+  font-size: 12px;
+  color: #6b7280;
+  white-space: nowrap;
+}
+
 .daily-list { list-style: none; margin: 0; padding: 0; }
 .daily-row {
   display: flex;
@@ -522,6 +573,31 @@ const hasAnyAllPhysical = (d) => {
   white-space: nowrap;
 }
 .empty-row { padding: 10px 8px; color: #6b7280; font-size: 12px; }
+
+/* ✅ 하단 중앙 페이징 (Inquiry.vue와 동일) */
+.bottom-pager {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+  padding: 6px 0;
+}
+.page-info {
+  font-size: 12px;
+  color: #6b7280;
+}
+.page-btn {
+  border: none;
+  background: #f3f4f6;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.page-btn:hover { background: #e5e7eb; }
+.page-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .record-detail { font-size: 12px; }
 .detail-header-row { display: flex; justify-content: space-between; gap: 20px; margin-bottom: 10px; }
