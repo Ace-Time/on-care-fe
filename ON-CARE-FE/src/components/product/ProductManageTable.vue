@@ -62,7 +62,7 @@
               </td>
               <td>
                 <span class="pill pill-orange">
-                  {{ item.disuseProducts }}
+                  {{ item.discardProducts }}
                 </span>
               </td>
             </tr>
@@ -96,7 +96,7 @@
   <script setup>
   import { computed ,watch, ref} from 'vue'
 
-  const emit = defineEmits(['needMoreData'])
+  const emit = defineEmits(['needMoreData','row-click'])
 
   
   const visualPage = ref(0) // 현재 내가 보고 있는 화면 페이지

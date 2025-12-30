@@ -1,7 +1,7 @@
 <!-- src/components/product/ProductSearchBar.vue -->
 <template>
-    <div class="product-search-bar">
-      <div class="search-input-wrap">
+    <div class="product-search-bar" :class="{ 'justify-end': !showInput }">
+      <div class="search-input-wrap" v-if="showInput">
         <span class="search-icon">
           <img :src="searchIcon" alt="검색" />
         </span>
@@ -39,7 +39,7 @@
       default: '',
     },
     selectedCategory: {
-      type: String,
+      type: [String, Number],
       default: 'C000',
     },
     categories: {
@@ -49,6 +49,10 @@
     placeholder: {
       type: String,
       default: '용품명 또는 코드로 검색...',
+    },
+    showInput: {
+      type: Boolean,
+      default: true,
     },
   })
   const emit = defineEmits(['update:searchText', 'update:selectedCategory','search'])
@@ -65,6 +69,10 @@
   </script>
   
   <style scoped>
+  .product-search-bar.justify-end {
+    justify-content: flex-end;
+  }
+
   .product-search-bar {
     display: flex;
     align-items: center;

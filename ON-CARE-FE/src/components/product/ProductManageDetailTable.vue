@@ -95,7 +95,7 @@
   const statusClassMap = {
     1: 'status-storage',
     2: 'status-rent',
-    3: 'status-disuse',
+    3: 'status-discard',
   };
 
   let productMasterName = "";
@@ -137,7 +137,6 @@
       productMasterName = props.selectedProductName;
       visualPage.value = 0;
     }
-    console.log("디테일 내부 , products:::", props.products)
     
     // products가 없거나 배열이 아니면 빈 배열 반환
     if (!props.products || !Array.isArray(props.products)) {
@@ -194,7 +193,12 @@
     }
   })
 
-  watch(() => props.selectedDetailId, (newData , oldData) => {
+  // watch(() => props.selectedDetailId, (newData , oldData) => {
+  //   visualPage.value = 0;
+  // });
+
+  watch(() => props.selectedProductName, () => {
+    // 상단 제품이 바뀌면(이름 변경) 상세 페이지 0으로 초기화
     visualPage.value = 0;
   });
   
@@ -287,7 +291,7 @@
     background: #e5e7eb;
     color: #374151;
   }
-  .status-disuse {
+  .status-discard {
     background: #ffedd5;
     color: #c2410c;
   }

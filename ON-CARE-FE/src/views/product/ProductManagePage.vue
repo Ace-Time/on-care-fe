@@ -16,7 +16,7 @@
         :products="masterProducts"
         :is-last-batch="isLastMasterApiBatch"
         :selected-id="selectedProduct?.id ?? null"
-        :categories="categories"
+        :categories="categorymaster"
         @needMoreData="fetchNextMasterBatch"
         @row-click="handleRowClick"
       />
@@ -27,7 +27,7 @@
         v-model:searchText="searchMasterValue"
         v-model:selectedCategory="selectedStatus"
         :categories="productStatusOptions"
-        @search="1"
+        :show-input="false"
       />
 
       <!-- 하단 상세 현황 -->
@@ -41,13 +41,13 @@
       />
     </div>
 
-    <!-- 오른쪽 제품 히스토리 패널 (기본은 안 보이고, 클릭했을 때만 생성) -->
     <ProductHistoryPanel
-      v-if="isHistoryOpen && selectedDetailRow"
       :product="selectedProduct"
       :detail-row="selectedDetailRow"
       :events="selectedHistoryEvents"
-      @close="isHistoryOpen = false"
+      :is-last-batch="isLastHistoryApiBatch"
+      @close="selectedDetailRow = null"
+      @needMoreData="fetchNextHistoryBatch"
     />
   </div>
 </template>
@@ -77,21 +77,26 @@ const selectedCategory = ref('C000')
 const selectedStatus = ref(0)
 const productsApiPage = ref(0)          // 제품 정보 페이지 번호
 const masterApiPage = ref(0)          // 마스터 정보 페이지 번호
+const historyApiPage = ref(0)          // 제품 이력 정보 페이지 번호
 let productMap = new Map(); // key: master, value: List<Product> 제품 정보
+let historyMap = new Map(); // key: master, value: List<Product_history> 제품  이력 정보
 const masterProducts = ref([]) // 마스터 정보 리스트
-const ProductsDetail = ref([]) // 마스터 정보 리스트
+const ProductsDetail = ref([]) // 제품 정보 리스트
+const historyData = ref([]) // 제품 이력 리스트
 const categoryOptions = ref([]);
 const productStatusOptions = ref([]);
-const categories = ref([]); 
+const categorymaster = ref([]); 
 const productStatuses = ref([]);
 const isLastMasterApiBatch = ref(false) // 마스터정보 마지막 페이지 상태
 const isLastProductsApiBatch = ref(false) // 제품 정보 마지막 페이지 상태
+const isLastHistoryApiBatch = ref(false) // 제품 이력 정보 마지막 페이지 상태
+const selectedHistoryEvents = ref([]); //하위에서 제품 선택시 해당 제품의 히스토리 데이터
 
 const pageSIze = 5;
 
 onMounted(async() => {
   const master_category = await getMasterCategoryCode();
-  categories.value = {...master_category};
+  categorymaster.value = {...master_category};
 
   categoryOptions.value = master_category;
   categoryOptions.value.unshift({id:'C000', name:'전체'})
@@ -168,11 +173,10 @@ const selectedProduct = ref(null)
 
 const handleRowClick = (item) => {
   selectedProduct.value = item
-  // 상단 용품 바꾸면 상세 선택 및 히스토리도 초기화
-  selectedDetailRow.value = null
-  isHistoryOpen.value = false
-  productsApiPage.value = 0
 
+  selectedDetailRow.value = null
+  selectedHistoryEvents.value = []
+  productsApiPage.value = 0
   selectedMasterName.value = selectedProduct.value.name;
 
   const productCode = selectedProduct.value.id
@@ -180,7 +184,11 @@ const handleRowClick = (item) => {
     if(!productMap.has(productCode)) 
       fetchProductApiBatch(productsApiPage);
     else {
-      ProductsDetail.value = productMap.get(productCode);
+      const savedState = productMap.get(productCode);
+    
+      ProductsDetail.value = [...savedState.content];    // 데이터 복구
+      productsApiPage.value = savedState.page;           // 페이지 번호 복구
+      isLastProductsApiBatch.value = savedState.isLast;  // 마지막 여부 복구
     }
 }
 
@@ -212,6 +220,7 @@ const fetchProductApiBatch = async (pageIdx) => {
   
   const productCode = selectedProduct.value.id;
 
+
   const data = await getProducts({
       page: pageIdx,
       size: pageSIze, // 50개씩 요청
@@ -220,18 +229,27 @@ const fetchProductApiBatch = async (pageIdx) => {
     })
 
   if (data && data.content) {
-    const tempProduct = data.content;
-    
-    if(!productMap.has(productCode)) 
-      productMap.set(productCode,[])
+    // 해당 제품의 데이터 공간이 없으면 초기화 (객체 형태)
+    if(!productMap.has(productCode)) {
+        productMap.set(productCode, {
+        content: [],      // 상세 리스트 데이터
+        page: 0,          // 현재 페이지 번호
+        isLast: false     // 마지막 페이지 여부
+      });
+    }
 
-    productMap.get(productCode).push(...tempProduct);
-    ProductsDetail.value = [...productMap.get(productCode)];
+    // Map에서 상태 객체 가져오기
+    const targetState = productMap.get(productCode);
 
-    
-    // 상태 업데이트
-    isLastProductsApiBatch.value = data.last
-    productsApiPage.value = data.number
+    // 데이터 누적 및 상태 업데이트
+    targetState.content.push(...data.content);
+    targetState.page = data.number;
+    targetState.isLast = data.last;
+
+    // 화면에 반영 (전역 변수 업데이트)
+    ProductsDetail.value = [...targetState.content];
+    isLastProductsApiBatch.value = targetState.isLast; // 전역 상태 업데이트
+    productsApiPage.value = targetState.page;          // 전역 페이지 업데이트
   }
 }
 
@@ -239,32 +257,87 @@ const fetchProductApiBatch = async (pageIdx) => {
 const selectedDetailRow = ref(null)
 const isHistoryOpen = ref(false)
 
-const handleDetailRowClick = (row) => {
+
+const handleDetailRowClick = async (row) => {
+  const productCode = row.id;
   selectedDetailRow.value = row
-  isHistoryOpen.value = true
+
+    if(!historyMap.has(productCode)) {
+      historyApiPage.value = 0; // 페이지 번호 초기화
+      isLastHistoryApiBatch.value = false;
+      await fetchHistory(0);
+    }
+    else {
+      const savedState = historyMap.get(productCode);
+    
+      selectedHistoryEvents.value = [...savedState.content]; // 데이터 복구
+      historyApiPage.value = savedState.page;                // 페이지 번호 복구
+      isLastHistoryApiBatch.value = savedState.isLast;       // 마지막 여부 상태 복구
+      
+      // selectedHistoryEvents.value = historyMap.get(productCode);
+    }
+  
 }
 
-// 선택된 상세 행의 히스토리
-const selectedHistoryEvents = computed( async() => {
-  if (!selectedDetailRow.value) return []
 
-  const data = await getProductHistory({
-      page: 0,
-      size: pageSIze, // 50개씩 요청
-      productId: selectedDetailRow.value.id,
-      // 조건절, status 나중에 추가
-  })
+//  자식 컴포넌트(이력조회)에서 서버에 다음페이지 요청 시 
+const fetchNextHistoryBatch = async () => {
+  if (!isLastMasterApiBatch.value) {
+    await fetchHistory(historyApiPage.value + 1)
+  }
+}
 
-  console.log("이력 조회 ::: ", data.content);
 
-  return data != null && data.content != null ? data.content : null; 
-})
+const fetchHistory = async (pageIdx = 0) => {
+  const productCode = selectedDetailRow.value.id;
+
+  try {
+    const data = await getProductHistory({
+      page: pageIdx,
+      size: pageSIze,
+      productId: productCode,
+    });
+    
+    if (data && data.content) {
+      if(!historyMap.has(productCode)) {
+        historyMap.set(productCode, {
+          content: [],      // 리스트 데이터
+          page: 0,          // 현재 페이지 번호
+          isLast: false     // 마지막 페이지 여부
+        });
+      }
+
+      // Map에서 해당 제품의 상태 객체 가져오기
+      const targetState = historyMap.get(productCode);
+
+      // 데이터 누적 및 상태 업데이트
+      targetState.content.push(...data.content);
+      targetState.page = data.number;
+      targetState.isLast = data.last;
+
+      // 화면에 반영 (반응형 변수 업데이트)
+      selectedHistoryEvents.value = [...targetState.content];
+      historyApiPage.value = targetState.page;
+      isLastHistoryApiBatch.value = targetState.isLast;
+    }
+  } catch (error) {
+    // selectedHistoryEvents.value = [];
+  }
+  
+};
+
+
+
 
 //  검색 (초기화) 
 const handleSearchForMaster = async () => {
   masterProducts.value = []
   masterApiPage.value = 0
   isLastMasterApiBatch.value = false
+  
+  selectedDetailRow.value = null; 
+  selectedHistoryEvents.value = [];
+  selectedProduct.value = null;
 
   handleSearchForProduct()
   await fetchMasterApiBatch(0)
@@ -274,9 +347,14 @@ const handleSearchForMaster = async () => {
 //  검색 (초기화) 
 const handleSearchForProduct = async () => {
   productMap = new Map(); 
+  historyMap = new Map();
   ProductsDetail.value = [];
+  selectedHistoryEvents.value = [];
   productsApiPage.value = 0
   isLastProductsApiBatch.value = false;
+
+  historyApiPage.value = 0;
+  isLastHistoryApiBatch.value = false;
   
   // await fetchProductApiBatch(0)
 }
@@ -286,7 +364,26 @@ const handleSearchForProduct = async () => {
 
 watch(selectedCategory, handleSearchForMaster );
 
-watch(selectedStatus, handleSearchForMaster );
+// watch(selectedStatus, handleSearchForMaster );
+
+watch(selectedStatus, async () => {
+  // 제품이 선택되어 있을 때만 상세 리스트를 갱신
+  if (selectedProduct.value) {
+    const productCode = selectedProduct.value.id;
+
+    // 1. 페이지 번호 초기화
+    productsApiPage.value = 0; 
+    
+    // 필터가 바뀌었으므로 기존에 저장된 캐시 삭제
+    if(productMap.has(productCode)) {
+       productMap.delete(productCode); 
+    }
+    ProductsDetail.value = []; 
+
+    //데이터 다시 요청
+    await fetchProductApiBatch(0);
+  }
+});
 
 </script>
 
