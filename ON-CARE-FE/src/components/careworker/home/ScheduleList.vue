@@ -14,6 +14,7 @@ const scheduleItems = ref([]);
 const loading = ref(true);
 const showBeneficiaryModal = ref(false);
 const selectedBeneficiaryId = ref(null);
+const selectedServiceType = ref(null);
 
 // 오늘 일정 로드
 const loadSchedules = async () => {
@@ -113,7 +114,7 @@ const loadSchedules = async () => {
         grade: schedule.grade || '등급 정보 없음',
         tags: schedule.tags || [],
         time: `${schedule.startTime || schedule.visitTime?.split(' - ')[0] || '시작시간 미정'} - ${schedule.endTime || schedule.visitTime?.split(' - ')[1] || '종료시간 미정'}`,
-        service: schedule.serviceType || '서비스 정보 없음',
+        service: schedule.serviceType || schedule.serviceLabel || schedule.service_type || schedule.service || '서비스 정보 없음',
         address: schedule.address || '주소 정보 없음',
         status: getStatusText(schedule.status),
         statusColor: getStatusColor(schedule.status),
@@ -204,14 +205,17 @@ const showBeneficiaryDetail = (item) => {
     return;
   }
   selectedBeneficiaryId.value = item.beneficiaryId;
+  selectedServiceType.value = item.service; // 서비스 유형 정보 전달
   showBeneficiaryModal.value = true;
   console.log('모달 오픈 - beneficiaryId:', selectedBeneficiaryId.value);
+  console.log('모달 오픈 - serviceType:', selectedServiceType.value);
 };
 
 // 모달 닫기
 const closeBeneficiaryModal = () => {
   showBeneficiaryModal.value = false;
   selectedBeneficiaryId.value = null;
+  selectedServiceType.value = null;
 };
 
 // 액션 처리
@@ -229,11 +233,15 @@ const handleAction = async (action, item) => {
         actualStartTime: new Date().toISOString()
       });
       await loadSchedules();
+      // 일정 상태 변경 알림 (캘린더 자동 새로고침용)
+      scheduleStore.notifyScheduleUpdate();
     } else if (action === 'finish') {
       await completeVisit(item.id, {
         actualEndTime: new Date().toISOString()
       });
       await loadSchedules();
+      // 일정 상태 변경 알림 (캘린더 자동 새로고침용)
+      scheduleStore.notifyScheduleUpdate();
     } else if (action === 'detail') {
       console.log('상세보기:', item.name);
     } else if (action === 'writeLog') {
@@ -369,6 +377,7 @@ onMounted(() => {
     <BeneficiaryDetailModal
       :isOpen="showBeneficiaryModal"
       :beneficiaryId="selectedBeneficiaryId"
+      :serviceType="selectedServiceType"
       @close="closeBeneficiaryModal"
     />
   </section>

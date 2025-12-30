@@ -17,11 +17,15 @@ const props = defineProps({
   hideActions: {
     type: Boolean,
     default: false
+  },
+  hideDraftButton: {
+    type: Boolean,
+    default: false
   }
 });
 
 // Emits
-const emit = defineEmits(['submit']);
+const emit = defineEmits(['submit', 'draft']);
 
 // User store
 const userStore = useUserStore();
@@ -159,6 +163,13 @@ const handleSubmit = () => {
   if (props.readOnly) return;
   console.log('요양일지 제출:', formData.value);
   emit('submit', formData.value);
+};
+
+// 임시저장
+const handleDraft = () => {
+  if (props.readOnly) return;
+  console.log('요양일지 임시저장:', formData.value);
+  emit('draft', formData.value);
 };
 
 // 컴포넌트 마운트 시 수급자 목록 로드
@@ -348,7 +359,7 @@ onMounted(async () => {
     </section>
 
     <div v-if="!hideActions" class="form-actions">
-      <button type="button" class="btn-secondary">임시저장</button>
+      <button v-if="!hideDraftButton" type="button" class="btn-secondary" @click="handleDraft">임시저장</button>
       <button type="button" class="btn-primary" @click="handleSubmit">
         {{ props.initialData && !readOnly ? '수정 저장' : '제출하기' }}
       </button>

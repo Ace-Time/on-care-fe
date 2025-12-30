@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onActivated, computed, watch } from 'vue';
+import { ref, onMounted, onActivated, onUnmounted, computed, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useUserStore } from '@/stores/user';
 import { useScheduleStore } from '@/stores/schedule';
@@ -102,8 +102,8 @@ const transformSchedule = (schedule) => {
         serviceLabel: schedule.type || '개인',
         service: 'PERSONAL',
         status: schedule.status || 'SCHEDULED',
-        statusColor: getStatusColor(schedule.status),
-        colorClass: 'bg-gray',
+        statusColor: 'purple',
+        colorClass: 'bg-purple',
         address: schedule.location || '',
         notes: schedule.notes || '',
         duration: calculateDuration(schedule.startTime, schedule.endTime),
@@ -113,6 +113,7 @@ const transformSchedule = (schedule) => {
       };
     } else {
       // 방문 일정
+      const status = schedule.status || 'SCHEDULED';
       return {
         id: schedule.scheduleId,
         scheduleId: schedule.scheduleId,
@@ -123,9 +124,9 @@ const transformSchedule = (schedule) => {
         recipient: schedule.recipientName || '수급자',
         serviceLabel: schedule.type || '방문요양',
         service: 'VISIT',
-        status: schedule.status || 'SCHEDULED',
-        statusColor: getStatusColor(schedule.status),
-        colorClass: 'bg-blue',
+        status: status,
+        statusColor: getStatusColor(status),
+        colorClass: `bg-${getStatusColor(status)}`,
         address: schedule.location || '',
         notes: schedule.notes || '',
         duration: calculateDuration(schedule.startTime, schedule.endTime),
@@ -139,6 +140,7 @@ const transformSchedule = (schedule) => {
   if (schedule.recipient && typeof schedule.recipient === 'object') {
     // 수급자 정보
     const recipientInfo = schedule.recipient;
+    const status = schedule.status || 'SCHEDULED';
 
     return {
       id: schedule.scheduleId || schedule.vsId || schedule.id,
@@ -151,9 +153,9 @@ const transformSchedule = (schedule) => {
       beneficiaryId: recipientInfo.recipientId,
       serviceLabel: schedule.serviceContent || '방문요양',
       service: 'VISIT',
-      status: schedule.status || 'SCHEDULED',
-      statusColor: getStatusColor(schedule.status),
-      colorClass: 'bg-blue',
+      status: status,
+      statusColor: getStatusColor(status),
+      colorClass: `bg-${getStatusColor(status)}`,
       address: recipientInfo.address || '',
 
       // 상세 정보
@@ -186,7 +188,8 @@ const transformSchedule = (schedule) => {
         : (schedule.personalTags ? [schedule.personalTags] : []),
 
       // 메모/노트
-      notes: schedule.specialNotes || schedule.notes || '',
+      notes: schedule.notes || '',
+      specialNotes: schedule.notes || '',
 
       // 보호자 정보
       emergencyContact: recipientInfo.guardianPhone
@@ -201,6 +204,7 @@ const transformSchedule = (schedule) => {
 
   // 방문 일정 (visitSchedule)
   if (schedule.scheduleType === 'VISIT' || schedule.visitDate) {
+    const status = schedule.status || 'SCHEDULED';
     return {
       id: schedule.vsId || schedule.scheduleId || schedule.id,
       scheduleId: schedule.vsId || schedule.scheduleId || schedule.id,
@@ -212,9 +216,9 @@ const transformSchedule = (schedule) => {
       beneficiaryId: schedule.beneficiaryId,
       serviceLabel: schedule.serviceContent || '방문요양',
       service: 'VISIT',
-      status: schedule.status || 'SCHEDULED',
-      statusColor: getStatusColor(schedule.status),
-      colorClass: 'bg-blue',
+      status: status,
+      statusColor: getStatusColor(status),
+      colorClass: `bg-${getStatusColor(status)}`,
       address: schedule.address || '',
       // 상세 정보
       duration: calculateDuration(startTime || schedule.startTime, endTime || schedule.endTime),
@@ -240,8 +244,8 @@ const transformSchedule = (schedule) => {
       serviceLabel: schedule.personalTypeName || '개인',
       service: 'PERSONAL',
       status: '개인',
-      statusColor: 'gray',
-      colorClass: 'bg-gray',
+      statusColor: 'purple',
+      colorClass: 'bg-purple',
       content: schedule.content || '',
       duration: calculateDuration(startTime || schedule.startTime, endTime || schedule.endTime),
     };
@@ -267,10 +271,10 @@ const transformSchedule = (schedule) => {
 // 상태에 따른 색상 반환
 const getStatusColor = (status) => {
   const colorMap = {
-    'SCHEDULED': 'gray',
-    'IN_PROGRESS': 'blue',
-    'DONE': 'green',
-    'CANCELLED': 'red'
+    'SCHEDULED': 'blue',      // 예정 - 파란색
+    'IN_PROGRESS': 'green',   // 진행중 - 초록색
+    'DONE': 'red',            // 완료 - 빨간색
+    'CANCELLED': 'gray'       // 취소 - 회색
   };
   return colorMap[status] || 'gray';
 };
@@ -513,6 +517,14 @@ const openEditModal = (schedule) => {
   editingScheduleId.value = schedule.scheduleId || schedule.id;
   isPersonalSchedule.value = schedule.scheduleType === 'PERSONAL';
 
+  // 원본 일정 목록에서 notes 찾기 (상세 조회 데이터는 notes가 누락될 수 있음)
+  const originalSchedule = schedules.value.find(s =>
+    (s.scheduleId || s.id) === (schedule.scheduleId || schedule.id)
+  );
+
+  // notes 우선순위: 원본 일정 목록 > 현재 schedule > specialNotes > 빈 문자열
+  const scheduleNotes = originalSchedule?.notes || schedule.notes || schedule.specialNotes || '';
+
   if (schedule.scheduleType === 'PERSONAL') {
     // 개인 일정 수정
     newSchedule.value = {
@@ -520,7 +532,7 @@ const openEditModal = (schedule) => {
       startTime: schedule.startTime,
       endTime: schedule.endTime,
       location: schedule.location || schedule.address || '',
-      notes: schedule.notes || '',
+      notes: scheduleNotes,
       personalTypeId: schedule.personalTypeId,
       title: schedule.title || schedule.recipient,
       // 방문 일정 필드 초기화
@@ -536,7 +548,7 @@ const openEditModal = (schedule) => {
       startTime: schedule.startTime,
       endTime: schedule.endTime,
       location: schedule.address || '',
-      notes: schedule.notes || '',
+      notes: scheduleNotes,
       beneficiaryId: schedule.beneficiaryId,
       beneficiaryName: schedule.recipient,
       serviceTypes: [schedule.serviceLabel], // 단일 서비스 유형
@@ -599,8 +611,12 @@ const saveSchedule = async () => {
     }
 
     // 날짜와 시간을 ISO 형식으로 변환
-    const startDt = `${newSchedule.value.date}T${newSchedule.value.startTime}:00`;
-    const endDt = `${newSchedule.value.date}T${newSchedule.value.endTime}:00`;
+    // 시간이 이미 HH:mm:ss 형식이면 그대로 사용, HH:mm 형식이면 :00 추가
+    const formatTime = (time) => {
+      return time.split(':').length === 2 ? `${time}:00` : time;
+    };
+    const startDt = `${newSchedule.value.date}T${formatTime(newSchedule.value.startTime)}`;
+    const endDt = `${newSchedule.value.date}T${formatTime(newSchedule.value.endTime)}`;
 
     if (!isPersonalSchedule.value) {
       // 방문 일정
@@ -628,7 +644,7 @@ const saveSchedule = async () => {
           startDt: startDt,
           endDt: endDt,
           visitStatus: 'SCHEDULED',
-          note: newSchedule.value.notes || null,
+          note: newSchedule.value.notes || '',
         };
 
         console.log('방문 일정 수정 요청:', scheduleData);
@@ -650,7 +666,7 @@ const saveSchedule = async () => {
             startDt: startDt,
             endDt: endDt,
             visitStatus: 'SCHEDULED',
-            note: newSchedule.value.notes || null,
+            note: newSchedule.value.notes || '',
           };
 
           console.log('방문 일정 등록 요청:', scheduleData);
@@ -723,7 +739,22 @@ const onSelectSchedule = async (schedule) => {
   // 개인 일정인 경우 상세 조회 API 호출 없이 바로 표시
   if (schedule.scheduleType === 'PERSONAL') {
     console.log('개인 일정 - 상세 조회 생략, 기본 데이터 사용');
-    selectedSchedule.value = schedule;
+
+    // 원본 일정 목록에서 notes 확인
+    const scheduleId = schedule.scheduleId || schedule.id;
+    const originalSchedule = schedules.value.find(s =>
+      (s.scheduleId || s.id) === scheduleId
+    );
+
+    // 원본 일정의 notes가 있으면 우선 사용
+    if (originalSchedule?.notes && !schedule.notes) {
+      selectedSchedule.value = {
+        ...schedule,
+        notes: originalSchedule.notes
+      };
+    } else {
+      selectedSchedule.value = schedule;
+    }
     return;
   }
 
@@ -752,6 +783,11 @@ const onSelectSchedule = async (schedule) => {
   }
 
   try {
+    // 원본 일정 목록에서 notes 찾기
+    const originalSchedule = schedules.value.find(s =>
+      (s.scheduleId || s.id) === scheduleId
+    );
+
     // 방문 일정만 상세 정보 조회
     console.log('방문 일정 상세 조회 요청 - scheduleId:', scheduleId);
     const response = await getScheduleDetail(scheduleId);
@@ -760,6 +796,12 @@ const onSelectSchedule = async (schedule) => {
     // 백엔드 응답을 프론트엔드 형식으로 변환
     const detailData = response?.data || response;
     const transformedData = transformSchedule(detailData);
+
+    // 원본 일정 목록의 notes가 있으면 우선 사용 (백엔드 상세 조회가 notes를 빈 문자열로 반환할 수 있음)
+    if (originalSchedule?.notes && !transformedData.notes) {
+      transformedData.notes = originalSchedule.notes;
+      transformedData.specialNotes = originalSchedule.notes;
+    }
 
     console.log('변환된 상세 데이터:', transformedData);
     selectedSchedule.value = transformedData;
@@ -796,18 +838,33 @@ watch(() => route.path, (newPath) => {
   }
 }, { immediate: true });
 
-// 다른 곳(예: 매칭 페이지)에서 일정 변경 시 자동 새로고침
+// 다른 곳(예: 매칭 페이지, 출퇴근 기록)에서 일정 변경 시 자동 새로고침
 watch(() => scheduleStore.scheduleUpdateCounter, (newValue, oldValue) => {
   console.log('📅 근무일정 페이지: 일정 업데이트 감지!', { oldValue, newValue });
-  console.log('📅 근무일정 페이지: 캘린더 새로고침 시작...');
+  console.log('📅 근무일정 페이지: 캘린더 새로고침 시작... (출퇴근 기록 반영)');
   loadSchedules();
+  console.log('📅 근무일정 페이지: 캘린더 새로고침 완료!');
 }, { immediate: false });
+
+// ESC 키로 모달 닫기
+const handleKeyDown = (event) => {
+  if (event.key === 'Escape' && showAddModal.value) {
+    closeAddModal();
+  }
+};
 
 // 컴포넌트 마운트 시 실행
 onMounted(() => {
   loadSchedules();
   loadPersonalTypes();
   loadMyBeneficiaries();
+  // ESC 키 이벤트 리스너 추가
+  window.addEventListener('keydown', handleKeyDown);
+});
+
+// 컴포넌트 언마운트 시 이벤트 리스너 제거
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeyDown);
 });
 
 // 컴포넌트 활성화 시 실행 (keep-alive로 캐시된 경우)
@@ -896,18 +953,33 @@ onActivated(() => {
           <!-- 날짜 -->
           <label class="form-field">
             <span>날짜 <span class="required">*</span></span>
-            <input v-model="newSchedule.date" type="date" />
+            <input
+              v-model="newSchedule.date"
+              type="date"
+              inputmode="none"
+              :max="new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0]"
+            />
           </label>
 
           <!-- 시작/종료 시간 -->
           <div class="form-row-2">
             <label class="form-field">
               <span>시작 시간 <span class="required">*</span></span>
-              <input v-model="newSchedule.startTime" type="time" placeholder="--:--" />
+              <input
+                v-model="newSchedule.startTime"
+                type="time"
+                placeholder="--:--"
+                step="300"
+              />
             </label>
             <label class="form-field">
               <span>종료 시간 <span class="required">*</span></span>
-              <input v-model="newSchedule.endTime" type="time" placeholder="--:--" />
+              <input
+                v-model="newSchedule.endTime"
+                type="time"
+                placeholder="--:--"
+                step="300"
+              />
             </label>
           </div>
 
@@ -1010,6 +1082,8 @@ onActivated(() => {
 .workschedule-page {
   padding: 0 24px 24px;
   background-color: transparent; /* 배경색 제거 (상위 컴포넌트 배경 따름) */
+  overflow-x: hidden; /* 가로 스크롤 방지 */
+  max-width: 100%;
 }
 
 /* 상단 헤더 스타일 (수급자 페이지와 동일) */
@@ -1087,14 +1161,14 @@ onActivated(() => {
 }
 
 .calendar-area.has-detail {
-  width: calc(100% - 500px);
+  width: calc(100% - 580px);
 }
 
 .detail-panel {
   position: absolute;
   right: 0;
   top: 0;
-  width: 480px;
+  width: 580px;
   height: 100%;
   background-color: white;
   box-shadow: -4px 0 12px rgba(0, 0, 0, 0.1);
@@ -1126,68 +1200,116 @@ onActivated(() => {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.45);
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 1rem;
   z-index: 2000;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .modal-card {
-  width: min(520px, 100%);
+  width: min(640px, 100%);
+  max-width: calc(100vw - 2rem);
   background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.12);
+  border-radius: 16px;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.05);
   overflow: hidden;
-  border: 1px solid #e5e7eb;
+  overflow-x: hidden;
+  animation: slideUp 0.3s ease;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem 1.25rem;
-  border-bottom: 1px solid #e5e7eb;
-  background: #f8fafc;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid #f0f0f0;
+  background: linear-gradient(to bottom, #ffffff, #fafafa);
 }
 
 .modal-header h3 {
   margin: 0;
-  font-size: 1.1rem;
+  font-size: 1.125rem;
   font-weight: 700;
-  color: #1f2937;
+  color: #0f172a;
+  letter-spacing: -0.01em;
 }
 
 .close-btn {
   border: none;
   background: transparent;
-  font-size: 1.25rem;
+  font-size: 1.5rem;
   cursor: pointer;
-  color: #6b7280;
+  color: #94a3b8;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.close-btn:hover {
+  background: #f1f5f9;
+  color: #475569;
 }
 
 .modal-body {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 1.125rem;
   padding: 1.5rem;
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex: 1;
+  max-width: 100%;
 }
 
 .checkbox-field {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.625rem;
   cursor: pointer;
-  padding: 0.75rem;
-  background: #f9fafb;
-  border-radius: 0.5rem;
-  border: 1px solid #e5e7eb;
+  padding: 0.875rem 1rem;
+  background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%);
+  border-radius: 10px;
+  border: 2px solid #d1fae5;
+  transition: all 0.2s;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.checkbox-field:hover {
+  border-color: #86efac;
+  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.1);
 }
 
 .checkbox-field input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   cursor: pointer;
   accent-color: #22c55e;
 }
@@ -1195,7 +1317,7 @@ onActivated(() => {
 .checkbox-field span {
   font-size: 0.9375rem;
   font-weight: 600;
-  color: #374151;
+  color: #166534;
 }
 
 .form-row {
@@ -1207,48 +1329,70 @@ onActivated(() => {
 .form-row-2 {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 0.75rem;
+  gap: 1rem;
+  width: 100%;
 }
 
 .form-field {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.5rem;
+  min-width: 0; /* 그리드 아이템이 넘치지 않도록 */
+  max-width: 100%;
 }
 
 .form-field span {
   font-size: 0.875rem;
-  color: #374151;
+  color: #475569;
   font-weight: 600;
 }
 
 .form-field input,
 .form-field select,
 .form-field textarea {
-  border: 1px solid #d1d5db;
-  border-radius: 0.5rem;
-  padding: 0.65rem 0.75rem;
+  border: 2px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
   font-size: 0.9375rem;
   width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  transition: all 0.2s;
+  background: #ffffff;
+}
+
+.form-field input:focus,
+.form-field select:focus,
+.form-field textarea:focus {
+  outline: none;
+  border-color: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1);
+}
+
+.form-field input:hover,
+.form-field select:hover,
+.form-field textarea:hover {
+  border-color: #cbd5e1;
 }
 
 .form-select {
   cursor: pointer;
   appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2322c55e'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2322c55e'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2.5' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
   background-repeat: no-repeat;
-  background-position: right 0.75rem center;
+  background-position: right 0.875rem center;
   background-size: 1.25rem;
-  padding-right: 2.5rem;
+  padding-right: 2.75rem;
 }
 
 .form-textarea {
   resize: vertical;
   font-family: inherit;
+  min-height: 80px;
 }
 
 .required {
-  color: #ef4444;
+  color: #f43f5e;
   font-weight: 700;
   margin-left: 0.125rem;
 }
@@ -1256,69 +1400,96 @@ onActivated(() => {
 .modal-footer {
   display: flex;
   justify-content: flex-end;
-  gap: 0.5rem;
-  padding: 1rem 1.25rem;
-  border-top: 1px solid #e5e7eb;
-  background: #f9fafb;
+  gap: 0.75rem;
+  padding: 1.25rem 1.5rem;
+  border-top: 1px solid #f0f0f0;
+  background: linear-gradient(to top, #fafafa, #ffffff);
 }
 
 .btn-primary,
 .btn-secondary {
-  padding: 0.65rem 1.25rem;
-  border-radius: 0.6rem;
-  font-weight: 700;
+  padding: 0.75rem 1.5rem;
+  border-radius: 10px;
+  font-weight: 600;
   font-size: 0.9375rem;
   border: none;
   cursor: pointer;
   transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 80px;
 }
 
 .btn-primary {
   background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
   color: white;
+  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.2);
 }
 
 .btn-primary:hover {
   background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+  transform: translateY(-1px);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
 }
 
 .btn-secondary {
   background: white;
-  color: #374151;
-  border: 1px solid #d1d5db;
+  color: #64748b;
+  border: 2px solid #e2e8f0;
 }
 
 .btn-secondary:hover {
-  background: #f3f4f6;
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #475569;
 }
 
 /* 서비스 유형 체크박스 */
 .service-type-checkboxes {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.625rem;
+  max-width: 100%;
 }
 
 .service-checkbox {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.625rem 0.75rem;
-  background: #f9fafb;
-  border-radius: 0.5rem;
-  border: 1px solid #e5e7eb;
+  gap: 0.625rem;
+  padding: 0.75rem 1rem;
+  background: #ffffff;
+  border-radius: 10px;
+  border: 2px solid #e2e8f0;
   cursor: pointer;
   transition: all 0.2s;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .service-checkbox:hover {
-  background: #f3f4f6;
-  border-color: #d1d5db;
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.service-checkbox input[type="checkbox"]:checked + span {
+  color: #16a34a;
+  font-weight: 600;
+}
+
+.service-checkbox:has(input:checked) {
+  background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%);
+  border-color: #86efac;
+  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.1);
 }
 
 .service-checkbox input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   cursor: pointer;
   accent-color: #22c55e;
 }
@@ -1326,7 +1497,26 @@ onActivated(() => {
 .service-checkbox span {
   font-size: 0.9375rem;
   font-weight: 500;
-  color: #374151;
+  color: #475569;
+  transition: all 0.2s;
+}
+
+/* 스크롤바 스타일 */
+.detail-panel::-webkit-scrollbar {
+  width: 6px;
+}
+
+.detail-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.detail-panel::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.detail-panel::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
 }
 
 /* 반응형 처리 */
