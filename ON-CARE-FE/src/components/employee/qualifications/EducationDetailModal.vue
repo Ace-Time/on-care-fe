@@ -1,6 +1,6 @@
 <!-- 보수교육 상세 모달 -->
 <script setup>
-import { defineProps, defineEmits } from 'vue';
+import { defineProps, defineEmits, onMounted, onUnmounted } from 'vue';
 
 const props = defineProps({
   isOpen: Boolean,
@@ -8,6 +8,23 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['close']);
+
+// 키보드 이벤트 핸들러
+const handleKeydown = (e) => {
+  if (!props.isOpen) return;
+
+  if (e.key === 'Escape' || e.key === 'Enter') {
+    emit('close');
+  }
+};
+
+onMounted(() => {
+  window.addEventListener('keydown', handleKeydown);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeydown);
+});
 </script>
 
 <template>

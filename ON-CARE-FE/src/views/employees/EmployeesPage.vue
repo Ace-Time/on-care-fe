@@ -371,11 +371,10 @@ const handleCertApprove = async (id) => {
 };
 
 const handleCertReject = async (id) => {
-  const reason = prompt('반려 사유를 입력하세요:');
-  if (reason === null) return;
-  
+  if (!confirm('반려하시겠습니까?')) return;
+
   try {
-    await updateCertificateStatus(id, 'REJECTED', reason);
+    await updateCertificateStatus(id, 'REJECTED');
     alert('반려되었습니다.');
     await fetchPendingCerts();
     await fetchEmployees();

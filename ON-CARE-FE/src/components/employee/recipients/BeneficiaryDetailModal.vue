@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue';
+import { computed, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 
 const props = defineProps({
@@ -15,6 +15,23 @@ const props = defineProps({
 
 const emit = defineEmits(['close']);
 const router = useRouter();
+
+// 키보드 이벤트 핸들러
+const handleKeydown = (e) => {
+  if (!props.isOpen) return;
+
+  if (e.key === 'Escape') {
+    close();
+  }
+};
+
+onMounted(() => {
+  window.addEventListener('keydown', handleKeydown);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeydown);
+});
 
 const close = () => {
   emit('close');

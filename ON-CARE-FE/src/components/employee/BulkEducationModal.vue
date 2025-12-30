@@ -1,11 +1,31 @@
 <script setup>
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 
 const props = defineProps({
   isOpen: Boolean
 });
 
 const emit = defineEmits(['close', 'submit']);
+
+// 키보드 이벤트 핸들러
+const handleKeydown = (e) => {
+  if (!props.isOpen) return;
+
+  if (e.key === 'Escape') {
+    emit('close');
+  } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+    // Ctrl+Enter 또는 Cmd+Enter로 제출
+    handleSubmit();
+  }
+};
+
+onMounted(() => {
+  window.addEventListener('keydown', handleKeydown);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeydown);
+});
 
 // API 함수 import
 import { getCertificateTypes, getCertificateHolders, registerBulkEducation } from '@/api/employee/employeeApi';
@@ -54,26 +74,29 @@ watch(() => props.isOpen, (newVal) => {
   if (newVal) {
     fetchCertTypes();
     // 초기화
-    form.value = { 
-      targetCertId: '', 
-      eduName: '', 
-      institution: '', 
-      eduDate: '', 
-      nextEduDate: '', 
-      status: 0 
+    form.value = {
+      targetCertId: '',
+      eduName: '',
+      institution: '',
+      eduDate: '',
+      nextEduDate: ''
     };
     holders.value = [];
     selectedIds.value = [];
   }
 });
 
-const form = ref({ 
-  targetCertId: '', 
-  eduName: '', 
-  institution: '', 
-  eduDate: '', 
-  nextEduDate: '', 
-  status: 0 
+const form = ref({
+  targetCertId: '',
+  eduName: '',
+  institution: '',
+  eduDate: '',
+  nextEduDate: ''
+});
+
+// 오늘 날짜를 'YYYY-MM-DD' 형식으로 구하기
+const today = computed(() => {
+  return new Date().toISOString().split('T')[0];
 });
 
 const selectedIds = ref([]);
@@ -133,19 +156,23 @@ const handleSubmit = async () => {
     return alert('필수 정보(교육명, 기관, 이수일)를 입력해주세요.');
   }
 
+  // 날짜 검증 - 이수일이 미래인지 체크
+  if (form.value.eduDate > today.value) {
+    return alert('보수교육 이수일은 미래일 수 없습니다.');
+  }
+
   try {
     // API 명세: 선택된 직원들의 보유 ID(careWorkerCertIds)와 교육 정보(educationInfo)
     const payload = {
       careWorkerCertIds: selectedIds.value.map(id => Number(id)),
-      educationInfo: { 
+      educationInfo: {
         eduName: form.value.eduName,
         institution: form.value.institution,
         eduDate: form.value.eduDate,
-        nextEduDate: form.value.nextEduDate,
-        status: Number(form.value.status)
+        nextEduDate: form.value.nextEduDate
       }
     };
-    
+
     console.log('Sending Bulk Payload:', payload);
 
     await registerBulkEducation(payload);
@@ -224,20 +251,11 @@ const handleSubmit = async () => {
         <div class="form-container">
           <!-- targetCertId 입력 필드 제거 (위에서 선택함) -->
 
-          <div class="form-group"><label>교육명</label><input v-model="form.eduName" type="text" class="input" placeholder="예: 2025 직무교육" /></div>
-          <div class="form-group"><label>교육기관</label><input v-model="form.institution" type="text" class="input" /></div>
-          
-          <div class="form-group"><label>이수일</label><input v-model="form.eduDate" type="date" class="input" /></div>
+          <div class="form-group"><label>교육명 *</label><input v-model="form.eduName" type="text" class="input" placeholder="예: 2025 직무교육" /></div>
+          <div class="form-group"><label>교육기관 *</label><input v-model="form.institution" type="text" class="input" /></div>
+
+          <div class="form-group"><label>이수일 *</label><input v-model="form.eduDate" type="date" class="input" :max="today" /></div>
           <div class="form-group"><label>다음 교육 예정일</label><input v-model="form.nextEduDate" type="date" class="input" /></div>
-          
-          <div class="form-group full-width">
-            <label>상태</label>
-            <select v-model="form.status" class="input">
-              <option :value="0">이수 완료</option>
-              <option :value="1">미이수</option>
-              <option :value="2">예정</option>
-            </select>
-          </div>
         </div>
       </div>
 

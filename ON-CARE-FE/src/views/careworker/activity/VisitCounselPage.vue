@@ -5,9 +5,9 @@ import { createCounselingLog, getCounselingLogList, updateCounselingLog, deleteC
 
 const mainTab = ref("write");
 const mainTabs = [
-  { key: "write", label: "작성하기", icon: "✏️" },
-  { key: "history", label: "작성 내역", icon: "📑" },
-];
+      { key: "write", label: "작성하기", icon: "✏️" },
+      { key: "history", label: "작성 내역", icon: "📑" },
+    ];
 
 const counselHistory = ref([]);
 const loading = ref(false);
