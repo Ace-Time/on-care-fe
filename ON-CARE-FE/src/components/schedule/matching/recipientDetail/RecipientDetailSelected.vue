@@ -36,7 +36,6 @@
             </div>
           </div>
 
-          <!-- ✅ 위험요소 -->
           <div class="field">
             <div class="label">위험요소</div>
             <div class="value">
@@ -49,7 +48,6 @@
             </div>
           </div>
 
-          <!-- ✅ 태그 -->
           <div class="field">
             <div class="label">태그</div>
             <div class="value">
@@ -110,10 +108,27 @@
               </div>
             </div>
           </div>
+
+          <button type="button" class="close-btn" @click="openUnassignModal">
+            <img :src="closeButton" alt="배정 취소" />
+          </button>
         </article>
 
         <p v-else class="assigned-empty">배정된 요양보호사가 없습니다</p>
       </section>
+
+      <teleport to="body">
+        <div v-if="showUnassignModal" class="modal-backdrop" @click.self="closeUnassignModal">
+          <div class="modal">
+            <h3 class="modal-title">배정 취소</h3>
+            <p class="modal-desc">정말 배정을 삭제할까요?</p>
+            <div class="modal-actions">
+              <button type="button" class="modal-btn cancel" @click="closeUnassignModal">취소</button>
+              <button type="button" class="modal-btn danger" @click="confirmUnassign">삭제</button>
+            </div>
+          </div>
+        </div>
+      </teleport>
     </template>
   </section>
 </template>
@@ -121,7 +136,8 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import clockIcon from '@/assets/img/schedule/clock.png'
-import { getBeneficiaryDetail } from '@/api/schedule/matching.js'
+import closeButton from '@/assets/img/common/closeButton.png'
+import { getBeneficiaryDetail, unassignMatchingCareWorker } from '@/api/schedule/matching.js'
 
 const props = defineProps({
   recipient: { type: Object, default: null },
@@ -130,6 +146,7 @@ const props = defineProps({
 const loading = ref(false)
 const error = ref('')
 const detail = ref(null)
+const showUnassignModal = ref(false)
 
 const getBeneficiaryId = (obj) => obj?.beneficiaryId ?? obj?.id ?? null
 
@@ -184,6 +201,31 @@ const loadDetail = async () => {
   }
 }
 
+const openUnassignModal = () => {
+  showUnassignModal.value = true
+}
+
+const closeUnassignModal = () => {
+  showUnassignModal.value = false
+}
+
+const confirmUnassign = async () => {
+  const beneficiaryId = getBeneficiaryId(props.recipient)
+  if (!beneficiaryId) return
+
+  try {
+    loading.value = true
+    error.value = ''
+    await unassignMatchingCareWorker(beneficiaryId)
+    await loadDetail()
+  } catch (e) {
+    error.value = e?.response?.data?.message || '배정 취소에 실패했습니다.'
+  } finally {
+    loading.value = false
+    showUnassignModal.value = false
+  }
+}
+
 watch(
   () => getBeneficiaryId(props.recipient),
   () => loadDetail(),
@@ -207,7 +249,6 @@ const viewModel = computed(() => {
   const preferredDays =
     d.preferredDays || preferredFromSchedules.preferredDays || base.preferredDays || []
 
-  // ✅ 백엔드 응답 기준 (serviceTypes / tags / riskFactors)
   const needServices =
     d.serviceTypes ||
     d.needServices ||
@@ -224,7 +265,7 @@ const viewModel = computed(() => {
 
   const riskFactors =
     d.riskFactors ||
-    d.riskTags ||          // 혹시 예전 키명이 이런 식이면 대응
+    d.riskTags ||
     d.risks ||
     base.riskFactors ||
     base.risks ||
@@ -274,7 +315,6 @@ const viewModel = computed(() => {
   border: 1px solid #fecaca;
 }
 
-/* 상단 */
 .header-row {
   display: flex;
   gap: 16px;
@@ -332,7 +372,6 @@ const viewModel = computed(() => {
   color: #4b5563;
 }
 
-/* 중간 섹션 */
 .info-section {
   display: flex;
   gap: 40px;
@@ -368,25 +407,21 @@ const viewModel = computed(() => {
   margin-bottom: 6px;
 }
 
-/* 기본(초록) */
 .pill {
   background: #dcfce7;
   color: #15803d;
 }
 
-/* 서비스(보라/인디고) */
 .pill-soft {
   background: #eef2ff;
   color: #4f46e5;
 }
 
-/* ✅ 위험요소(연한 주황/레드톤) */
 .pill-risk {
   background: #ffedd5;
   color: #c2410c;
 }
 
-/* ✅ 태그(민트/그린톤 살짝 다르게) */
 .pill-tag {
   background: #ecfeff;
   color: #0f766e;
@@ -425,7 +460,6 @@ const viewModel = computed(() => {
   object-fit: contain;
 }
 
-/* 하단 배정된 요양보호사 */
 .assigned-section {
   margin-top: 12px;
 }
@@ -455,6 +489,8 @@ const viewModel = computed(() => {
   border-radius: 14px;
   padding: 14px 18px;
   border: 1px solid #e5e7eb;
+
+  position: relative;
 }
 
 .assigned-left {
@@ -484,5 +520,87 @@ const viewModel = computed(() => {
 .assigned-meta {
   font-size: 13px;
   color: #6b7280;
+}
+
+.close-btn {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  cursor: pointer;
+}
+
+.close-btn img {
+  width: 16px;
+  height: 14px;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 24, 39, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.modal {
+  width: 360px;
+  background: #fff;
+  border-radius: 16px;
+  padding: 18px 18px 14px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+}
+
+.modal-title {
+  margin: 0 0 6px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.modal-desc {
+  margin: 0 0 14px;
+  font-size: 14px;
+  color: #4b5563;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.modal-btn {
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 10px;
+  font-size: 14px;
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+
+.modal-btn.cancel {
+  background: #f3f4f6;
+  color: #111827;
+  border-color: #e5e7eb;
+}
+
+.modal-btn.danger {
+  background: #ef4444;
+  color: #fff;
 }
 </style>

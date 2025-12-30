@@ -105,3 +105,6 @@ export const createVisitSchedule = ({
     endDt,
     note,         
   })
+
+  export const unassignMatchingCareWorker = (beneficiaryId) =>
+    api.delete(`/matching/assign/${beneficiaryId}`)
