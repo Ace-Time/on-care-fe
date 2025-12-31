@@ -72,8 +72,19 @@ const paginatedEmployees = computed(() => {
   return filteredEmployees.value.slice(start, end);
 });
 
-const selectEmployee = (emp) => emit('select', emp);
+const hasActiveFilters = computed(() => {
+  return searchTerm.value || filterRole.value || filterStatus.value || filterCert.value || filterServiceType.value;
+});
 
+const resetFilters = () => {
+  searchTerm.value = '';
+  filterRole.value = '';
+  filterStatus.value = '';
+  filterCert.value = '';
+  filterServiceType.value = '';
+};
+
+const selectEmployee = (emp) => emit('select', emp);
 const getStatusClass = (status) => {
   if (status === '활동중') return 'status-active';
   if (status === '휴가') return 'status-vacation';
@@ -116,6 +127,11 @@ const getStatusClass = (status) => {
           {{ cert.name || cert }}
         </option>
       </select>
+
+      <button v-if="hasActiveFilters" @click="resetFilters" class="reset-btn">
+        <svg class="icon-sm" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+        필터 초기화
+      </button>
     </div>
 
     <div class="employee-list">
@@ -159,8 +175,8 @@ const getStatusClass = (status) => {
 .filter-area { padding: 16px; border-bottom: 1px solid #f0f0f0; display: flex; flex-direction: column; gap: 10px; }
 .search-box { position: relative; }
 .search-icon { position: absolute; left: 10px; top: 10px; width: 16px; color: #999; }
-.search-box input { width: 100%; padding: 8px 8px 8px 36px; border: 1px solid #ddd; border-radius: 6px; outline: none; }
-.dropdown { padding: 8px; border: 1px solid #ddd; border-radius: 6px; width: 100%; }
+.search-box input { width: 100%; padding: 8px 8px 8px 36px; border: 1px solid #ddd; border-radius: 6px; outline: none; box-sizing: border-box; }
+.dropdown { padding: 8px; border: 1px solid #ddd; border-radius: 6px; width: 100%; box-sizing: border-box; }
 .employee-list { flex: 1; overflow-y: auto; padding: 8px; }
 .employee-item { padding: 12px; border: 1px solid #f0f0f0; border-radius: 8px; margin-bottom: 8px; cursor: pointer; transition: 0.2s; }
 .employee-item:hover { background-color: #f9fafb; }
@@ -180,4 +196,6 @@ const getStatusClass = (status) => {
 .icon { width: 18px; height: 18px; }
 .icon-sm { width: 14px; height: 14px; }
 .empty-list { text-align: center; padding: 20px; color: #999; font-size: 13px; }
+.reset-btn { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; padding: 8px; background-color: #f3f4f6; color: #374151; border: 1px solid #e5e7eb; border-radius: 6px; cursor: pointer; font-size: 13px; transition: all 0.2s; box-sizing: border-box; }
+.reset-btn:hover { background-color: #e5e7eb; color: #111827; }
 </style>
