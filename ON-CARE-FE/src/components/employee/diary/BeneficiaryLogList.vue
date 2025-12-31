@@ -5,6 +5,7 @@ import { getCounselingLogListByBeneficiary } from '@/api/careworker/counselingLo
 
 import SummaryRecord from '@/components/recipient/main/category/record/SummaryRecord.vue';
 import BasicTest from '@/components/recipient/main/category/record/BasicTest.vue';
+import VisitCounselHistoryList from '@/components/careworker/activity/VisitCounselHistoryList.vue';
 
 const props = defineProps({
   employeeId: { type: [Number, String], required: true }
@@ -39,8 +40,83 @@ const fetchCounselHistory = async () => {
 
   try {
     // 수급자 ID로 방문상담 목록 조회
-    const data = await getCounselingLogListByBeneficiary(beneficiaryId);
-    counselHistory.value = data || [];
+    const response = await getCounselingLogListByBeneficiary(beneficiaryId);
+    console.log('방문상담 조회 응답:', response);
+    
+    // 응답 객체에서 실제 데이터 추출 (response.data 혹은 response 자체가 배열일 수 있음)
+    const rawData = response?.data ?? response;
+    // 배열인지 확인 후 처리 (아닌 경우 빈 배열)
+    const data = Array.isArray(rawData) ? rawData : [];
+
+    // 백엔드 응답 데이터를 프론트엔드 형식으로 변환 (VisitCounselPage.vue 로직 적용)
+    counselHistory.value = data.map(item => {
+      // 날짜 포맷 변환
+      const visitDate = item.counselingDate || item.visitDate || item.visit_date || '';
+      const dateObj = visitDate ? new Date(visitDate) : new Date();
+      const dayNames = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일', '토요일'];
+      const dayOfWeek = dayNames[dateObj.getDay()];
+      const formattedDate = visitDate ? `${visitDate.split('T')[0]} (${dayOfWeek})` : '-';
+
+      // 상담 유형 레이블 변환
+      const counselTypeMap = {
+        '초기상담': '초기 상담',
+        '정기상담': '정기 상담',
+        '긴급상담': '긴급 상담',
+        '종결상담': '종결 상담',
+        '보호자상담': '보호자 상담',
+        '초기': '초기 상담',
+        '정기': '정기 상담',
+        '긴급': '긴급 상담',
+        '종결': '종결 상담',
+        '보호자': '보호자 상담',
+        'initial': '초기 상담',
+        'regular': '정기 상담',
+        'emergency': '긴급 상담',
+        'intermediate': '종결 상담',
+        'guardian': '보호자 상담'
+      };
+
+      // 만족도 레이블 변환
+      const reactionMap = {
+        '매우만족': '매우 만족',
+        '만족': '만족',
+        '보통': '보통',
+        '불만족': '불만족',
+        '매우불만족': '매우 불만족',
+        'very_good': '매우 만족',
+        'good': '만족',
+        'normal': '보통',
+        'bad': '불만족',
+        'very_bad': '매우 불만족'
+      };
+
+      return {
+        id: item.counselingId || item.id,
+        counselingId: item.counselingId || item.id,
+        beneficiaryId: item.beneficiaryId,
+        date: formattedDate,
+        visitDate: visitDate,
+        recipientName: item.beneficiaryName || item.recipientName || selectedBeneficiary.value.name,
+        counselType: counselTypeMap[item.counselingType] || item.counselingType || '-',
+        reaction: reactionMap[item.satisfaction] || item.satisfaction || '-',
+        // 상세 필드 (초기엔 로드 안 됨)
+        visitPurpose: item.visitPurpose || null,
+        observedCondition: item.attendees || null,
+        subjectiveNeeds: item.discussionContent || null,
+        counselorNotes: item.agreementContent || null,
+        nextVisit: item.nextVisitDate ? item.nextVisitDate.split('T')[0] : null,
+        
+        // 서명 이미지 URL
+        guardianSignUrl: item.guardianSignUrl || null,
+        counselorSignUrl: item.counselorSignUrl || null,
+        
+        detailsLoaded: false,
+        showDetails: false,
+        status: item.status || '완료',
+        recipientSigned: !!item.guardianSignUrl,
+        caregiverSigned: !!item.counselorSignUrl,
+      };
+    });
   } catch (error) {
     console.error("방문상담 내역 조회 실패", error);
     counselHistory.value = [];
@@ -122,66 +198,9 @@ watch(() => props.employeeId, fetchData);
           :beneficiaryId="selectedBeneficiary.beneficiaryId || selectedBeneficiary.id" 
         />
 
-        <!-- 방문상담: 읽기 전용 직접 구현 -->
+        <!-- 방문상담: 공통 컴포넌트 사용 -->
         <div v-else-if="selectedTab === 'council'" class="council-history-wrap">
-          <div class="history-list">
-            <div v-for="item in counselHistory" :key="item.id" class="counsel-card">
-              <div class="card-header">
-                <div class="recipient-info">
-                  <div class="avatar-circle">👤</div>
-                  <div class="recipient-details">
-                    <h3 class="recipient-name">{{ item.beneficiaryName || item.beneficiary_name || item.recipientName || item.recipient_name || selectedBeneficiary?.name }}</h3>
-                    <p class="counsel-date">{{ item.visitDate || item.visit_date || item.date }}</p>
-                  </div>
-                </div>
-                <!-- 상태 뱃지 -->
-                <span class="status-badge" :class="{ completed: (item.status === '완료'), draft: (item.status === '임시저장') }">
-                  {{ item.status || (item.isCompleted ? '완료' : '-') }}
-                </span>
-              </div>
-
-              <div class="counsel-info-grid">
-                <div class="info-field">
-                  <span class="field-label">상담 유형</span>
-                  <span class="field-value">{{ item.visitType || item.visit_type || item.counselType }}</span>
-                </div>
-                <div class="info-field">
-                  <span class="field-label">만족도</span>
-                  <span class="field-value">{{ item.reaction }}</span>
-                </div>
-              </div>
-
-              <div class="section-box">
-                <h4 class="section-title">방문 목적</h4>
-                <p class="section-content">{{ item.visitDetail || item.visit_detail || item.visitPurpose }}</p>
-              </div>
-
-              <div class="section-box">
-                <h4 class="section-title">관찰 내용</h4>
-                <p class="section-content">{{ item.observedCondition || item.observed_condition }}</p>
-              </div>
-
-              <div class="section-box highlight">
-                <h4 class="section-title">주요 요구사항</h4>
-                <p class="section-content">{{ item.subjectiveNeeds || item.subjective_needs }}</p>
-              </div>
-
-              <div class="section-box success">
-                <h4 class="section-title">조치 및 상담 내용</h4>
-                <p class="section-content">{{ item.counselorNotes || item.counselor_notes }}</p>
-              </div>
-
-              <div class="next-visit">
-                <span class="calendar-icon">📅</span>
-                <span class="next-visit-label">다음 방문 예정:</span>
-                <span class="next-visit-date">{{ item.nextAction || item.next_action || item.nextVisit }}</span>
-              </div>
-            </div>
-            
-            <div v-if="counselHistory.length === 0" class="empty-text">
-              등록된 상담 내역이 없습니다.
-            </div>
-          </div>
+          <VisitCounselHistoryList :items="counselHistory" />
         </div>
       </div>
     </div>
@@ -296,147 +315,9 @@ watch(() => props.employeeId, fetchData);
   min-height: 300px;
 }
 
-/* --- 방문상담 스타일 (인라인) --- */
+/* --- 방문상담 스타일 (래퍼만 유지) --- */
 .council-history-wrap {
   padding-bottom: 40px;
-}
-.history-list {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-.counsel-card {
-  background: white;
-  border: 1px solid #e5e7eb;
-  border-radius: 0.75rem;
-  padding: 1.5rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-}
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 1rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid #f3f4f6;
-}
-.recipient-info {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-.avatar-circle {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #8b5cf6 0%, #a78bfa 100%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.5rem;
-  color: white;
-  flex-shrink: 0;
-}
-.recipient-details {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-.recipient-name {
-  font-size: 1.125rem;
-  font-weight: 700;
-  color: #1f2937;
-  margin: 0;
-}
-.counsel-date {
-  font-size: 0.8125rem;
-  color: #6b7280;
-  margin: 0;
-}
-.status-badge {
-  padding: 0.375rem 0.875rem;
-  border-radius: 9999px;
-  font-size: 0.75rem;
-  font-weight: 700;
-  white-space: nowrap;
-}
-.status-badge.completed {
-  background: #dcfce7;
-  color: #16a34a;
-}
-.counsel-info-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 1rem;
-  margin-bottom: 1rem;
-}
-.info-field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-.field-label {
-  font-size: 0.75rem;
-  color: #6b7280;
-  font-weight: 600;
-}
-.field-value {
-  font-size: 0.875rem;
-  color: #1f2937;
-  font-weight: 500;
-}
-.section-box {
-  background: #f9fafb;
-  border-radius: 0.5rem;
-  padding: 1rem;
-  margin-bottom: 0.75rem;
-}
-.section-box.highlight {
-  background: #eff6ff;
-  border-left: 4px solid #3b82f6;
-}
-.section-box.success {
-  background: #f0fdf4;
-  border-left: 4px solid #16a34a;
-}
-.section-title {
-  font-size: 0.8125rem;
-  font-weight: 700;
-  color: #374151;
-  margin: 0 0 0.5rem 0;
-}
-.section-content {
-  font-size: 0.875rem;
-  color: #4b5563;
-  margin: 0;
-  line-height: 1.6;
-}
-.next-visit {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem;
-  background: #fef3c7;
-  border-radius: 0.5rem;
-  margin-top: 1rem;
-}
-.calendar-icon {
-  font-size: 1.125rem;
-}
-.next-visit-label {
-  font-size: 0.875rem;
-  color: #92400e;
-  font-weight: 600;
-}
-.next-visit-date {
-  font-size: 0.875rem;
-  color: #92400e;
-  font-weight: 700;
-}
-.empty-text {
-  text-align: center;
-  color: #999;
-  font-size: 14px;
 }
 
 /* --- 기존 목록 스타일 유지 --- */
