@@ -1,33 +1,20 @@
 <script setup>
 import { ref, computed, watch, defineProps, defineEmits, onMounted } from 'vue';
-// [수정됨] 파일명을 실제 존재하는 'needsData'로 변경
 import { needsAssessment } from '@/mock/careworker/needsData';
 import { getMyBeneficiaries } from '@/api/careworker';
 import { useUserStore } from '@/stores/user';
 
-// Props
 const props = defineProps({
-  initialData: {
-    type: Object,
-    default: null
-  },
-  readOnly: {
-    type: Boolean,
-    default: false
-  }
+  initialData: { type: Object, default: null },
+  readOnly: { type: Boolean, default: false }
 });
 
-// Emits
 const emit = defineEmits(['submit', 'save-draft']);
-
-// User store
 const userStore = useUserStore();
 
-// 담당 수급자 목록
 const beneficiaries = ref([]);
 const loadingBeneficiaries = ref(false);
 
-// 담당 수급자 목록 불러오기
 const loadBeneficiaries = async () => {
   try {
     loadingBeneficiaries.value = true;
@@ -42,19 +29,16 @@ const loadBeneficiaries = async () => {
   }
 };
 
-// Form data
 const formData = ref({
   beneficiaryId: props.initialData?.beneficiaryId ?? 0,
   recipientName: props.initialData?.recipientName || '',
   careWorkerName: props.initialData?.careWorkerName || userStore.name || '',
   assessmentDate: props.initialData?.assessmentDate || new Date().toISOString().split('T')[0],
-  responses: props.initialData?.responses || props.initialData?.needsItems || {}, // 답변 저장: { weight: 60, diet_type: ['일반식'] }
-  textResponses: props.initialData?.textResponses || {}, // 기타 텍스트 저장: { diet_type_기타: '...' }
+  responses: props.initialData?.responses || props.initialData?.needsItems || {},
+  textResponses: props.initialData?.textResponses || {},
 });
 
-// Watch for initialData changes (for edit mode)
 watch(() => props.initialData, (newData) => {
-  // initialData에 실제 데이터가 있을 때만 업데이트 (beneficiaryId가 있는 경우만)
   if (newData && Object.keys(newData).length > 0 && newData.beneficiaryId) {
     formData.value = {
       beneficiaryId: newData.beneficiaryId,
@@ -67,9 +51,9 @@ watch(() => props.initialData, (newData) => {
   }
 }, { deep: true, immediate: true });
 
-// --- 페이지네이션 (섹션 단위) ---
+// --- 페이지네이션 ---
 const currentPage = ref(1);
-const sectionsPerPage = 3; // 한 페이지당 3개 섹션
+const sectionsPerPage = 2;
 
 const totalPages = computed(() => Math.ceil(needsAssessment.sections.length / sectionsPerPage));
 
@@ -86,10 +70,9 @@ const goToPage = (page) => {
   }
 };
 
-// --- 로직 헬퍼 함수 ---
-
-// 체크박스 토글
+// --- 로직 헬퍼 ---
 const toggleCheckbox = (code, value) => {
+  if (props.readOnly) return;
   if (!formData.value.responses[code]) formData.value.responses[code] = [];
   
   const index = formData.value.responses[code].indexOf(value);
@@ -97,44 +80,79 @@ const toggleCheckbox = (code, value) => {
     formData.value.responses[code].push(value);
   } else {
     formData.value.responses[code].splice(index, 1);
-    // 선택 해제 시 관련 텍스트도 삭제
     if (formData.value.textResponses[`${code}_${value}`]) {
       delete formData.value.textResponses[`${code}_${value}`];
     }
   }
 };
 
-// 조건부 표시 (showWhen)
 const checkShowCondition = (condition) => {
   if (!condition) return true;
-  // condition: { has_children: '유' } -> responses['has_children'] === '유' 인지 확인
   return Object.keys(condition).every(key => formData.value.responses[key] === condition[key]);
 };
 
-// 텍스트 입력창 표시 여부 (hasTextWhen)
 const shouldShowTextInput = (item, choice) => {
   if (!item.hasTextWhen) return false;
-  
-  // 체크박스인 경우: 배열에 포함되어 있고, hasTextWhen 리스트에도 있을 때
   if (item.type === 'checkbox') {
     return formData.value.responses[item.code]?.includes(choice) && item.hasTextWhen.includes(choice);
-  } 
-  // 라디오인 경우: 값이 일치하고, hasTextWhen 리스트에도 있을 때
-  else if (item.type === 'radio') {
+  } else if (item.type === 'radio') {
     return formData.value.responses[item.code] === choice && item.hasTextWhen.includes(choice);
   }
   return false;
 };
 
-// 폼 제출
 const handleSubmit = () => {
-  if (!formData.value.beneficiaryId) {
-    alert('수급자를 선택해주세요.');
-    return;
-  }
-  if (!formData.value.careWorkerName) {
-    alert('작성자명을 입력해주세요.');
-    return;
+  if (!formData.value.beneficiaryId) return alert('수급자를 선택하세요.');
+  if (!formData.value.careWorkerName) return alert('작성자명을 입력하세요.');
+
+  // 필수 항목 검사
+  for (const section of needsAssessment.sections) {
+    for (const item of section.items) {
+      if (item.isOptional) continue; // 선택 항목은 건너뜀
+
+      // 1. 일반 텍스트/라디오/숫자
+      if (['text', 'number', 'radio', 'textarea'].includes(item.type)) {
+        const val = formData.value.responses[item.code];
+        if (val === undefined || val === null || val === '') {
+          alert(`'${section.title}'의 [${item.label}] 항목을 입력해 주세요.`);
+          return;
+        }
+      }
+      
+      // 2. 체크박스 (배열 확인)
+      else if (item.type === 'checkbox') {
+        const val = formData.value.responses[item.code];
+        if (!val || val.length === 0) {
+          alert(`'${section.title}'의 [${item.label}] 항목을 선택해 주세요.`);
+          return;
+        }
+      }
+
+      // 3. 테이블 라디오 (ADL 등)
+      else if (item.type === 'table_radio') {
+        for (const row of item.rows) {
+          const key = `${item.code}_${row}`;
+          if (!formData.value.responses[key]) {
+             alert(`'${section.title}'의 [${row}] 항목을 선택해 주세요.`);
+             return;
+          }
+        }
+      }
+
+      // 4. 복합 필드
+      else if (item.type === 'compound') {
+        for (const field of item.fields) {
+          // 조건부 표시 필드인지 확인
+          if (field.showWhen && !checkShowCondition(field.showWhen)) continue;
+          
+          const val = formData.value.responses[field.code];
+          if (val === undefined || val === null || val === '') {
+            alert(`'${item.label}'의 [${field.label}] 항목을 입력해 주세요.`);
+            return;
+          }
+        }
+      }
+    }
   }
 
   emit('submit', { ...formData.value });
@@ -154,7 +172,7 @@ onMounted(() => {
     <section class="form-section basic-info">
       <div class="section-header">
         <h2>{{ needsAssessment.title }}</h2>
-        <p class="section-desc">수급자의 전반적인 상태와 욕구를 파악하고 맞춤형 서비스를 계획합니다</p>
+        <p class="section-desc">수급자의 전반적인 상태와 욕구를 파악하고 맞춤형 서비스를 계획합니다.</p>
       </div>
 
       <div class="info-grid">
@@ -184,18 +202,15 @@ onMounted(() => {
     </section>
 
     <div class="page-indicator">
-      <div class="page-numbers">
-        <button 
-          v-for="page in totalPages" 
-          :key="page" 
-          class="page-dot"
-          :class="{ active: page === currentPage }"
-          @click="goToPage(page)"
-        >
-          {{ page }}
-        </button>
+      <div class="progress-bar">
+        <div 
+          class="progress-fill" 
+          :style="{ width: `${(currentPage / totalPages) * 100}%` }"
+        ></div>
       </div>
-      <span class="page-text">{{ currentPage }} / {{ totalPages }} 단계</span>
+      <div class="page-numbers">
+        <span class="page-text">Step {{ currentPage }} of {{ totalPages }}</span>
+      </div>
     </div>
 
     <section
@@ -204,7 +219,7 @@ onMounted(() => {
       class="form-section needs-section"
     >
       <div class="sec-header">
-        <span class="sec-code">{{ section.code }}</span>
+        <div class="sec-code-circle">{{ section.code }}</div>
         <h3 class="sec-title">{{ section.title }}</h3>
       </div>
 
@@ -215,9 +230,12 @@ onMounted(() => {
           class="item-group"
           v-show="checkShowCondition(item.showWhen)"
         >
-          <label v-if="item.type !== 'compound' && item.type !== 'table_radio'" class="item-label">
-            {{ item.label }}
-          </label>
+          <div class="item-label-row" v-if="item.type !== 'compound' && item.type !== 'table_radio'">
+            <label class="item-label">
+              {{ item.label }}
+              <span v-if="item.isOptional" class="optional-badge">(선택)</span>
+            </label>
+          </div>
 
           <div v-if="['text', 'number'].includes(item.type)" class="input-wrapper">
             <input 
@@ -225,6 +243,7 @@ onMounted(() => {
               v-model="formData.responses[item.code]" 
               :placeholder="`${item.label} 입력`"
               class="form-input"
+              :disabled="readOnly"
             />
             <span v-if="item.unit" class="unit">{{ item.unit }}</span>
           </div>
@@ -234,55 +253,75 @@ onMounted(() => {
               v-model="formData.responses[item.code]" 
               rows="4" 
               placeholder="내용을 입력하세요"
+              :disabled="readOnly"
             ></textarea>
           </div>
 
-          <div v-else-if="item.type === 'radio'" class="radio-group">
-            <div v-for="choice in item.choices" :key="choice" class="choice-wrap">
-              <label class="radio-label" :class="{ active: formData.responses[item.code] === choice }">
+          <div v-else-if="item.type === 'radio'" class="choice-group">
+            <div 
+              v-for="choice in item.choices" 
+              :key="choice" 
+              class="choice-chip radio"
+              :class="{ 
+                active: formData.responses[item.code] === choice,
+                'read-only': readOnly 
+              }"
+            >
+              <label class="choice-label">
                 <input 
                   type="radio" 
                   :name="item.code" 
                   :value="choice" 
                   v-model="formData.responses[item.code]"
+                  :disabled="readOnly"
                 />
-                {{ choice }}
+                <div class="custom-radio"></div>
+                <span class="choice-text">{{ choice }}</span>
               </label>
+              
               <input 
                 v-if="shouldShowTextInput(item, choice)"
                 type="text" 
                 v-model="formData.textResponses[`${item.code}_${choice}`]" 
                 class="sub-text-input" 
                 :placeholder="item.textLabel?.[choice] || '내용 입력'"
+                :disabled="readOnly"
               />
             </div>
           </div>
 
-          <div v-else-if="item.type === 'checkbox'" class="checkbox-group">
-            <div v-for="choice in item.choices" :key="choice" class="choice-wrap">
-              <label class="checkbox-label" :class="{ active: formData.responses[item.code]?.includes(choice) }">
+          <div v-else-if="item.type === 'checkbox'" class="choice-group">
+            <div 
+              v-for="choice in item.choices" 
+              :key="choice" 
+              class="choice-chip checkbox"
+              :class="{ 
+                active: formData.responses[item.code]?.includes(choice),
+                'read-only': readOnly 
+              }"
+            >
+              <label class="choice-label">
                 <input 
                   type="checkbox" 
                   :value="choice" 
                   :checked="formData.responses[item.code]?.includes(choice)"
                   @change="toggleCheckbox(item.code, choice)"
+                  :disabled="readOnly"
                 />
-                {{ choice }}
+                <div class="custom-checkbox">
+                  <span v-if="formData.responses[item.code]?.includes(choice)">✔</span>
+                </div>
+                <span class="choice-text">{{ choice }}</span>
               </label>
+
               <input 
                 v-if="shouldShowTextInput(item, choice)"
                 type="text" 
                 v-model="formData.textResponses[`${item.code}_${choice}`]" 
                 class="sub-text-input" 
                 :placeholder="item.textLabel?.[choice] || '내용 입력'"
+                :disabled="readOnly"
               />
-              <div v-if="item.subItems && formData.responses[item.code]?.includes(choice)" class="sub-items">
-                <div v-for="sub in item.subItems" :key="sub.code">
-                  <span v-if="sub.showWhen === choice">
-                    <input type="text" v-model="formData.responses[sub.code]" :placeholder="sub.label" class="mini-input" />
-                  </span>
-                </div>
-              </div>
             </div>
           </div>
 
@@ -298,12 +337,16 @@ onMounted(() => {
                 <tr v-for="row in item.rows" :key="row">
                   <td class="row-head">{{ row }}</td>
                   <td v-for="col in item.columns" :key="col" class="center-td">
-                    <input 
-                      type="radio" 
-                      :name="`${item.code}_${row}`" 
-                      :value="col"
-                      v-model="formData.responses[`${item.code}_${row}`]"
-                    />
+                    <label class="table-radio-label">
+                      <input 
+                        type="radio" 
+                        :name="`${item.code}_${row}`" 
+                        :value="col"
+                        v-model="formData.responses[`${item.code}_${row}`]"
+                        :disabled="readOnly"
+                      />
+                      <div class="custom-radio-sm"></div>
+                    </label>
                   </td>
                 </tr>
               </tbody>
@@ -311,7 +354,7 @@ onMounted(() => {
           </div>
 
           <div v-else-if="item.type === 'compound'" class="compound-wrapper">
-            <span class="compound-label">{{ item.label }}</span>
+            <span class="compound-main-label">{{ item.label }}</span>
             <div class="compound-fields">
               <div 
                 v-for="field in item.fields" 
@@ -326,11 +369,12 @@ onMounted(() => {
                   :type="field.type" 
                   v-model="formData.responses[field.code]"
                   class="form-input mini"
+                  :disabled="readOnly"
                 />
                 
                 <div v-else-if="field.type === 'radio'" class="radio-inline">
                   <label v-for="c in field.choices" :key="c" class="radio-label small">
-                    <input type="radio" :name="field.code" :value="c" v-model="formData.responses[field.code]" />
+                    <input type="radio" :name="field.code" :value="c" v-model="formData.responses[field.code]" :disabled="readOnly" />
                     {{ c }}
                   </label>
                 </div>
@@ -343,13 +387,17 @@ onMounted(() => {
     </section>
 
     <div class="nav-buttons">
-      <button v-if="currentPage > 1" class="btn-nav" @click="goToPage(currentPage - 1)">← 이전</button>
+      <button v-if="currentPage > 1" class="btn-nav prev" @click="goToPage(currentPage - 1)">
+        ← 이전 단계
+      </button>
       <div class="spacer"></div>
-      <button v-if="currentPage < totalPages" class="btn-nav next" @click="goToPage(currentPage + 1)">다음 단계 →</button>
+      <button v-if="currentPage < totalPages" class="btn-nav next" @click="goToPage(currentPage + 1)">
+        다음 단계 →
+      </button>
       
-      <div v-if="currentPage === totalPages" class="submit-group">
-        <button class="btn-sec" @click="handleSaveDraft">임시저장</button>
-        <button class="btn-pri" @click="handleSubmit">제출하기</button>
+      <div v-if="currentPage === totalPages && !readOnly" class="submit-group">
+        <button class="btn-secondary" @click="handleSaveDraft">임시저장</button>
+        <button class="btn-primary" @click="handleSubmit">제출하기</button>
       </div>
     </div>
   </div>
@@ -357,94 +405,189 @@ onMounted(() => {
 
 <style scoped>
 .needs-assessment-form {
-  max-width: 1000px;
+  max-width: 1200px;
   margin: 0 auto;
-  padding: 20px;
+  padding: 1rem;
   font-family: 'Noto Sans KR', sans-serif;
-  color: #333;
 }
 
-/* 헤더 & 기본정보 */
-.form-section { background: white; border-radius: 8px; padding: 20px; margin-bottom: 20px; border: 1px solid #e5e7eb; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
-.section-header h2 { text-align: center; color: #10b981; font-size: 1.5rem; margin-bottom: 5px; }
-.section-desc { text-align: center; color: #6b7280; font-size: 0.9rem; }
+/* --- 공통 섹션 스타일 (파란색 테마) --- */
+.form-section {
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+  border: 1px solid #e2e8f0;
+}
 
-.info-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-top: 15px; }
+.section-header h2 {
+  color: #1d4ed8; /* Blue 700 */
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 5px;
+}
+
+.section-desc { color: #6b7280; font-size: 0.9rem; margin-bottom: 20px; }
+
+.required { color: #ef4444; margin-left: 2px; }
+
+/* 정보 입력 그리드 */
+.info-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
 .info-row { display: flex; flex-direction: column; gap: 5px; }
 .info-row label { font-size: 0.85rem; font-weight: 600; color: #4b5563; }
-.info-row input, .info-row select { padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; }
+.info-row input, .info-row select { 
+  padding: 8px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.9rem; 
+}
+.info-row input:focus, .info-row select:focus {
+  outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
 
-/* 페이지 인디케이터 */
-.page-indicator { display: flex; flex-direction: column; align-items: center; margin-bottom: 20px; gap: 8px; }
-.page-numbers { display: flex; gap: 8px; }
-.page-dot { width: 10px; height: 10px; border-radius: 50%; background: #e5e7eb; border: none; padding: 0; cursor: pointer; transition: all 0.3s; text-indent: -9999px; }
-.page-dot.active { background: #10b981; transform: scale(1.2); }
-.page-text { font-size: 0.85rem; color: #10b981; font-weight: 600; }
+/* --- 페이지 인디케이터 --- */
+.page-indicator { margin-bottom: 25px; padding: 0 10px; }
+.progress-bar {
+  height: 6px; background: #e5e7eb; border-radius: 3px; overflow: hidden; margin-bottom: 8px;
+}
+.progress-fill {
+  height: 100%; background: #3b82f6; /* Blue 500 */
+  transition: width 0.3s ease;
+}
+.page-numbers { text-align: right; }
+.page-text { font-size: 0.85rem; color: #2563eb; font-weight: 600; }
 
-/* 섹션 스타일 */
-.needs-section { border-top: 4px solid #10b981; }
-.sec-header { display: flex; align-items: center; gap: 10px; margin-bottom: 15px; border-bottom: 1px solid #f3f4f6; padding-bottom: 10px; }
-.sec-code { background: #10b981; color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.85rem; }
-.sec-title { font-size: 1.1rem; color: #374151; margin: 0; }
+/* --- 평가 섹션 스타일 --- */
+.needs-section { 
+  border-top: 4px solid #3b82f6; /* Blue 500 */
+}
 
-/* 아이템 공통 */
-.item-group { margin-bottom: 20px; }
-.item-label { display: block; font-weight: 600; font-size: 0.9rem; margin-bottom: 8px; color: #1f2937; }
+.sec-header {
+  display: flex; align-items: center; gap: 10px; 
+  margin-bottom: 20px; border-bottom: 1px solid #eff6ff; padding-bottom: 10px;
+}
+.sec-code-circle {
+  width: 28px; height: 28px; background: #3b82f6; color: white;
+  border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 0.9rem;
+}
+.sec-title { font-size: 1.1rem; color: #1e3a8a; /* Blue 900 */ margin: 0; }
 
-/* 입력 필드 */
-.input-wrapper { display: flex; align-items: center; gap: 5px; }
-.form-input { padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 0.9rem; flex: 1; max-width: 300px; }
-.unit { color: #6b7280; font-size: 0.85rem; }
-.textarea-wrapper textarea { width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 4px; resize: vertical; }
+/* 아이템 그룹 */
+.item-group { margin-bottom: 25px; padding-bottom: 15px; border-bottom: 1px dashed #e5e7eb; }
+.item-group:last-child { border-bottom: none; }
 
-/* 라디오/체크박스 */
-.radio-group, .checkbox-group { display: flex; flex-wrap: wrap; gap: 10px; }
-.choice-wrap { display: flex; align-items: center; gap: 5px; }
-.radio-label, .checkbox-label { display: flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1px solid #e5e7eb; border-radius: 20px; cursor: pointer; font-size: 0.9rem; transition: all 0.2s; background: #fff; }
-.radio-label:hover, .checkbox-label:hover { background: #f0fdf4; border-color: #10b981; }
-.radio-label.active, .checkbox-label.active { background: #d1fae5; border-color: #10b981; color: #065f46; font-weight: 600; }
-.radio-label input, .checkbox-label input { accent-color: #10b981; display: none; }
+.item-label { display: block; font-weight: 600; font-size: 0.95rem; margin-bottom: 10px; color: #1f2937; }
+
+/* 입력 필드 공통 */
+.input-wrapper { display: flex; align-items: center; gap: 8px; }
+.form-input { 
+  padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.9rem; flex: 1; max-width: 300px; 
+}
+.form-input:focus { outline: none; border-color: #3b82f6; }
+.unit { color: #6b7280; font-size: 0.9rem; }
+
+.textarea-wrapper textarea {
+  width: 100%; padding: 12px; border: 1px solid #d1d5db; border-radius: 6px; 
+  resize: vertical; min-height: 100px;
+}
+.textarea-wrapper textarea:focus { outline: none; border-color: #3b82f6; }
+
+/* 선택형 (칩 스타일) - 파란색 테마 */
+.optional-badge { font-size: 0.8rem; color: #9ca3af; font-weight: normal; margin-left: 5px; }
+
+.choice-group { display: flex; flex-wrap: wrap; gap: 10px; }
+.choice-chip {
+  display: flex; align-items: center; gap: 8px; padding: 8px 14px;
+  border: 1px solid #e5e7eb; border-radius: 20px; background: #fff;
+  transition: all 0.2s; cursor: pointer;
+}
+.choice-chip:hover:not(.read-only) { background: #eff6ff; border-color: #3b82f6; }
+.choice-chip.active {
+  background: #dbeafe; border-color: #3b82f6; color: #1e40af; font-weight: 600;
+}
+
+.choice-label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.choice-label input { display: none; } 
+
+/* 커스텀 라디오/체크박스 아이콘 */
+.custom-radio, .custom-checkbox {
+  width: 16px; height: 16px; border: 2px solid #d1d5db; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+}
+.choice-chip.checkbox .custom-checkbox { border-radius: 4px; }
+.choice-chip.active .custom-radio, .choice-chip.active .custom-checkbox {
+  border-color: #3b82f6; background: #3b82f6;
+}
+.choice-chip.active .custom-radio::after {
+  content: ''; width: 6px; height: 6px; background: white; border-radius: 50%;
+}
+.custom-checkbox span { color: white; font-size: 10px; line-height: 1; }
 
 /* 추가 텍스트 입력 */
-.sub-text-input { border: none; border-bottom: 1px solid #9ca3af; padding: 2px 5px; outline: none; font-size: 0.85rem; width: 120px; transition: border 0.2s; }
-.sub-text-input:focus { border-bottom: 2px solid #10b981; }
+.sub-text-input {
+  border: none; border-bottom: 1px solid #9ca3af; padding: 2px 5px;
+  outline: none; font-size: 0.9rem; background: transparent; width: 150px;
+}
+.sub-text-input:focus { border-bottom: 2px solid #3b82f6; }
 
 /* 테이블 (ADL) */
-.table-wrapper { overflow-x: auto; }
+.table-wrapper { overflow-x: auto; margin-top: 10px; }
 .adl-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
-.adl-table th, .adl-table td { border: 1px solid #e5e7eb; padding: 8px; text-align: center; }
-.adl-table th { background: #f9fafb; font-weight: 600; color: #374151; }
-.adl-table .row-head { text-align: left; font-weight: 500; background: #fff; }
-.adl-table input { accent-color: #10b981; cursor: pointer; }
+.adl-table th { background: #f9fafb; font-weight: 600; color: #374151; padding: 10px; border: 1px solid #e5e7eb; }
+.adl-table td { padding: 10px; border: 1px solid #e5e7eb; vertical-align: middle; }
+.adl-table .row-head { font-weight: 500; background: #fff; }
+.adl-table .center-td { text-align: center; }
 
-/* 복합 필드 */
-.compound-wrapper { background: #f9fafb; padding: 12px; border-radius: 6px; border: 1px solid #f3f4f6; }
-.compound-label { display: block; font-weight: 600; margin-bottom: 8px; font-size: 0.9rem; }
-.compound-fields { display: flex; flex-wrap: wrap; gap: 15px; align-items: center; }
-.sub-field { display: flex; align-items: center; gap: 6px; }
-.sub-label { font-size: 0.85rem; color: #555; }
-.radio-inline { display: flex; gap: 8px; }
-.radio-label.small { padding: 4px 8px; font-size: 0.8rem; }
-.mini { max-width: 80px; }
+.table-radio-label { cursor: pointer; display: inline-block; padding: 5px; }
+.table-radio-label input { display: none; }
+.custom-radio-sm {
+  width: 14px; height: 14px; border: 2px solid #d1d5db; border-radius: 50%;
+}
+.table-radio-label input:checked + .custom-radio-sm {
+  border-color: #3b82f6; background: #3b82f6; box-shadow: inset 0 0 0 2px white;
+}
 
-/* 하단 네비게이션 */
+/* 복합 필드 (Compound) - 파란색 배경 톤 */
+/* 복합 필드 (Compound) - 스타일 제거 (일반 항목과 통일) */
+.compound-wrapper { /* background: #eff6ff; padding: 15px; border-radius: 8px; border: 1px solid #dbeafe; */ margin-top: 5px; }
+.compound-main-label { display: block; font-weight: 700; margin-bottom: 10px; color: #1e40af; }
+.compound-fields { display: flex; flex-wrap: wrap; gap: 20px; }
+.sub-field { display: flex; flex-direction: column; gap: 5px; }
+.sub-label { font-size: 0.85rem; color: #4b5563; }
+.mini { max-width: 100px; padding: 6px; }
+.radio-inline { display: flex; gap: 10px; }
+.radio-label.small { font-size: 0.85rem; }
+
+/* 하단 네비게이션 버튼 */
 .nav-buttons { display: flex; align-items: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; }
 .spacer { flex: 1; }
-.btn-nav { padding: 10px 20px; border: 1px solid #d1d5db; background: white; border-radius: 6px; cursor: pointer; font-weight: 600; color: #4b5563; }
-.btn-nav:hover { background: #f9fafb; }
-.btn-nav.next { background: #10b981; color: white; border: none; }
-.btn-nav.next:hover { background: #059669; }
+
+.btn-nav {
+  padding: 10px 20px; border-radius: 6px; font-weight: 600; cursor: pointer; transition: all 0.2s;
+}
+.btn-nav.prev { background: white; border: 1px solid #d1d5db; color: #4b5563; }
+.btn-nav.prev:hover { background: #f9fafb; }
+.btn-nav.next { background: #3b82f6; border: none; color: white; }
+.btn-nav.next:hover { background: #2563eb; }
 
 .submit-group { display: flex; gap: 10px; }
-.btn-sec { padding: 10px 20px; border: 1px solid #d1d5db; background: white; border-radius: 6px; cursor: pointer; font-weight: 600; }
-.btn-pri { padding: 10px 25px; border: none; background: #10b981; color: white; border-radius: 6px; cursor: pointer; font-weight: 600; }
+.btn-primary { 
+  background: #3b82f6; color: white; padding: 10px 25px; 
+  border-radius: 6px; border: none; font-weight: 700; cursor: pointer; 
+}
+.btn-primary:hover { background: #2563eb; }
+.btn-secondary {
+  background: white; color: #4b5563; padding: 10px 25px;
+  border-radius: 6px; border: 1px solid #d1d5db; font-weight: 700; cursor: pointer;
+}
+.btn-secondary:hover { background: #f9fafb; }
+
+/* Readonly */
+.read-only { pointer-events: none; opacity: 0.9; }
+input:disabled, textarea:disabled, select:disabled { background: #f3f4f6; cursor: not-allowed; }
 
 @media (max-width: 768px) {
   .info-grid { grid-template-columns: 1fr; }
-  .compound-fields { flex-direction: column; align-items: flex-start; }
-  .radio-group, .checkbox-group { flex-direction: column; align-items: flex-start; }
-  .choice-wrap { width: 100%; }
+  .compound-fields { flex-direction: column; }
+  .nav-buttons { flex-direction: column; gap: 10px; }
+  .btn-nav, .submit-group, .btn-primary, .btn-secondary { width: 100%; }
 }
 </style>
-
-
