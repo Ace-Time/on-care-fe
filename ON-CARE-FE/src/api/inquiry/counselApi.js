@@ -63,3 +63,8 @@ export const registExistingGeneral = (customerId, params, data) => {
   // params: { customerType }
   return api.post(`/api/counsel/${customerId}/general`, data, { params });
 };
+
+export const saveStageDataApi = (customerId, stage, data) => {
+  // 백엔드: CounselCommandController.saveStageData
+  return api.post(`/api/counsel/potentialStage/${stage}/${customerId}`, data);
+};

@@ -26,7 +26,8 @@
       <div class="grid-item">
         <CounselWriteCard
         :selected-customer="currentCustomer"
-        @update:category="handleCategoryChange" />
+        @update:category="handleCategoryChange" 
+        @reset="handleResetCustomer" />
       </div>
 
       <div class="grid-item detail-container">
@@ -34,6 +35,7 @@
           <CounselHelpDetail
           :category="currentCategory"
           :counsel-detail="currentCounselDetail"
+          :customer="currentCustomer"
           />
         </div>
       </div>
@@ -49,6 +51,7 @@ import CounselList from '@/components/inquiry/Counsel/CounselList.vue';
 import CounselWriteCard from '@/components/inquiry/Counsel/CounselWriteCard.vue';
 import CounselHelpDetail from '@/components/inquiry/Counsel/CounselHelpDetail.vue';
 import CounselDetailCard from '@/components/inquiry/Counsel/CounselDetailCard.vue';
+import SubscriptProcess from '@/components/inquiry/Counsel/Process/SubscriptProcess.vue';
 
 // 상태 관리
 const currentCustomer = ref(null);
@@ -70,6 +73,12 @@ const handleSelectCounselDetail = (detailData) => {
 const handleCategoryChange = (newCategory) => {
   console.log('작성 카테고리 변경됨:', newCategory);
   currentCategory.value = newCategory;
+};
+
+const handleResetCustomer = () => {
+  console.log('고객 선택 초기화');
+  currentCustomer.value = null;
+  currentCounselDetail.value = null;
 };
 </script>
 

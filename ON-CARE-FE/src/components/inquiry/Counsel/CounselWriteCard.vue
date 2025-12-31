@@ -1,18 +1,23 @@
 <template>
   <div class="card write-section">
     <div class="card-header simple flex-between">
-      <div class="header-title">작성</div>
+      <div class="header-title">상담 작성</div>
       
-      <div class="dropdown-trigger" @click="toggleDropdown">
-        <span>{{ form.category }}</span>
-        <div class="arrow-down"></div>
-        
-        <div v-if="isDropdownOpen" class="dropdown-menu">
-          <div class="dropdown-item" @click.stop="selectCategory('subscript', '가입상담')">가입상담</div>
-          <div class="dropdown-item" @click.stop="selectCategory('rental', '렌탈상담')">렌탈상담</div>
-          <div class="dropdown-item" @click.stop="selectCategory('inquiry', '문의상담')">문의상담</div>
-          <div class="dropdown-item" @click.stop="selectCategory('complain', '컴플레인')">컴플레인</div>
-          <div class="dropdown-item" @click.stop="selectCategory('terminate', '해지상담')">해지상담</div>
+      <div class="right-group">
+        <button class="btn-new-green" @click="resetForm">신규 상담</button>
+
+        <div class="dropdown-trigger" @click="toggleDropdown">
+          <span>{{ form.category }}</span>
+          <div class="arrow-down"></div>
+          
+          <div v-if="isDropdownOpen" class="dropdown-menu">
+            <div class="dropdown-item" @click.stop="selectCategory('유형선택')">유형선택</div>
+            <div class="dropdown-item" @click.stop="selectCategory('가입상담')">가입상담</div>
+            <div class="dropdown-item" @click.stop="selectCategory('렌탈상담')">렌탈상담</div>
+            <div class="dropdown-item" @click.stop="selectCategory('문의상담')">문의상담</div>
+            <div class="dropdown-item" @click.stop="selectCategory('컴플레인')">컴플레인</div>
+            <div class="dropdown-item" @click.stop="selectCategory('해지상담')">해지상담</div>
+          </div>
         </div>
       </div>
     </div>
@@ -86,7 +91,7 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue';
+import { ref, reactive, watch } from 'vue';
 
 const props = defineProps({
   selectedCustomer: {
@@ -96,13 +101,34 @@ const props = defineProps({
 });
 
 // 부모에게 이벤트를 보낼 정의
-const emit = defineEmits(['update:category']);
+const emit = defineEmits(['update:category', 'reset']);
 // 신규 고객일 때 입력할 데이터를 담을 form 객체 (반응형)
 const form = reactive({
-  category: '가입상담',
+  category: '유형선택',
   name: '',
   phone: ''
 });
+
+// [추가] selectedCustomer 변경 감지하여 form 데이터 동기화
+watch(() => props.selectedCustomer, (newCustomer) => {
+  if (newCustomer) {
+    form.name = newCustomer.name;
+    form.phone = newCustomer.phone;
+  } else {
+    // 고객 선택이 해제되면 폼도 비워주거나 유지(여기서는 비움)
+    form.name = '';
+    form.phone = '';
+  }
+}, { immediate: true });
+
+const resetForm = () => {
+  form.category = '가입상담';
+  form.name = '';
+  form.phone = '';
+  isChurned.value = false;
+  isNecessary.value = false;
+  emit('reset');
+};
 
 const isDropdownOpen = ref(false);
 
@@ -262,4 +288,29 @@ const toggleNecessary = () => {
   background: white; 
 }
 .compact-input:focus { border-color: #3B82F6; outline: none; }
+
+/* [추가] 우측 요소 그룹화 */
+.right-group {
+  display: flex;
+  align-items: center;
+  gap: 8px; /* 버튼과 드롭다운 사이 간격 */
+}
+
+/* [추가] 옅은 초록색 버튼 스타일 */
+.btn-new-green {
+  padding: 6px 12px;
+  background-color: #ECFDF5; /* 옅은 초록 배경 */
+  border: 1px solid #6EE7B7; /* 연한 초록 테두리 */
+  border-radius: 6px;
+  color: #059669; /* 짙은 초록 텍스트 */
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.2s;
+}
+
+.btn-new-green:hover {
+  background-color: #D1FAE5; /* 호버 시 조금 더 진하게 */
+}
 </style>

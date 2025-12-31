@@ -1,7 +1,7 @@
 <template>
   <div class="card consultation-section">
     <div class="card-header">
-      <div class="header-title">김미영님의 상담 리스트</div>
+      {{ selectedCustomer ? `${selectedCustomer.name}님의 상담 리스트` : '상담 리스트' }}
     </div>
     
     <div class="filter-dropdown-area">
@@ -139,10 +139,13 @@ const onScroll = (e) => {
 const fetchCounselList = async (customerId) => {
   try {
     isLoading.value = true;
+    const typeParam = props.selectedCustomer?.customerType === 'beneficiary' 
+      ? 'beneficiary' 
+      : 'potential';
     
     const params = {
-      customerType: 'beneficiary', 
-      page: currentPage.value, // 현재 페이지 번호 전달
+      customerType: typeParam, // 변환된 값 사용
+      page: currentPage.value, 
       size: pageSize
     };
 

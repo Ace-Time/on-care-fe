@@ -5,12 +5,16 @@
     </div>
     
     <div class="detail-body">
+      <div v-if="customer?.customerType === 'potential'">
+        <SubscriptProcess :customer="customer" />
+      </div>
       <div v-if="counselDetail" class="selected-detail">
         <CounselDetailCard v-bind="counselDetail" />
       </div>
-      <MatchingHelpForm v-if="category === 'subscript'" />
-      <RentalInfoForm v-else-if="category === 'rental'" />
-      <ComplainResolutionHelp v-else-if="category === 'complain'" />
+      
+      <MatchingHelpForm v-if="category === '가입상담'" />
+      <RentalInfoForm v-else-if="category === '렌탈상담'" />
+      <ComplainResolutionHelp v-else-if="category === '컴플레인'" />
       
       
       
@@ -27,12 +31,17 @@ import RentalInfoForm from '@/components/inquiry/Counsel/HelpDetail/RentalInfoFo
 import MatchingHelpForm from '@/components/inquiry/Counsel/HelpDetail/MatchingHelpForm.vue';
 import ComplainResolutionHelp from '@/components/inquiry/Counsel/HelpDetail/ComplainResolutionHelp.vue';
 import CounselDetailCard from '@/components/inquiry/Counsel/CounselDetailCard.vue';
+import SubscriptProcess from '@/components/inquiry/Counsel/Process/SubscriptProcess.vue';
 defineProps({
   category: {
     type: String,
     default: ''
   },
-  counselDetail: { type: Object, default: null }
+  counselDetail: { type: Object, default: null },
+  customer: {
+    type: Object,
+    default: null
+  }
 });
 </script>
 

@@ -1,33 +1,36 @@
 <template>
   <div class="process-section">
     <div class="stepper-container">
-      <div class="step-item completed">
-        <div class="step-circle"><span class="check-icon"></span></div>
-        <div class="step-label">신규접수</div>
+      <div 
+        class="step-item active clickable" 
+        @click="selectComponent(NewPotentialRegist)"
+      >
+        <div class="step-circle orange">1</div>
+        <div class="step-label active-text">신규접수</div>
       </div>
-      <div class="step-line completed"></div>
+      <div class="step-line"></div>
       
-      <div class="step-item completed">
-        <div class="step-circle"><span class="check-icon"></span></div>
+      <div class="step-item">
+        <div class="step-circle gray">2</div>
         <div class="step-label">등급확인</div>
       </div>
-      <div class="step-line completed"></div>
+      <div class="step-line"></div>
 
-      <div class="step-item completed">
-        <div class="step-circle"><span class="check-icon"></span></div>
+      <div class="step-item">
+        <div class="step-circle gray">3</div>
         <div class="step-label">사전정보</div>
       </div>
-      <div class="step-line completed"></div>
+      <div class="step-line"></div>
 
-      <div class="step-item completed">
-        <div class="step-circle"><span class="check-icon"></span></div>
+      <div class="step-item">
+        <div class="step-circle gray">4</div>
         <div class="step-label">계약완료</div>
       </div>
-      <div class="step-line completed"></div>
+      <div class="step-line"></div>
 
       <div class="step-item active">
-        <div class="step-circle orange">5</div>
-        <div class="step-label active-text">계약진행</div>
+        <div class="step-circle gray">5</div>
+        <div class="step-label">계약진행</div>
       </div>
       <div class="step-line"></div>
 
@@ -50,6 +53,21 @@
 </template>
 
 <script setup>
+import { shallowRef } from 'vue';
+import NewPotentialRegist from '@/components/inquiry/Counsel/Process/subscript/NewPotentialRegist.vue';
+
+
+const currentComponent = shallowRef(null);
+
+// 컴포넌트 변경 함수
+const selectComponent = (component) => {
+  // 이미 열려있는 걸 다시 누르면 닫기 기능 (선택사항 logic)
+  if (currentComponent.value === component) {
+    currentComponent.value = null;
+  } else {
+    currentComponent.value = component;
+  }
+};
 
 </script>
 
@@ -75,6 +93,16 @@
   gap: 8px;
   position: relative;
   z-index: 1;
+}
+
+/* [추가] 클릭 가능한 아이템 스타일 */
+.step-item.clickable {
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.step-item.clickable:hover {
+  transform: translateY(-2px); /* 살짝 위로 떠오르는 효과 */
 }
 
 .step-circle {
@@ -139,6 +167,22 @@
   height: 100%;
   background: linear-gradient(90deg, #2B7FFF 0%, #51A2FF 100%);
   border-radius: 999px;
+}
+
+/* [추가] 컴포넌트 렌더링 영역 스타일 */
+.component-view-area {
+  margin-top: 20px;
+  padding: 20px;
+  border: 1px solid #E5E7EB;
+  border-radius: 12px;
+  background-color: #fff;
+  /* 부드러운 등장을 위한 애니메이션 효과 (선택사항) */
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 @media (max-width: 1200px) {
