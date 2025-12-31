@@ -6,8 +6,8 @@
       <span class="rental-count">총 {{ rentals.length }}개</span>
     </div>
 
-    <!-- ✅ 단일 리스트 -->
-    <ul class="svc-card-list scroll-list">
+    <!-- ✅ 단일 리스트 (스크롤 제거 → 페이징 처리) -->
+    <ul class="svc-card-list">
       <li v-if="!beneficiaryId" class="empty">수급자를 선택해주세요.</li>
       <li v-else-if="loading" class="empty">불러오는 중...</li>
       <li v-else-if="errorMsg" class="empty">{{ errorMsg }}</li>
@@ -15,7 +15,7 @@
 
       <li
         v-else
-        v-for="item in rentals"
+        v-for="item in pagedRentals"
         :key="itemKey(item)"
         class="svc-card rental-card"
         :class="{ current: !isEnded(item) }"
@@ -47,6 +47,31 @@
       </li>
     </ul>
 
+    <!-- ✅ 하단 중앙 페이징 (페이지가 2 이상일 때만 표시) -->
+    <div v-if="totalPages > 1" class="bottom-pager">
+      <button
+        type="button"
+        class="page-btn"
+        :disabled="loading || page <= 0"
+        @click="page--"
+      >
+        이전
+      </button>
+
+      <span class="page-info">
+        {{ page + 1 }} / {{ totalPages }}
+      </span>
+
+      <button
+        type="button"
+        class="page-btn"
+        :disabled="loading || page >= totalPages - 1"
+        @click="page++"
+      >
+        다음
+      </button>
+    </div>
+
     <!-- ✅ 모달 -->
     <RentalModal
       v-model="showModal"
@@ -59,7 +84,7 @@
 </template>
 
 <script setup>
-import { onMounted, ref, watch, toRaw } from "vue"; // ✅ toRaw 추가
+import { onMounted, ref, watch, toRaw, computed } from "vue"; // ✅ computed 추가
 import api from "@/lib/api";
 import RentalModal from "../modal/RentalModal.vue";
 
@@ -115,10 +140,25 @@ const normalizeList = (data) => {
   return [];
 };
 
+/** ✅ (추가) 페이징 상태 */
+const page = ref(0);
+const pageSize = ref(10);
+
+const totalCount = computed(() => rentals.value.length);
+const totalPages = computed(() =>
+  totalCount.value === 0 ? 0 : Math.ceil(totalCount.value / pageSize.value)
+);
+
+const pagedRentals = computed(() => {
+  const start = page.value * pageSize.value;
+  return rentals.value.slice(start, start + pageSize.value);
+});
+
 /** ✅ 단일 리스트 조회 */
 const fetchRentals = async () => {
   if (!props.beneficiaryId) {
     rentals.value = [];
+    page.value = 0;
     return;
   }
 
@@ -142,10 +182,16 @@ const fetchRentals = async () => {
 
       return Number(b?.rentalProductId ?? 0) - Number(a?.rentalProductId ?? 0);
     });
+
+    // ✅ 목록 로드 후 현재 page가 범위를 벗어나면 보정
+    if (page.value > 0 && page.value >= totalPages.value) {
+      page.value = Math.max(totalPages.value - 1, 0);
+    }
   } catch (e) {
     console.error(e);
     rentals.value = [];
     errorMsg.value = "렌탈 정보를 불러오지 못했습니다.";
+    page.value = 0;
   } finally {
     loading.value = false;
   }
@@ -192,6 +238,7 @@ watch(
     showModal.value = false;
     selectedRental.value = null;
     selectedType.value = "current";
+    page.value = 0; // ✅ 수급자 변경 시 페이지 초기화
     fetchRentals();
   }
 );
@@ -225,32 +272,6 @@ watch(
   list-style: none;
   margin: 0;
   padding: 0;
-}
-
-/* ✅ 스크롤 + 스크롤바 스타일(웹킷/파폭) */
-.scroll-list {
-  max-height: 360px;
-  overflow-y: auto;
-  padding-right: 6px; /* 스크롤바 공간 */
-
-  /* Firefox */
-  scrollbar-width: thin;
-  scrollbar-color: #cbd5e1 transparent;
-}
-
-/* Chrome / Edge / Safari */
-.scroll-list::-webkit-scrollbar {
-  width: 8px;
-}
-.scroll-list::-webkit-scrollbar-track {
-  background: transparent;
-}
-.scroll-list::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 999px;
-}
-.scroll-list::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
 }
 
 .svc-card {
@@ -333,6 +354,38 @@ watch(
   padding: 14px 10px;
   color: #6b7280;
   font-size: 12px;
+}
+
+/* ✅ 하단 중앙 페이징 (Inquiry/요양일지 스타일과 동일) */
+.bottom-pager {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+  padding: 6px 0;
+}
+
+.page-info {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.page-btn {
+  border: none;
+  background: #f3f4f6;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.page-btn:hover {
+  background: #e5e7eb;
+}
+.page-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 @media (max-width: 1200px) {
