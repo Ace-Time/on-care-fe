@@ -120,17 +120,15 @@ const allEducations = computed(() => {
 // 0. 상태 변경 핸들러
 const handleStatusChange = async (cert, newStatus) => {
   if (newStatus === 'REJECTED') {
-    const reason = prompt('반려 사유를 입력해주세요:');
-    if (reason === null) return; // 취소
-    if (!reason.trim()) { alert('반려 사유는 필수입니다.'); return; }
-    
+    if (!confirm('반려하시겠습니까?')) return; // 확인창으로 변경
+
     // API 호출 (반려)
     try {
       const certId = cert.certificateId || cert.id || cert.licenseNo; // ID 확보
-      await updateCertificateStatus(certId, 'REJECTED', reason);
+      await updateCertificateStatus(certId, 'REJECTED');
       alert('반려 처리되었습니다.');
       // 화면 갱신: cert.status를 직접 바꿔주거나 refresh emit
-      cert.status = 'REJECTED'; 
+      cert.status = 'REJECTED';
     } catch (e) {
       console.error(e);
       alert('처리 중 오류가 발생했습니다.');
@@ -138,9 +136,9 @@ const handleStatusChange = async (cert, newStatus) => {
   } else {
     // 승인
     if (!confirm('정말 승인하시겠습니까?')) return;
-    
+
     try {
-      const certId = cert.certificateId || cert.id || cert.licenseNo; 
+      const certId = cert.certificateId || cert.id || cert.licenseNo;
       await updateCertificateStatus(certId, 'APPROVED');
       alert('승인되었습니다.');
       cert.status = 'APPROVED';

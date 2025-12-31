@@ -18,6 +18,26 @@ const currentYear = computed(() => currentDate.value.getFullYear());
 const currentMonth = computed(() => currentDate.value.getMonth());
 const monthNames = ["1월", "2월", "3월", "4월", "5월", "6월", "7월", "8월", "9월", "10월", "11월", "12월"];
 
+// 날짜 선택기(input date)와 연동하기 위한 Computed 속성
+// currentDate(Date객체) <-> input(String) 변환 담당
+const datePickerValue = computed({
+  get() {
+    const year = currentDate.value.getFullYear();
+    const month = String(currentDate.value.getMonth() + 1).padStart(2, '0');
+    const day = String(currentDate.value.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  },
+  set(val) {
+    // 사용자가 날짜를 변경하면 currentDate 업데이트
+    if (val) currentDate.value = new Date(val);
+  }
+});
+
+// 오늘 날짜로 이동하는 함수
+const goToToday = () => {
+  currentDate.value = new Date();
+};
+
 // --- 핵심 로직: 월별 주(Week) 데이터 생성 ---
 const calendarWeeks = computed(() => {
   const weeks = [];
@@ -130,14 +150,29 @@ const nextMonth = () => currentDate.value = new Date(currentYear.value, currentM
 <template>
   <div class="calendar-wrapper">
     <div class="header">
-      <button @click="prevMonth" class="nav-btn">
-        <svg class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-        이전달
-      </button>
-      <h2 class="title">{{ currentYear }}년 {{ monthNames[currentMonth] }}</h2>
-      <button @click="nextMonth" class="nav-btn">
-        다음달 
-        <svg class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+      <div class="nav-group">
+        <button @click="prevMonth" class="nav-btn">
+          <svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        </button>
+
+        <div class="title-area">
+          <div class="date-picker-wrapper">
+            <input type="date" v-model="datePickerValue" class="hidden-date-input" />
+            <button type="button" class="btn-calendar-icon" title="날짜 선택">
+              📅
+            </button>
+          </div>
+
+          <span class="current-date-text">{{ currentYear }}년 {{ monthNames[currentMonth] }}</span>
+        </div>
+
+        <button @click="nextMonth" class="nav-btn">
+          <svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+        </button>
+      </div>
+
+      <button @click="goToToday" class="btn-today">
+        오늘
       </button>
     </div>
 
@@ -232,8 +267,96 @@ const nextMonth = () => currentDate.value = new Date(currentYear.value, currentM
 /* 헤더 */
 .header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid #f0f0f0; }
 .title { font-size: 20px; font-weight: 700; color: #166534; margin: 0; }
-.nav-btn { display: flex; align-items: center; gap: 4px; padding: 6px 12px; border: 1px solid #ddd; border-radius: 6px; background: white; color: #555; font-size: 13px; cursor: pointer; transition: all 0.2s; }
-.nav-btn:hover { background: #f9fafb; border-color: #ccc; color: #333; }
+
+/* 오늘 버튼 */
+.btn-today {
+  padding: 6px 16px;
+  background-color: white;
+  border: 1px solid #d1d5db;
+  border-radius: 20px;
+  color: #374151;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-today:hover {
+  background-color: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+/* 중앙 네비게이션 그룹 */
+.nav-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* 네비게이션 버튼 */
+.nav-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #6b7280;
+  display: flex;
+  align-items: center;
+  padding: 4px;
+  transition: color 0.2s;
+}
+.nav-btn:hover { color: #111; }
+
+/* 타이틀 영역 (날짜 선택기 + 연도/월 표시) */
+.title-area {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 20px;
+  font-weight: 700;
+  color: #166534;
+}
+
+/* 현재 날짜 텍스트 */
+.current-date-text {
+  font-size: 20px;
+  font-weight: 700;
+  color: #166534;
+}
+
+/* 날짜 선택기 래퍼 (아이콘 위에 투명 input 겹치기) */
+.date-picker-wrapper {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 투명한 날짜 input (클릭 영역 확보용) */
+.hidden-date-input {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0; /* 투명하게 숨김 */
+  cursor: pointer;
+  z-index: 10;
+}
+
+/* 달력 아이콘 버튼 */
+.btn-calendar-icon {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  transition: transform 0.2s;
+}
+.btn-calendar-icon:hover {
+  transform: scale(1.1);
+}
 
 /* 범례 */
 .legend { display: flex; gap: 16px; padding: 12px 20px; font-size: 13px; color: #555; background: #fff; border-bottom: 1px solid #f0f0f0; }
