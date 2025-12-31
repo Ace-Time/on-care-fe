@@ -144,11 +144,27 @@
           <div class="modal">
             <h3 class="modal-title">배정 취소</h3>
             <p class="modal-desc">정말 배정을 삭제할까요?</p>
+
+            <div class="field">
+              <div class="label">기준일</div>
+              <input
+                type="date"
+                v-model="unassignEffectiveDate"
+                :min="todayYmd"
+                class="date-input"
+              />
+            </div>
+
             <div class="modal-actions">
               <button type="button" class="modal-btn cancel" @click="closeUnassignModal">
                 취소
               </button>
-              <button type="button" class="modal-btn danger" @click="confirmUnassign">
+              <button
+                type="button"
+                class="modal-btn danger"
+                :disabled="!unassignEffectiveDate"
+                @click="confirmUnassign"
+              >
                 삭제
               </button>
             </div>
@@ -233,15 +249,22 @@
   const loading = ref(false)
   const error = ref('')
   const detail = ref(null)
+  
   const showUnassignModal = ref(false)
   const showScheduleModal = ref(false)
+  
+  const unassignEffectiveDate = ref('')
   
   const editBodyRef = ref(null)
   const editBodySaving = computed(() => !!editBodyRef.value?.isSaving?.value)
   
+  const pad2 = (n) => String(n).padStart(2, '0')
+  const toYmd = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
+  const todayYmd = computed(() => toYmd(new Date()))
+  
   const getBeneficiaryId = (obj) => obj?.beneficiaryId ?? obj?.id ?? null
   const getCareWorkerId = (obj) => obj?.careWorkerId ?? obj?.id ?? null
-
+  
   const pickServiceTypeId = (obj) =>
     obj?.serviceTypeId ??
     obj?.service_type_id ??
@@ -348,19 +371,18 @@
     const ok = await editBodyRef.value?.save?.()
     if (ok) {
       await loadDetail()
-
-      store.refresh() 
-
+      store.refresh()
       closeScheduleModal()
     }
   }
   
   const handleScheduleSaved = async () => {
     await loadDetail()
-    store.refresh() 
+    store.refresh()
   }
   
   const openUnassignModal = () => {
+    unassignEffectiveDate.value = todayYmd.value
     showUnassignModal.value = true
   }
   
@@ -372,10 +394,16 @@
     const beneficiaryId = getBeneficiaryId(props.recipient)
     if (!beneficiaryId) return
   
+    if (!unassignEffectiveDate.value) {
+      alert('기준일을 선택해 주세요.')
+      return
+    }
+  
     try {
       loading.value = true
       error.value = ''
-      await unassignMatchingCareWorker(beneficiaryId)
+  
+      await unassignMatchingCareWorker(beneficiaryId, unassignEffectiveDate.value)
   
       await loadDetail()
   
@@ -421,10 +449,8 @@
   
     const preferredFromSchedules = buildPreferredFromSchedules(schedules)
   
-    const preferredTimes =
-      d.preferredTimes || preferredFromSchedules.preferredTimes || base.preferredTimes || []
-    const preferredDays =
-      d.preferredDays || preferredFromSchedules.preferredDays || base.preferredDays || []
+    const preferredTimes = d.preferredTimes || preferredFromSchedules.preferredTimes || base.preferredTimes || []
+    const preferredDays = d.preferredDays || preferredFromSchedules.preferredDays || base.preferredDays || []
   
     const needServices = d.serviceTypes || d.needServices || base.serviceTypes || base.needServices || []
     const needTags = d.tags || d.needTags || base.tags || base.needTags || []
@@ -481,7 +507,12 @@
   flex-direction: column;
   gap: 20px;
 }
-.loading { padding: 16px; color: #6b7280; }
+
+.loading {
+  padding: 16px;
+  color: #6b7280;
+}
+
 .error {
   padding: 16px;
   color: #b91c1c;
@@ -489,32 +520,160 @@
   border-radius: 12px;
   border: 1px solid #fecaca;
 }
-.header-row { display: flex; gap: 16px; align-items: center; }
-.basic-info { flex: 1; }
-.name-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
-.name { font-size: 20px; font-weight: 700; color: #166534; }
-.badge { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 999px; font-size: 12px; }
-.badge.grade { background: #f3e8ff; color: #6d28d9; }
-.badge.gender { background: #dbeafe; color: #1d4ed8; }
-.badge.gender.female { background: #fee2e2; color: #be123c; }
-.badge.small { font-size: 11px; padding: 2px 8px; }
-.address { margin: 0; font-size: 14px; color: #4b5563; }
-.info-section { display: flex; gap: 40px; margin-top: 12px; }
-.column { flex: 1; }
-.field { margin-bottom: 14px; }
-.label { font-size: 13px; color: #6b7280; margin-bottom: 4px; }
-.value { font-size: 14px; color: #111827; }
-.pill { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 999px; font-size: 12px; margin-right: 6px; margin-bottom: 6px; }
-.pill { background: #dcfce7; color: #15803d; }
-.pill-soft { background: #eef2ff; color: #4f46e5; }
-.pill-risk { background: #ffedd5; color: #c2410c; }
-.pill-tag { background: #ecfeff; color: #0f766e; }
-.day-pill { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 8px; background: #eef2ff; color: #4f46e5; font-size: 13px; margin-right: 6px; }
-.time-list { display: flex; flex-direction: column; gap: 4px; }
-.time-row { display: flex; align-items: center; gap: 6px; font-size: 14px; color: #111827; }
-.clock-icon { width: 16px; height: 16px; object-fit: contain; }
-.assigned-section { margin-top: 12px; }
-.assigned-title { margin: 0 0 8px; font-size: 15px; font-weight: 600; color: #111827; }
+
+.header-row {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.basic-info {
+  flex: 1;
+}
+
+.name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.name {
+  font-size: 20px;
+  font-weight: 700;
+  color: #166534;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+}
+
+.badge.grade {
+  background: #f3e8ff;
+  color: #6d28d9;
+}
+
+.badge.gender {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.badge.gender.female {
+  background: #fee2e2;
+  color: #be123c;
+}
+
+.badge.small {
+  font-size: 11px;
+  padding: 2px 8px;
+}
+
+.address {
+  margin: 0;
+  font-size: 14px;
+  color: #4b5563;
+}
+
+.info-section {
+  display: flex;
+  gap: 40px;
+  margin-top: 12px;
+}
+
+.column {
+  flex: 1;
+}
+
+.field {
+  margin-bottom: 14px;
+}
+
+.label {
+  font-size: 13px;
+  color: #6b7280;
+  margin-bottom: 4px;
+}
+
+.value {
+  font-size: 14px;
+  color: #111827;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  margin-right: 6px;
+  margin-bottom: 6px;
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.pill-soft {
+  background: #eef2ff;
+  color: #4f46e5;
+}
+
+.pill-risk {
+  background: #ffedd5;
+  color: #c2410c;
+}
+
+.pill-tag {
+  background: #ecfeff;
+  color: #0f766e;
+}
+
+.day-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: #eef2ff;
+  color: #4f46e5;
+  font-size: 13px;
+  margin-right: 6px;
+}
+
+.time-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.time-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: #111827;
+}
+
+.clock-icon {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+}
+
+.assigned-section {
+  margin-top: 12px;
+}
+
+.assigned-title {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #111827;
+}
+
 .assigned-empty {
   margin: 12px 0 0;
   font-size: 14px;
@@ -524,6 +683,7 @@
   background: #f9fafb;
   border-radius: 12px;
 }
+
 .assigned-card {
   display: flex;
   justify-content: space-between;
@@ -535,12 +695,40 @@
   position: relative;
   cursor: pointer;
 }
-.assigned-card:focus { outline: none; }
-.assigned-left { display: flex; gap: 12px; align-items: center; }
-.assigned-main { display: flex; flex-direction: column; gap: 4px; }
-.assigned-row { display: flex; align-items: center; gap: 6px; }
-.assigned-name { font-size: 15px; font-weight: 600; color: #111827; }
-.assigned-meta { font-size: 13px; color: #6b7280; }
+
+.assigned-card:focus {
+  outline: none;
+}
+
+.assigned-left {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.assigned-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.assigned-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.assigned-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.assigned-meta {
+  font-size: 13px;
+  color: #6b7280;
+}
+
 .close-btn {
   position: absolute;
   top: 7px;
@@ -555,7 +743,12 @@
   justify-content: center;
   cursor: pointer;
 }
-.close-btn img { width: 16px; height: 14px; }
+
+.close-btn img {
+  width: 16px;
+  height: 14px;
+}
+
 .modal-backdrop {
   position: fixed;
   inset: 0;
@@ -565,17 +758,45 @@
   justify-content: center;
   z-index: 9999;
 }
+
 .modal {
   width: 360px;
+  max-width: calc(100vw - 32px);
   background: #fff;
   border-radius: 16px;
   padding: 18px 18px 14px;
   border: 1px solid #e5e7eb;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+  box-sizing: border-box;
 }
-.modal-title { margin: 0 0 6px; font-size: 16px; font-weight: 700; color: #111827; }
-.modal-desc { margin: 0 0 14px; font-size: 14px; color: #4b5563; }
-.modal-actions { display: flex; gap: 12px; justify-content: flex-end; }
+
+.modal-title {
+  margin: 0 0 6px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.modal-desc {
+  margin: 0 0 14px;
+  font-size: 14px;
+  color: #4b5563;
+}
+
+.modal .field {
+  margin: 10px 0 14px;
+}
+
+.modal .field .label {
+  margin-bottom: 6px;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
 .modal-btn {
   height: 38px;
   padding: 0 14px;
@@ -584,10 +805,46 @@
   border: 1px solid transparent;
   cursor: pointer;
 }
-.modal-btn.cancel { background: #f3f4f6; color: #111827; border-color: #e5e7eb; }
-.modal-btn.danger { background: #ef4444; color: #fff; }
-.modal-btn.primary { background: #4f46e5; color: #fff; border-color: #4f46e5; }
-.modal-btn.primary:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.modal-btn.cancel {
+  background: #f3f4f6;
+  color: #111827;
+  border-color: #e5e7eb;
+}
+
+.modal-btn.danger {
+  background: #ef4444;
+  color: #fff;
+}
+
+.modal-btn.primary {
+  background: #4f46e5;
+  color: #fff;
+  border-color: #4f46e5;
+}
+
+.modal-btn.primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.modal-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.date-input {
+  display: block;
+  width: 100%;
+  height: 38px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  font-size: 14px;
+  color: #111827;
+  box-sizing: border-box;
+}
 
 .label-row {
   display: flex;
@@ -596,6 +853,7 @@
   gap: 10px;
   margin-bottom: 4px;
 }
+
 .edit-schedule-btn {
   height: 30px;
   padding: 0 10px;
@@ -607,7 +865,10 @@
   cursor: pointer;
   white-space: nowrap;
 }
-.edit-schedule-btn:hover { background: #f3f4f6; }
+
+.edit-schedule-btn:hover {
+  background: #f3f4f6;
+}
 
 .schedule-modal {
   width: 980px;

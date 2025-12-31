@@ -12,11 +12,7 @@
         type="button"
         @click="rightButton.onClick"
       >
-        <img
-          v-if="rightButton.icon"
-          :src="rightButton.icon"
-          :alt="rightButton.label"
-        />
+        <img v-if="rightButton.icon" :src="rightButton.icon" :alt="rightButton.label" />
         {{ rightButton.label }}
       </button>
     </div>
@@ -31,10 +27,7 @@
           :class="{ active: isActive(tab) }"
         >
           <span class="tab-icon" v-if="tab.icon">
-            <img
-              :src="isActive(tab) ? tab.activeIcon : tab.icon"
-              :alt="tab.label"
-            />
+            <img :src="isActive(tab) ? tab.activeIcon : tab.icon" :alt="tab.label" />
           </span>
           <span class="tab-label">{{ tab.label }}</span>
         </RouterLink>
@@ -44,6 +37,14 @@
         <RouterView :refresh-key="selection.refreshTick" />
       </div>
     </div>
+
+    <MatchAssignModal
+      :show="showAssignModal"
+      :min="todayYmd"
+      :saving="assignSaving"
+      @close="onCloseAssignModal"
+      @confirm="onConfirmAssign"
+    />
 
     <MatchCompleteModal
       :show="showMatchModal"
@@ -73,6 +74,7 @@ import { useMatchingSelectionStore } from '@/stores/matchingSelection'
 import { assignMatchingCareWorker, createVisitSchedule } from '@/api/schedule/matching.js'
 
 import MatchCompleteModal from '@/components/schedule/matching/MatchCompleteModal.vue'
+import MatchAssignModal from '@/components/schedule/matching/MatchAssignModal.vue'
 import CreateVisitModal from '@/components/schedule/calendar/CreateVisitModal.vue'
 
 const route = useRoute()
@@ -81,6 +83,13 @@ const selection = useMatchingSelectionStore()
 const showMatchModal = ref(false)
 const matchModalMessage = ref('')
 const showCreateVisitModal = ref(false)
+
+const showAssignModal = ref(false)
+const assignSaving = ref(false)
+
+const pad2 = (n) => String(n).padStart(2, '0')
+const toYmd = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
+const todayYmd = computed(() => toYmd(new Date()))
 
 const tabs = [
   {
@@ -100,22 +109,35 @@ const tabs = [
 ]
 
 const isActive = (tab) => route.name === tab.routeName
-const isMatchingRoute = computed(() =>
-  String(route.name || '').startsWith('schedule-matching')
-)
+const isMatchingRoute = computed(() => String(route.name || '').startsWith('schedule-matching'))
 
 const canMatch = computed(() => Boolean(selection.recipientId && selection.caregiverId))
 
 const getRecipientName = (r) => r?.beneficiaryName ?? r?.name ?? '수급자'
 const getCareWorkerName = (c) => c?.careWorkerName ?? c?.name ?? '요양보호사'
 
-const onClickMatch = async () => {
+const onClickMatch = () => {
+  if (!canMatch.value) return
+  showAssignModal.value = true
+}
+
+const onCloseAssignModal = () => {
+  showAssignModal.value = false
+}
+
+const onConfirmAssign = async (effectiveDate) => {
   const beneficiaryId = selection.recipientId
   const careWorkerId = selection.caregiverId
   if (!beneficiaryId || !careWorkerId) return
 
   try {
-    await assignMatchingCareWorker({ beneficiaryId, careWorkerId })
+    assignSaving.value = true
+
+    await assignMatchingCareWorker({
+      beneficiaryId,
+      careWorkerId,
+      effectiveDate,
+    })
 
     selection.refresh()
 
@@ -123,9 +145,13 @@ const onClickMatch = async () => {
       `${getRecipientName(selection.recipient)}와 ` +
       `${getCareWorkerName(selection.caregiver)}의 매칭이 완료되었습니다.`
 
+    showAssignModal.value = false
     showMatchModal.value = true
   } catch (e) {
     console.error('[매칭 실패]', e)
+    alert(e?.response?.data?.message || '매칭에 실패했습니다.')
+  } finally {
+    assignSaving.value = false
   }
 }
 

@@ -62,12 +62,17 @@ export const changeVisitScheduleCareWorker = (vsId, careWorkerId) =>
   })
 
 // 매칭
-export const assignMatchingCareWorker = ({ beneficiaryId, careWorkerId }) =>
+export const assignMatchingCareWorker = ({
+  beneficiaryId,
+  careWorkerId,
+  effectiveDate,
+}) =>
   api.post('/matching/assign', {
     beneficiaryId,
     careWorkerId,
+    effectiveDate,
   })
-
+  
 // 방문일정 "생성" 시간 기준 배정가능 요양보호사 카드 조회
 export const getCreateVisitAvailableCareWorkerCards = ({
   beneficiaryId,
@@ -106,5 +111,8 @@ export const createVisitSchedule = ({
     note,         
   })
 
-  export const unassignMatchingCareWorker = (beneficiaryId) =>
-    api.delete(`/matching/assign/${beneficiaryId}`)
+  export const unassignMatchingCareWorker = (beneficiaryId, effectiveDate) => {
+    return api.delete(`/matching/assign/${beneficiaryId}`, {
+      params: { effectiveDate },
+    })
+  }
