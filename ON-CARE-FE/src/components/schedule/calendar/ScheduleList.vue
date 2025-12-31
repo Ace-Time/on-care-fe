@@ -78,6 +78,7 @@ const props = defineProps({
   selectedDate: { type: String, default: '' },
   keyword: { type: String, default: '' },
   searchScope: { type: String, default: 'ALL' },
+  serviceTypeId: { type: Number, default: null }, // 추가: null | 1 | 2 | 3
   refreshKey: { type: Number, default: 0 },
 })
 
@@ -235,6 +236,7 @@ const loadDay = async () => {
       size: pageSize,
       keyword: props.keyword,
       searchField,
+      ...(props.serviceTypeId != null ? { serviceTypeId: props.serviceTypeId } : {}), // ✅ 추가
     })
 
     const normalized = normalizePageResponse(res)
@@ -263,7 +265,7 @@ const nextPage = async () => {
 
 let timer = null
 watch(
-  () => [props.selectedDate, props.keyword, props.searchScope, props.refreshKey],
+  () => [props.selectedDate, props.keyword, props.searchScope, props.serviceTypeId, props.refreshKey],
   () => {
     clearTimeout(timer)
     page.value = 1

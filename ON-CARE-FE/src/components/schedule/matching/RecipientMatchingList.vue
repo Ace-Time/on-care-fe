@@ -52,81 +52,114 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
-import searchIcon from '@/assets/img/common/search.png'
-import { getBeneficiaryList } from '@/api/schedule/matching.js'
-
-const emit = defineEmits(['select-recipient'])
-
-const search = ref('')
-const page = ref(1)
-const pageSize = 8
-
-const recipientsRaw = ref([])
-const selectedBeneficiaryId = ref(null)
-
-const total = ref(0)
-const loading = ref(false)
-
-const fetchList = async () => {
-  loading.value = true
-  try {
-    const { data } = await getBeneficiaryList({
-      page: page.value - 1,
-      size: pageSize,
-      keyword: search.value?.trim() || null,
-    })
-
-    const content = Array.isArray(data?.content) ? data.content : []
-    recipientsRaw.value = content
-    total.value = Number.isFinite(data?.total) ? data.total : 0
-  } catch (e) {
-    recipientsRaw.value = []
-    total.value = 0
-    console.error(e)
-  } finally {
-    loading.value = false
+  import { ref, computed, onMounted, watch } from 'vue'
+  import searchIcon from '@/assets/img/common/search.png'
+  import { getBeneficiaryList } from '@/api/schedule/matching.js'
+  import { useMatchingSelectionStore } from '@/stores/matchingSelection'
+  
+  const props = defineProps({
+    refreshKey: { type: Number, default: 0 },
+  })
+  
+  const emit = defineEmits(['select-recipient'])
+  const store = useMatchingSelectionStore()
+  
+  const search = ref('')
+  const page = ref(1)
+  const pageSize = 8
+  
+  const recipientsRaw = ref([])
+  const selectedBeneficiaryId = ref(null)
+  
+  const total = ref(0)
+  const loading = ref(false)
+  
+  const getId = (item) => item?.beneficiaryId ?? item?.id ?? null
+  
+  const fetchList = async () => {
+    loading.value = true
+    try {
+      const { data } = await getBeneficiaryList({
+        page: page.value - 1,
+        size: pageSize,
+        keyword: search.value?.trim() || null,
+      })
+  
+      const content = Array.isArray(data?.content) ? data.content : []
+      recipientsRaw.value = content
+      total.value = Number.isFinite(data?.total) ? data.total : 0
+  
+      const storeId = store.recipientId
+      if (storeId) {
+        const found = content.find((r) => getId(r) === storeId)
+        if (found) {
+          selectedBeneficiaryId.value = storeId
+          store.syncRecipient(found)
+          emit('select-recipient', found)
+        }
+      }
+    } catch (e) {
+      recipientsRaw.value = []
+      total.value = 0
+      console.error(e)
+    } finally {
+      loading.value = false
+    }
   }
-}
-
-onMounted(fetchList)
-
-watch(search, async () => {
-  page.value = 1
-  await fetchList()
-})
-
-watch(page, async () => {
-  await fetchList()
-})
-
-const pagedList = computed(() => recipientsRaw.value)
-
-const totalPages = computed(() => {
-  const tp = Math.ceil((total.value || 0) / pageSize)
-  return Math.max(1, tp)
-})
-
-const prevPage = () => {
-  if (page.value > 1) page.value--
-}
-
-const nextPage = () => {
-  if (page.value < totalPages.value) page.value++
-}
-
-const handleSelect = (item) => {
-  const beneficiaryId = item?.beneficiaryId ?? item?.id ?? null
-  selectedBeneficiaryId.value = beneficiaryId
-  emit('select-recipient', item)
-}
-
-const badgeClass = (gender) => ({
-  badge: true,
-  male: gender === '남자',
-  female: gender === '여자',
-})
-</script>
+  
+  onMounted(fetchList)
+  
+  watch(search, async () => {
+    page.value = 1
+    await fetchList()
+  })
+  
+  watch(page, async () => {
+    await fetchList()
+  })
+  
+  watch(
+    () => props.refreshKey,
+    async () => {
+      await fetchList()
+    }
+  )
+  
+  watch(
+    () => store.recipientId,
+    (id) => {
+      selectedBeneficiaryId.value = id
+    },
+    { immediate: true }
+  )
+  
+  const pagedList = computed(() => recipientsRaw.value)
+  
+  const totalPages = computed(() => {
+    const tp = Math.ceil((total.value || 0) / pageSize)
+    return Math.max(1, tp)
+  })
+  
+  const prevPage = () => {
+    if (page.value > 1) page.value--
+  }
+  
+  const nextPage = () => {
+    if (page.value < totalPages.value) page.value++
+  }
+  
+  const handleSelect = (item) => {
+    const beneficiaryId = getId(item)
+    selectedBeneficiaryId.value = beneficiaryId
+    emit('select-recipient', item)
+  }
+  
+  const badgeClass = (gender) => ({
+    badge: true,
+    male: gender === '남자',
+    female: gender === '여자',
+  })
+  </script>
 
 <style scoped>
 .matching-panel {
