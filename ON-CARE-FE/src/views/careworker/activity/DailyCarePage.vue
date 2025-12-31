@@ -73,6 +73,11 @@ const loadCareLogHistory = async () => {
 
     console.log('📊 요양일지 원본 데이터:', data);
 
+    // 첫 번째 항목의 모든 필드 로깅 (디버깅)
+    if (data && data.length > 0) {
+      console.log('🔍 첫 번째 항목 전체 필드:', JSON.stringify(data[0], null, 2));
+    }
+
     // 백엔드 응답 데이터를 프론트엔드 형식으로 변환
     careLogHistory.value = (data || []).map(item => {
       // 날짜 포맷 변환 (YYYY-MM-DD)
@@ -101,16 +106,21 @@ const loadCareLogHistory = async () => {
         || item.notes
         || '';
 
-      // 특이사항은 목록 API에서 제공하지 않음 (백엔드 미구현)
-      // 상세 조회 시에만 가져올 수 있음
-      if (specialNotes) {
-        console.log('📝 특이사항 필드 확인:', {
-          specialNote: item.specialNote,
-          specialNotes: item.specialNotes,
-          special_note: item.special_note,
-          최종값: specialNotes
-        });
-      }
+      // 임시저장 여부 확인 (다양한 필드명 지원)
+      const isDraftFlag = item.isDraft || item.is_draft || item.draft || false;
+
+      // 디버깅: isDraft 관련 모든 필드 로깅
+      console.log(`🔍 항목 ID ${id} - isDraft 체크:`, {
+        'item.isDraft': item.isDraft,
+        'item.is_draft': item.is_draft,
+        'item.draft': item.draft,
+        'isDraftFlag (최종)': isDraftFlag,
+        'item.status': item.status,
+        '전체 item': item
+      });
+
+      // 상태 처리: isDraft가 true면 "임시저장", 아니면 기존 status 또는 "제출됨"
+      const displayStatus = isDraftFlag ? '임시저장' : (item.status || '제출됨');
 
       return {
         ...item,
@@ -122,7 +132,8 @@ const loadCareLogHistory = async () => {
         address: item.beneficiaryAddress || item.address || item.location || '-',
         serviceType: item.serviceType || '방문요양',
         specialNotes: specialNotes,
-        status: item.status || '제출됨',
+        status: displayStatus,
+        isDraft: isDraftFlag,
       };
     });
 
@@ -418,98 +429,175 @@ const statusClass = (status) => {
     : 'resubmit';
 };
 
+// 요양일지 제출/임시저장 공통 처리 함수
+const submitCareLogData = async (formData, isDraft = false) => {
+  // 기본 필수 필드 검증 (임시저장/제출 공통)
+  if (!formData.beneficiaryId) {
+    alert('수급자를 선택해주세요.');
+    return false;
+  }
+
+  if (!formData.careDate || !formData.startTime || !formData.endTime) {
+    alert('제공일과 서비스 시간을 입력해주세요.');
+    return false;
+  }
+
+  // 제출하기일 경우 추가 검증
+  if (!isDraft) {
+    // 최소한 하나의 서비스 항목이 체크되어야 함
+    const hasAnyService =
+      // 식사 제공
+      formData.isBreakfast || formData.isLunch || formData.isDinner || formData.isSnack ||
+      // 배설 도움
+      formData.diaperCount > 0 || formData.toiletCount > 0 ||
+      formData.isPortableToilet || formData.isUrine || formData.isStool ||
+      // 대변 상태
+      formData.stoolNormal || formData.stoolDiarrhea || formData.stoolConstipation ||
+      // 위생 관리
+      formData.isFaceWash || formData.isOralCare || formData.isHairWash ||
+      formData.isBodyWash || formData.isChangeClothes ||
+      // 일상 생활 지원
+      formData.isMealPrep || formData.isBedCare || formData.isPositionChange ||
+      formData.isGetUpHelp || formData.isIndoorMove || formData.isWalkHelp ||
+      // 인지활동 지원
+      formData.isEmotionalTalk || formData.isCommunication || formData.isCounseling ||
+      formData.isCognitiveCare || formData.isBehaviorCare;
+
+    if (!hasAnyService) {
+      alert('제출하려면 서비스 항목을 모두 선택해주세요.');
+      return false;
+    }
+
+    // 건강 상태 최소 1개 선택
+    const hasHealthStatus =
+      formData.isHealthGood || formData.isPain || formData.isEdema ||
+      formData.isSkinIssue || formData.isBodyEtc;
+
+    if (!hasHealthStatus) {
+      alert('제출하려면 서비스 항목을 모두 선택해주세요.');
+      return false;
+    }
+
+    // 기분/정서 상태 최소 1개 선택
+    const hasMoodStatus =
+      formData.isMoodCalm || formData.isMoodAnxious || formData.isMoodDepressed ||
+      formData.isMoodAngry || formData.isMoodEtc;
+
+    if (!hasMoodStatus) {
+      alert('제출하려면 서비스 항목을 모두 선택해주세요.');
+      return false;
+    }
+  }
+
+  // 프론트엔드 formData를 백엔드 API 형식으로 변환
+  const submitData = {
+    beneficiaryId: parseInt(formData.beneficiaryId, 10),
+    serviceDate: formData.careDate,
+    startTime: formData.startTime,
+    endTime: formData.endTime,
+    serviceType: formData.serviceType,
+    vsId: formData.scheduleId ? parseInt(formData.scheduleId, 10) : null,
+    isDraft: isDraft, // 임시저장 여부
+
+    // 식사 제공
+    isBreakfast: formData.isBreakfast,
+    isLunch: formData.isLunch,
+    isDinner: formData.isDinner,
+    isSnack: formData.isSnack,
+
+    // 배설 도움
+    diaperCount: formData.diaperCount,
+    toiletCount: formData.toiletCount,
+    isPortableToilet: formData.isPortableToilet,
+    isUrine: formData.isUrine,
+    isStool: formData.isStool,
+
+    // 대변 상태
+    stoolNormal: formData.stoolNormal,
+    stoolDiarrhea: formData.stoolDiarrhea,
+    stoolConstipation: formData.stoolConstipation,
+
+    // 위생 관리
+    isFaceWash: formData.isFaceWash,
+    isOralCare: formData.isOralCare,
+    isHairWash: formData.isHairWash,
+    isBodyWash: formData.isBodyWash,
+    isChangeClothes: formData.isChangeClothes,
+
+    // 일상 생활 지원
+    isMealPrep: formData.isMealPrep,
+    isBedCare: formData.isBedCare,
+    isPositionChange: formData.isPositionChange,
+    isGetUpHelp: formData.isGetUpHelp,
+    isIndoorMove: formData.isIndoorMove,
+    isWalkHelp: formData.isWalkHelp,
+
+    // 인지활동 지원
+    isEmotionalTalk: formData.isEmotionalTalk,
+    isCommunication: formData.isCommunication,
+    isCounseling: formData.isCounseling,
+    isCognitiveCare: formData.isCognitiveCare,
+    isBehaviorCare: formData.isBehaviorCare,
+
+    // 건강 상태
+    isHealthGood: formData.isHealthGood,
+    isPain: formData.isPain,
+    isEdema: formData.isEdema,
+    isSkinIssue: formData.isSkinIssue,
+    isBodyEtc: formData.isBodyEtc,
+
+    // 기분/정서 상태
+    isMoodCalm: formData.isMoodCalm,
+    isMoodAnxious: formData.isMoodAnxious,
+    isMoodDepressed: formData.isMoodDepressed,
+    isMoodAngry: formData.isMoodAngry,
+    isMoodEtc: formData.isMoodEtc,
+
+    // 기타 관찰 사항
+    isExcretionMistake: formData.isExcretionMistake,
+    isSleepLack: formData.isSleepLack,
+    isNapExcess: formData.isNapExcess,
+
+    // 특이사항
+    specialNote: formData.specialNotes
+  };
+
+  console.log('📤 API 전송 데이터:', submitData);
+  console.log('🚨 isDraft 값 확인:', submitData.isDraft, '(타입:', typeof submitData.isDraft, ')');
+
+  const result = await createCareLog(submitData);
+  console.log('✅ 요양일지 작성 완료. API 응답:', result);
+  console.log('🔍 응답에서 isDraft 확인:', result?.data?.isDraft || result?.isDraft);
+
+  return true;
+};
+
+// 요양일지 임시저장 처리
+const handleCareLogDraft = async (formData) => {
+  try {
+    console.log('📝 요양일지 임시저장 데이터:', formData);
+
+    const success = await submitCareLogData(formData, true);
+    if (!success) return;
+
+    alert('요양일지가 임시저장되었습니다.');
+
+    // 작성 내역 탭으로 전환하고 목록 새로고침
+    activeTab.value = 'history';
+    await loadCareLogHistory();
+  } catch (error) {
+    console.error('❌ 요양일지 임시저장 실패:', error);
+    alert('요양일지 임시저장에 실패했습니다.');
+  }
+};
+
 // 요양일지 제출 처리
 const handleCareLogSubmit = async (formData) => {
   try {
     console.log('📝 요양일지 제출 데이터:', formData);
 
-    // 필수 필드 검증
-    if (!formData.beneficiaryId) {
-      alert('수급자를 선택해주세요.');
-      return;
-    }
-
-    if (!formData.careDate || !formData.startTime || !formData.endTime) {
-      alert('제공일과 서비스 시간을 입력해주세요.');
-      return;
-    }
-
-    // 프론트엔드 formData를 백엔드 API 형식으로 변환
-    const submitData = {
-      beneficiaryId: parseInt(formData.beneficiaryId, 10),
-      serviceDate: formData.careDate,
-      startTime: formData.startTime,
-      endTime: formData.endTime,
-      serviceType: formData.serviceType,
-      vsId: formData.scheduleId ? parseInt(formData.scheduleId, 10) : null, // 일정 ID 추가
-
-      // 식사 제공
-      isBreakfast: formData.isBreakfast,
-      isLunch: formData.isLunch,
-      isDinner: formData.isDinner,
-      isSnack: formData.isSnack,
-
-      // 배설 도움
-      diaperCount: formData.diaperCount,
-      toiletCount: formData.toiletCount,
-      isPortableToilet: formData.isPortableToilet,
-      isUrine: formData.isUrine,
-      isStool: formData.isStool,
-
-      // 대변 상태
-      stoolNormal: formData.stoolNormal,
-      stoolDiarrhea: formData.stoolDiarrhea,
-      stoolConstipation: formData.stoolConstipation,
-
-      // 위생 관리
-      isFaceWash: formData.isFaceWash,
-      isOralCare: formData.isOralCare,
-      isHairWash: formData.isHairWash,
-      isBodyWash: formData.isBodyWash,
-      isChangeClothes: formData.isChangeClothes,
-
-      // 일상 생활 지원
-      isMealPrep: formData.isMealPrep,
-      isBedCare: formData.isBedCare,
-      isPositionChange: formData.isPositionChange,
-      isGetUpHelp: formData.isGetUpHelp,
-      isIndoorMove: formData.isIndoorMove,
-      isWalkHelp: formData.isWalkHelp,
-
-      // 인지활동 지원
-      isEmotionalTalk: formData.isEmotionalTalk,
-      isCommunication: formData.isCommunication,
-      isCounseling: formData.isCounseling,
-      isCognitiveCare: formData.isCognitiveCare,
-      isBehaviorCare: formData.isBehaviorCare,
-
-      // 건강 상태
-      isHealthGood: formData.isHealthGood,
-      isPain: formData.isPain,
-      isEdema: formData.isEdema,
-      isSkinIssue: formData.isSkinIssue,
-      isBodyEtc: formData.isBodyEtc,
-
-      // 기분/정서 상태
-      isMoodCalm: formData.isMoodCalm,
-      isMoodAnxious: formData.isMoodAnxious,
-      isMoodDepressed: formData.isMoodDepressed,
-      isMoodAngry: formData.isMoodAngry,
-      isMoodEtc: formData.isMoodEtc,
-
-      // 기타 관찰 사항
-      isExcretionMistake: formData.isExcretionMistake,
-      isSleepLack: formData.isSleepLack,
-      isNapExcess: formData.isNapExcess,
-
-      // 특이사항
-      specialNote: formData.specialNotes
-    };
-
-    console.log('📤 API 전송 데이터:', submitData);
-
-    const result = await createCareLog(submitData);
-    console.log('✅ 요양일지 작성 완료. API 응답:', result);
+    const success = await submitCareLogData(formData, false);
+    if (!success) return;
 
     alert('요양일지가 성공적으로 제출되었습니다.');
 
@@ -574,7 +662,7 @@ onMounted(async () => {
 
       <div class="tab-content">
         <div v-if="activeTab === 'write'" class="write-section">
-          <CareLogForm :initialData="scheduleData" @submit="handleCareLogSubmit" />
+          <CareLogForm :initialData="scheduleData" @submit="handleCareLogSubmit" @draft="handleCareLogDraft" />
         </div>
 
         <div v-else class="history-section">
@@ -585,33 +673,32 @@ onMounted(async () => {
 
           <div class="history-list">
             <div v-for="item in careLogHistory" :key="item.id" class="care-log-card" @click="openDetail(item)">
-              <div class="card-left">
-                <div class="card-header-section">
+              <div class="card-top">
+                <div class="card-header-row">
                   <h3 class="recipient-name">{{ item.recipientName }}</h3>
-                  <span class="status-badge">{{ item.status }}</span>
+                  <span class="status-badge" :class="{ 'status-draft': item.isDraft }">{{ item.status }}</span>
                 </div>
-                <p class="service-date">{{ item.date }}</p>
+                <p class="service-date">📅 {{ item.date }}</p>
               </div>
 
-              <div class="card-divider"></div>
+              <div class="card-info-grid">
+                <div class="info-item">
+                  <span class="info-icon">⏰</span>
+                  <span class="info-text">{{ item.time }}</span>
+                </div>
+                <div class="info-item">
+                  <span class="info-icon">🏥</span>
+                  <span class="info-text">{{ item.serviceType }}</span>
+                </div>
+                <div class="info-item info-item-full">
+                  <span class="info-icon">📍</span>
+                  <span class="info-text">{{ item.address }}</span>
+                </div>
+              </div>
 
-              <div class="card-right">
-                <div class="info-row">
-                  <span class="info-label">⏰</span>
-                  <span class="info-value">{{ item.time }}</span>
-                </div>
-                <div class="info-row">
-                  <span class="info-label">📍</span>
-                  <span class="info-value">{{ item.address }}</span>
-                </div>
-                <div class="info-row">
-                  <span class="info-label">🏥</span>
-                  <span class="info-value">{{ item.serviceType }}</span>
-                </div>
-                <div v-if="item.specialNotes" class="special-notes-section">
-                  <span class="notes-label">특이사항</span>
-                  <p class="notes-content">{{ item.specialNotes }}</p>
-                </div>
+              <div v-if="item.specialNotes" class="card-notes">
+                <span class="notes-label">💬 특이사항</span>
+                <p class="notes-text">{{ item.specialNotes }}</p>
               </div>
             </div>
           </div>
@@ -747,138 +834,153 @@ onMounted(async () => {
 }
 
 .history-list {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 1rem;
 }
 
-/* 요양일지 카드 - 가로로 길게 */
+/* 요양일지 카드 - 컴팩트한 세로 레이아웃 */
 .care-log-card {
   background: white;
   border: 2px solid #e5e7eb;
-  border-radius: 1rem;
-  padding: 1.5rem;
-  transition: all 0.3s;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  border-radius: 0.75rem;
+  padding: 1.25rem;
+  transition: all 0.2s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   cursor: pointer;
   display: flex;
-  gap: 2rem;
-  align-items: stretch;
+  flex-direction: column;
+  gap: 1rem;
+  height: 100%;
 }
 
 .care-log-card:hover {
   border-color: #16a34a;
-  box-shadow: 0 8px 24px rgba(22, 163, 74, 0.12);
-  transform: translateY(-3px);
+  box-shadow: 0 4px 12px rgba(22, 163, 74, 0.15);
+  transform: translateY(-2px);
 }
 
-/* 카드 왼쪽 영역 */
-.card-left {
-  flex-shrink: 0;
-  width: 200px;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.card-header-section {
+/* 카드 상단 */
+.card-top {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 2px solid #f3f4f6;
+}
+
+.card-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
 }
 
 .recipient-name {
-  font-size: 1.375rem;
+  font-size: 1.125rem;
   font-weight: 700;
   color: #1f2937;
   margin: 0;
-  line-height: 1.3;
+  line-height: 1.2;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .status-badge {
   display: inline-flex;
   align-items: center;
-  padding: 0.375rem 0.875rem;
+  padding: 0.25rem 0.625rem;
   background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
   color: #16a34a;
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   font-weight: 700;
   border-radius: 9999px;
-  width: fit-content;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* 임시저장 상태 뱃지 */
+.status-badge.status-draft {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  color: #d97706;
 }
 
 .service-date {
-  font-size: 0.9375rem;
+  font-size: 0.8125rem;
   color: #6b7280;
   font-weight: 500;
   margin: 0;
-  line-height: 1.5;
+  line-height: 1.4;
 }
 
-/* 카드 구분선 */
-.card-divider {
-  width: 2px;
-  background: linear-gradient(to bottom, #e5e7eb 0%, #f3f4f6 50%, #e5e7eb 100%);
+/* 카드 정보 그리드 */
+.card-info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.625rem;
+}
+
+.info-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #f9fafb;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid #e5e7eb;
+}
+
+.info-item.info-item-full {
+  grid-column: 1 / -1;
+}
+
+.info-icon {
+  font-size: 1rem;
   flex-shrink: 0;
 }
 
-/* 카드 오른쪽 영역 */
-.card-right {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 0.875rem;
-}
-
-.info-row {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.info-label {
-  font-size: 1.125rem;
-  flex-shrink: 0;
-  width: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.info-value {
-  font-size: 0.9375rem;
+.info-text {
+  font-size: 0.8125rem;
   color: #374151;
   font-weight: 500;
-  line-height: 1.5;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-/* 특이사항 섹션 */
-.special-notes-section {
-  margin-top: 0.5rem;
-  padding-top: 1rem;
-  border-top: 2px dashed #e5e7eb;
+/* 특이사항 */
+.card-notes {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.375rem;
+  background: #fffbeb;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  border-left: 3px solid #f59e0b;
 }
 
 .notes-label {
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   font-weight: 700;
-  color: #16a34a;
-  text-transform: uppercase;
-  letter-spacing: 0.025em;
+  color: #92400e;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
 }
 
-.notes-content {
-  font-size: 0.9375rem;
-  color: #4b5563;
-  line-height: 1.6;
+.notes-text {
+  font-size: 0.8125rem;
+  color: #78350f;
+  line-height: 1.5;
   margin: 0;
-  background: #f9fafb;
-  padding: 0.875rem 1rem;
-  border-radius: 0.5rem;
-  border-left: 3px solid #16a34a;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 /* 카드 헤더 */
@@ -1335,8 +1437,20 @@ onMounted(async () => {
     font-size: 0.8125rem;
   }
 
+  .history-list {
+    grid-template-columns: 1fr;
+  }
+
   .care-log-card {
     padding: 1rem;
+  }
+
+  .card-info-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .info-item.info-item-full {
+    grid-column: 1;
   }
 
   .card-header {
