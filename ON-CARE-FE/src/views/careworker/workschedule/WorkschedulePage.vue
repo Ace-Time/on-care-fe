@@ -295,33 +295,15 @@ const loadSchedules = async () => {
   loading.value = true;
   try {
     const userStore = useUserStore();
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('📅 일정 조회 요청');
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('📆 날짜 범위:', dateRange.value);
-    console.log('👤 사용자 ID:', userStore.userId);
-    console.log('🔑 토큰 존재 여부:', !!userStore.token);
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     const response = await getSchedules(dateRange.value);
-
-    console.log('✅ 일정 조회 성공');
-    console.log('📦 응답 데이터:', response);
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     // API 응답 구조에 맞게 데이터 파싱
     const data = response?.data || response || [];
     const rawSchedules = Array.isArray(data) ? data : [];
 
-    console.log('📝 원본 일정 개수:', rawSchedules.length);
-    if (rawSchedules.length > 0) {
-      console.log('📋 첫 번째 일정 샘플:', rawSchedules[0]);
-    }
-
     // 백엔드 데이터를 프론트엔드 형식으로 변환
     schedules.value = rawSchedules.map(transformSchedule);
-    console.log('✨ 변환된 일정 개수:', schedules.value.length);
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   } catch (error) {
     console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.error('❌ 일정 불러오기 실패');
@@ -361,7 +343,6 @@ const loadSchedules = async () => {
 const loadPersonalTypes = async () => {
   try {
     const response = await getPersonalTypes();
-    console.log('개인 일정 유형:', response);
     personalTypes.value = response?.data || response || [];
   } catch (error) {
     console.error('개인 일정 유형 불러오기 실패:', error);
@@ -372,7 +353,6 @@ const loadPersonalTypes = async () => {
 const loadMyBeneficiaries = async () => {
   try {
     const response = await getMyBeneficiaries();
-    console.log('내 담당 수급자 목록:', response);
     const data = response?.data || response || [];
     const beneficiaries = Array.isArray(data) ? data : [];
 
@@ -391,7 +371,7 @@ const loadMyBeneficiaries = async () => {
       return beneficiary;
     });
 
-    console.log('변환된 담당 수급자 목록:', myBeneficiaries.value);
+
   } catch (error) {
     console.error('담당 수급자 목록 불러오기 실패:', error);
     myBeneficiaries.value = [];
@@ -610,6 +590,11 @@ const saveSchedule = async () => {
       return;
     }
 
+    if (newSchedule.value.startTime >= newSchedule.value.endTime) {
+      alert('종료 시간은 시작 시간보다 늦어야 합니다.');
+      return;
+    }
+
     // 날짜와 시간을 ISO 형식으로 변환
     // 시간이 이미 HH:mm:ss 형식이면 그대로 사용, HH:mm 형식이면 :00 추가
     const formatTime = (time) => {
@@ -647,7 +632,8 @@ const saveSchedule = async () => {
           note: newSchedule.value.notes || '',
         };
 
-        console.log('방문 일정 수정 요청:', scheduleData);
+
+
         await updateVisitSchedule(editingScheduleId.value, scheduleData);
         alert('방문 일정이 수정되었습니다.');
       } else {
@@ -669,7 +655,8 @@ const saveSchedule = async () => {
             note: newSchedule.value.notes || '',
           };
 
-          console.log('방문 일정 등록 요청:', scheduleData);
+
+
           return await createVisitSchedule(scheduleData);
         });
 
@@ -701,12 +688,10 @@ const saveSchedule = async () => {
 
       if (isEditMode.value) {
         // 개인 일정 수정
-        console.log('개인 일정 수정 요청:', scheduleData);
         await updatePersonalSchedule(editingScheduleId.value, scheduleData);
         alert('개인 일정이 수정되었습니다.');
       } else {
         // 개인 일정 등록
-        console.log('개인 일정 등록 요청:', scheduleData);
         await createPersonalSchedule(scheduleData);
         alert('개인 일정이 등록되었습니다.');
       }
@@ -723,7 +708,6 @@ const saveSchedule = async () => {
 
     // 다른 컴포넌트(홈 화면, 캘린더 등)에 일정 업데이트 알림
     setTimeout(() => {
-      console.log('🔔 일정 업데이트 알림 전송 중...');
       scheduleStore.notifyScheduleUpdate();
     }, 100);
   } catch (error) {
@@ -734,12 +718,8 @@ const saveSchedule = async () => {
 
 // 일정 클릭 시 상세 표시
 const onSelectSchedule = async (schedule) => {
-  console.log('일정 클릭:', schedule);
-
   // 개인 일정인 경우 상세 조회 API 호출 없이 바로 표시
   if (schedule.scheduleType === 'PERSONAL') {
-    console.log('개인 일정 - 상세 조회 생략, 기본 데이터 사용');
-
     // 원본 일정 목록에서 notes 확인
     const scheduleId = schedule.scheduleId || schedule.id;
     const originalSchedule = schedules.value.find(s =>
@@ -771,13 +751,11 @@ const onSelectSchedule = async (schedule) => {
   // 백엔드 연결 전 또는 에러 시 mock 데이터를 사용 중인 경우
   // scheduleId가 10 이하거나 'temp-'로 시작하면 mock/임시 데이터로 간주
   if (typeof scheduleId === 'string' && scheduleId.startsWith('temp-')) {
-    console.log('임시 ID 감지 - 상세 조회 생략 (백엔드 데이터 없음)');
     selectedSchedule.value = schedule;
     return;
   }
 
   if (typeof scheduleId === 'number' && scheduleId <= 10) {
-    console.log('Mock 데이터 감지 - 상세 조회 생략');
     selectedSchedule.value = schedule;
     return;
   }
@@ -789,9 +767,8 @@ const onSelectSchedule = async (schedule) => {
     );
 
     // 방문 일정만 상세 정보 조회
-    console.log('방문 일정 상세 조회 요청 - scheduleId:', scheduleId);
+
     const response = await getScheduleDetail(scheduleId);
-    console.log('일정 상세 응답:', response);
 
     // 백엔드 응답을 프론트엔드 형식으로 변환
     const detailData = response?.data || response;
@@ -803,7 +780,8 @@ const onSelectSchedule = async (schedule) => {
       transformedData.specialNotes = originalSchedule.notes;
     }
 
-    console.log('변환된 상세 데이터:', transformedData);
+
+
     selectedSchedule.value = transformedData;
   } catch (error) {
     console.error('일정 상세 조회 실패:', error);
@@ -832,7 +810,6 @@ const onDateChange = (newDate) => {
 // 라우트 변경 감지 (근무일정 페이지 진입 시 오늘 날짜로 리셋)
 watch(() => route.path, (newPath) => {
   if (newPath === '/workschedule') {
-    console.log('📅 근무일정 페이지 진입: 오늘 날짜로 리셋');
     currentDate.value = new Date();
     componentKey.value++; // 컴포넌트 강제 리렌더링
   }
@@ -840,10 +817,7 @@ watch(() => route.path, (newPath) => {
 
 // 다른 곳(예: 매칭 페이지, 출퇴근 기록)에서 일정 변경 시 자동 새로고침
 watch(() => scheduleStore.scheduleUpdateCounter, (newValue, oldValue) => {
-  console.log('📅 근무일정 페이지: 일정 업데이트 감지!', { oldValue, newValue });
-  console.log('📅 근무일정 페이지: 캘린더 새로고침 시작... (출퇴근 기록 반영)');
   loadSchedules();
-  console.log('📅 근무일정 페이지: 캘린더 새로고침 완료!');
 }, { immediate: false });
 
 // ESC 키로 모달 닫기
@@ -869,7 +843,6 @@ onUnmounted(() => {
 
 // 컴포넌트 활성화 시 실행 (keep-alive로 캐시된 경우)
 onActivated(() => {
-  console.log('📅 근무일정 페이지 활성화: 오늘 날짜로 리셋');
   currentDate.value = new Date(); // 오늘 날짜로 리셋
   componentKey.value++; // 컴포넌트 강제 리렌더링
   loadSchedules();
