@@ -1,14 +1,5 @@
 <template>
   <div class="weekly-selected">
-    <div class="inner-header">
-      <h3 class="inner-title">주간 일정</h3>
-      <div class="week-nav">
-        <button type="button" class="nav-btn" @click="goPrevWeek">〈</button>
-        <span class="week-range">{{ weekRangeText }}</span>
-        <button type="button" class="nav-btn" @click="goNextWeek">〉</button>
-      </div>
-    </div>
-
     <div class="grid-header">
       <div class="cell time-header">시간</div>
       <div v-for="day in days" :key="day" class="cell day-header">
@@ -56,228 +47,191 @@
 </template>
 
 <script setup>
-  import { ref, computed, watch } from 'vue'
-  import { getBeneficiaryDetail, getCareWorkerDetail } from '@/api/schedule/matching.js'
-  import { useMatchingSelectionStore } from '@/stores/matchingSelection'
-  
-  const props = defineProps({
-    recipient: { type: Object, default: null },
-    caregiver: { type: Object, default: null },
-    refreshKey: { type: Number, default: 0 },
-  })
-  
-  const store = useMatchingSelectionStore()
-  
-  const days = ['월', '화', '수', '목', '금', '토', '일']
-  const timeSlots = [
-    '06:00', '07:00', '08:00', '09:00', '10:00', '11:00',
-    '12:00', '13:00', '14:00', '15:00', '16:00', '17:00',
-    '18:00', '19:00', '20:00', '21:00', '22:00',
-  ]
-  
-  const getBeneficiaryId = (obj) => obj?.beneficiaryId ?? obj?.id ?? null
-  const getCareWorkerId = (obj) => obj?.careWorkerId ?? obj?.id ?? null
-  
-  const loading = ref(false)
-  const error = ref('')
-  
-  const recipientDetail = ref(null)
-  const caregiverDetail = ref(null)
-  
-  /* ===== 주차 ===== */
-  const weekStart = ref(startOfWeek(new Date()))
-  
-  const weekRangeText = computed(() => {
-    const start = formatMD(weekStart.value)
-    const end = formatMD(addDays(weekStart.value, 6))
-    return `${start} - ${end}`
-  })
-  
-  function goPrevWeek() {
-    weekStart.value = addDays(weekStart.value, -7)
+import { ref, computed, watch } from 'vue'
+import { getBeneficiaryDetail, getCareWorkerDetail } from '@/api/schedule/matching.js'
+import { useMatchingSelectionStore } from '@/stores/matchingSelection'
+
+const props = defineProps({
+  recipient: { type: Object, default: null },
+  caregiver: { type: Object, default: null },
+  refreshKey: { type: Number, default: 0 },
+})
+
+const store = useMatchingSelectionStore()
+
+const days = ['월', '화', '수', '목', '금', '토', '일']
+const timeSlots = [
+  '06:00', '07:00', '08:00', '09:00', '10:00', '11:00',
+  '12:00', '13:00', '14:00', '15:00', '16:00', '17:00',
+  '18:00', '19:00', '20:00', '21:00', '22:00',
+]
+
+const getBeneficiaryId = (obj) => obj?.beneficiaryId ?? obj?.id ?? null
+const getCareWorkerId = (obj) => obj?.careWorkerId ?? obj?.id ?? null
+
+const loading = ref(false)
+const error = ref('')
+
+const recipientDetail = ref(null)
+const caregiverDetail = ref(null)
+
+/* ===== API ===== */
+async function loadRecipientDetail() {
+  const beneficiaryId = getBeneficiaryId(props.recipient)
+  if (!beneficiaryId) {
+    recipientDetail.value = null
+    return
   }
-  
-  function goNextWeek() {
-    weekStart.value = addDays(weekStart.value, 7)
+
+  try {
+    loading.value = true
+    error.value = ''
+    const res = await getBeneficiaryDetail(beneficiaryId)
+    recipientDetail.value = res?.data ?? res ?? null
+  } catch (e) {
+    recipientDetail.value = null
+    error.value = e?.response?.data?.message || '주간 일정을 불러오지 못했습니다.'
+  } finally {
+    loading.value = false
   }
-  
-  /* ===== API ===== */
-  async function loadRecipientDetail() {
-    const beneficiaryId = getBeneficiaryId(props.recipient)
-    if (!beneficiaryId) {
-      recipientDetail.value = null
-      return
-    }
-  
-    try {
-      loading.value = true
-      error.value = ''
-      const res = await getBeneficiaryDetail(beneficiaryId)
-      recipientDetail.value = res?.data ?? res ?? null
-    } catch (e) {
-      recipientDetail.value = null
-      error.value = e?.response?.data?.message || '주간 일정을 불러오지 못했습니다.'
-    } finally {
-      loading.value = false
-    }
+}
+
+async function loadCaregiverDetail() {
+  const careWorkerId = getCareWorkerId(props.caregiver)
+  if (!careWorkerId) {
+    caregiverDetail.value = null
+    return
   }
-  
-  async function loadCaregiverDetail() {
-    const careWorkerId = getCareWorkerId(props.caregiver)
-    if (!careWorkerId) {
-      caregiverDetail.value = null
-      return
-    }
-  
-    try {
-      const res = await getCareWorkerDetail(careWorkerId)
-      caregiverDetail.value = res?.data ?? res ?? null
-    } catch (e) {
-      caregiverDetail.value = null
-    }
+
+  try {
+    const res = await getCareWorkerDetail(careWorkerId)
+    caregiverDetail.value = res?.data ?? res ?? null
+  } catch (e) {
+    caregiverDetail.value = null
   }
-  
-  function reloadBoth() {
-    loadRecipientDetail()
-    loadCaregiverDetail()
-  }
-  
-  /* ===== watch ===== */
-  watch(
-    () => getBeneficiaryId(props.recipient),
-    () => loadRecipientDetail(),
-    { immediate: true }
-  )
-  
-  watch(
-    () => getCareWorkerId(props.caregiver),
-    () => loadCaregiverDetail(),
-    { immediate: true }
-  )
-  
-  watch(
-    () => props.refreshKey,
-    () => reloadBoth()
-  )
-  
-  watch(
-    () => store.refreshTick,
-    () => reloadBoth()
-  )
-  
-  /* ===== 데이터 가공 ===== */
-  const dayToKor = (day) => {
-    const map = { 1: '월', 2: '화', 3: '수', 4: '목', 5: '금', 6: '토', 7: '일' }
-    return map[day] || ''
-  }
-  
-  const normalizeTime = (t) => {
-    if (!t) return ''
-    const s = String(t)
-    return s.length >= 5 ? s.slice(0, 5) : s
-  }
-  
-  const recipientEvents = computed(() => {
-    const beneficiaryId = getBeneficiaryId(props.recipient)
-    const schedules = recipientDetail.value?.schedules || []
-    if (!beneficiaryId || !Array.isArray(schedules)) return []
-  
-    return schedules
-      .map((s, idx) => {
-        const day = s.dayName || dayToKor(s.day)
-        const start = normalizeTime(s.startTime)
-        const end = normalizeTime(s.endTime)
-        if (!day || !start || !end) return null
-  
-        return {
-          id: `rec-${beneficiaryId}-${idx}`,
-          day,
-          start,
-          end,
-          type: 'wish',
-          title: '희망 시간',
-          timeText: `${start}-${end}`,
-          service: s.serviceTypeName || '',
-        }
-      })
-      .filter(Boolean)
-  })
-  
-  const caregiverEvents = computed(() => {
-    const careWorkerId = getCareWorkerId(props.caregiver)
-    const times = caregiverDetail.value?.workingTimes || []
-    if (!careWorkerId || !Array.isArray(times)) return []
-  
-    return times
-      .map((w, idx) => {
-        const day = w.dayName || dayToKor(w.day)
-        const start = normalizeTime(w.startTime)
-        const end = normalizeTime(w.endTime)
-        if (!day || !start || !end) return null
-  
-        return {
-          id: `cw-${careWorkerId}-${idx}`,
-          day,
-          start,
-          end,
-          type: 'work',
-          title: '근무',
-          timeText: `${start}-${end}`,
-          service: w.serviceTypeName || '',
-        }
-      })
-      .filter(Boolean)
-  })
-  
-  const eventsByDay = computed(() => {
-    const map = {}
-    days.forEach((d) => (map[d] = []))
-  
-    ;[...caregiverEvents.value, ...recipientEvents.value].forEach((ev) => {
-      if (map[ev.day]) map[ev.day].push(ev)
+}
+
+function reloadBoth() {
+  loadRecipientDetail()
+  loadCaregiverDetail()
+}
+
+/* ===== watch ===== */
+watch(
+  () => getBeneficiaryId(props.recipient),
+  () => loadRecipientDetail(),
+  { immediate: true }
+)
+
+watch(
+  () => getCareWorkerId(props.caregiver),
+  () => loadCaregiverDetail(),
+  { immediate: true }
+)
+
+watch(
+  () => props.refreshKey,
+  () => reloadBoth()
+)
+
+watch(
+  () => store.refreshTick,
+  () => reloadBoth()
+)
+
+/* ===== 데이터 가공 ===== */
+const dayToKor = (day) => {
+  const map = { 1: '월', 2: '화', 3: '수', 4: '목', 5: '금', 6: '토', 7: '일' }
+  return map[day] || ''
+}
+
+const normalizeTime = (t) => {
+  if (!t) return ''
+  const s = String(t)
+  return s.length >= 5 ? s.slice(0, 5) : s
+}
+
+const recipientEvents = computed(() => {
+  const beneficiaryId = getBeneficiaryId(props.recipient)
+  const schedules = recipientDetail.value?.schedules || []
+  if (!beneficiaryId || !Array.isArray(schedules)) return []
+
+  return schedules
+    .map((s, idx) => {
+      const day = s.dayName || dayToKor(s.day)
+      const start = normalizeTime(s.startTime)
+      const end = normalizeTime(s.endTime)
+      if (!day || !start || !end) return null
+
+      return {
+        id: `rec-${beneficiaryId}-${idx}`,
+        day,
+        start,
+        end,
+        type: 'wish',
+        title: '희망 시간',
+        timeText: `${start}-${end}`,
+        service: s.serviceTypeName || '',
+      }
     })
-  
-    Object.keys(map).forEach((k) => {
-      map[k].sort((a, b) => (a.type === b.type ? 0 : a.type === 'work' ? -1 : 1))
+    .filter(Boolean)
+})
+
+const caregiverEvents = computed(() => {
+  const careWorkerId = getCareWorkerId(props.caregiver)
+  const times = caregiverDetail.value?.workingTimes || []
+  if (!careWorkerId || !Array.isArray(times)) return []
+
+  return times
+    .map((w, idx) => {
+      const day = w.dayName || dayToKor(w.day)
+      const start = normalizeTime(w.startTime)
+      const end = normalizeTime(w.endTime)
+      if (!day || !start || !end) return null
+
+      return {
+        id: `cw-${careWorkerId}-${idx}`,
+        day,
+        start,
+        end,
+        type: 'work',
+        title: '근무',
+        timeText: `${start}-${end}`,
+        service: w.serviceTypeName || '',
+      }
     })
-  
-    return map
+    .filter(Boolean)
+})
+
+const eventsByDay = computed(() => {
+  const map = {}
+  days.forEach((d) => (map[d] = []))
+
+  ;[...recipientEvents.value].forEach((ev) => {
+    if (map[ev.day]) map[ev.day].push(ev)
   })
-  
-  const eventStyle = (event) => {
-    const [sh, sm] = event.start.split(':').map(Number)
-    const [eh, em] = event.end.split(':').map(Number)
-  
-    const slotHeight = 48
-    const startIndex = sh - 6 + sm / 60
-    const endIndex = eh - 6 + em / 60
-  
-    const top = startIndex * slotHeight
-    const height = (endIndex - startIndex) * slotHeight
-  
-    return { top: `${top}px`, height: `${height}px` }
-  }
-  
-  /* ===== date utils ===== */
-  function startOfWeek(date) {
-    const d = new Date(date)
-    const day = d.getDay()
-    const diff = (day === 0 ? -6 : 1) - day
-    d.setDate(d.getDate() + diff)
-    d.setHours(0, 0, 0, 0)
-    return d
-  }
-  
-  function addDays(date, days) {
-    const d = new Date(date)
-    d.setDate(d.getDate() + days)
-    return d
-  }
-  
-  function formatMD(date) {
-    return `${date.getMonth() + 1}/${date.getDate()}`
-  }
-  </script>
+
+  Object.keys(map).forEach((k) => {
+    map[k].sort((a, b) => (a.type === b.type ? 0 : a.type === 'work' ? -1 : 1))
+  })
+
+  return map
+})
+
+const eventStyle = (event) => {
+  const [sh, sm] = event.start.split(':').map(Number)
+  const [eh, em] = event.end.split(':').map(Number)
+
+  const slotHeight = 48
+  const startIndex = sh - 6 + sm / 60
+  const endIndex = eh - 6 + em / 60
+
+  const top = startIndex * slotHeight
+  const height = (endIndex - startIndex) * slotHeight
+
+  return { top: `${top}px`, height: `${height}px` }
+}
+</script>
 
 <style scoped>
 .weekly-selected {
@@ -288,40 +242,6 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-}
-
-.inner-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.inner-title {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: #166534;
-}
-
-.week-nav {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: #4b5563;
-}
-
-.nav-btn {
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  font-size: 16px;
-  line-height: 1;
-  padding: 2px 4px;
-}
-
-.week-range {
-  font-weight: 500;
 }
 
 .grid-header {
