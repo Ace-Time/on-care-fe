@@ -28,7 +28,9 @@ onUnmounted(() => {
 });
 
 // API 함수 import
-import { getCertificateTypes, getCertificateHolders, registerBulkEducation } from '@/api/employee/employeeApi';
+// API 함수 import
+import { getCertificateTypes, getCertificateHolders, registerBulkEducation, getEducationAlerts } from '@/api/employee/employeeApi';
+
 
 // 1. 자격증 종류 조회 (API)
 const certTypes = ref([]);
@@ -100,6 +102,8 @@ const today = computed(() => {
 });
 
 const selectedIds = ref([]);
+const onlyExpired = ref(false); // 필터 상태
+const alertsMap = ref({}); // 직원 ID -> 알림 객체 매핑
 
 // 2. 보유자 조회 (API)
 const holders = ref([]);
@@ -122,11 +126,46 @@ const fetchHolders = async (certId) => {
   }
 };
 
-// 자격증 변경 시 보유자 목록 조회
+
+
+// 알림 정보 가져오기
+const fetchAlertsData = async () => {
+  try {
+    const alerts = await getEducationAlerts();
+    const map = {};
+    if (Array.isArray(alerts)) {
+      alerts.forEach(a => {
+        map[a.employeeId] = a;
+      });
+    }
+    alertsMap.value = map;
+  } catch (e) {
+    console.error('Failed to fetch alerts:', e);
+  }
+};
+
 watch(() => form.value.targetCertId, (newId) => {
   selectedIds.value = [];
-  if (newId) fetchHolders(newId);
-  else holders.value = [];
+  if (newId) {
+    fetchHolders(newId);
+    fetchAlertsData(); // 자격증 선택 시 알림 정보도 갱신
+  } else {
+    holders.value = [];
+    alertsMap.value = {};
+  }
+});
+
+// 필터링된 목록
+const filteredHolders = computed(() => {
+  let list = holders.value;
+
+  if (onlyExpired.value) {
+    list = list.filter(emp => {
+      const alert = alertsMap.value[emp.employeeId];
+      return alert && alert.status === 'OVERDUE';
+    });
+  }
+  return list;
 });
 
 // 이수일 변경 시 다음 교육 예정일(2년 뒤) 자동 계산
@@ -143,9 +182,10 @@ watch(() => form.value.eduDate, (newDate) => {
   }
 });
 
+
 const toggleAll = (e) => {
   // cwc_id를 사용한다고 가정.
-  if (e.target.checked) selectedIds.value = holders.value.map(c => c.cwc_id || c.id);
+  if (e.target.checked) selectedIds.value = filteredHolders.value.map(c => c.cwc_id || c.id);
   else selectedIds.value = [];
 };
 
@@ -215,17 +255,23 @@ const handleSubmit = async () => {
         <div class="section-title-row" :class="{ 'opacity-50': !form.targetCertId }">
           <svg class="icon-blue" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           <span class="main-title">대상 직원 선택</span>
-          <span class="count-badge" v-if="form.targetCertId">{{ selectedIds.length }} / {{ holders.length }}명</span>
+          <span class="count-badge" v-if="form.targetCertId">{{ selectedIds.length }} / {{ filteredHolders.length }}명</span>
         </div>
 
         <div class="selection-box" v-if="form.targetCertId">
-          <div class="check-row header-row">
-            <input type="checkbox" @change="toggleAll" :checked="holders.length > 0 && selectedIds.length === holders.length" class="checkbox" />
-            <label class="check-label">전체 선택</label>
+          <div class="check-row header-row" style="justify-content: space-between;">
+            <div class="flex items-center gap-2">
+              <input type="checkbox" @change="toggleAll" :checked="filteredHolders.length > 0 && selectedIds.length === filteredHolders.length" class="checkbox" />
+              <label class="check-label">전체 선택</label>
+            </div>
+            <div class="flex items-center gap-2">
+               <input type="checkbox" id="onlyExpired" v-model="onlyExpired" class="checkbox" />
+               <label for="onlyExpired" class="check-label text-red-600 font-bold cursor-pointer">기한 초과자만</label>
+            </div>
           </div>
           <div class="list-scroll custom-scrollbar">
             <div v-if="isLoadingHolders" class="empty-list">로딩 중...</div>
-            <div v-else v-for="emp in holders" :key="emp.cwc_id || emp.id" class="check-row item-row" 
+            <div v-else v-for="emp in filteredHolders" :key="emp.cwc_id || emp.id" class="check-row item-row" 
                  @click="(selectedIds.includes(emp.cwc_id || emp.id)) ? selectedIds = selectedIds.filter(id => id !== (emp.cwc_id || emp.id)) : selectedIds.push(emp.cwc_id || emp.id)">
               <input type="checkbox" :value="emp.cwc_id || emp.id" v-model="selectedIds" class="checkbox" @click.stop />
               <div class="item-info">
@@ -233,6 +279,9 @@ const handleSubmit = async () => {
                   <span class="name">{{ emp.employeeName || emp.name }}</span>
                   <!-- 직책이나 다른 정보가 있다면 표시 -->
                   <span v-if="emp.status" class="status-tag" :class="emp.status === '활동중' ? 'tag-green' : 'tag-yellow'">{{ emp.status }}</span>
+                  <span v-if="alertsMap[emp.employeeId] && alertsMap[emp.employeeId].status === 'OVERDUE'" class="status-tag tag-red">
+                    {{ Math.abs(alertsMap[emp.employeeId].dday) }}일 초과
+                  </span>
                 </div>
                 <!-- 핸드폰 번호가 없을 수도 있음 -->
                 <p v-if="emp.phone" class="phone">{{ emp.phone }}</p>
@@ -299,6 +348,7 @@ const handleSubmit = async () => {
 .status-tag { font-size: 10px; padding: 2px 6px; border-radius: 4px; }
 .tag-green { background-color: #dcfce7; color: #15803d; }
 .tag-yellow { background-color: #fef9c3; color: #a16207; }
+.tag-red { background-color: #fee2e2; color: #991b1b; font-weight: 700; }
 .phone { font-size: 12px; color: #6b7280; margin: 0; }
 
 /* 폼 */
@@ -316,7 +366,15 @@ const handleSubmit = async () => {
 .btn-submit { flex: 1; padding: 10px; background-color: #3b82f6; color: white; border-radius: 8px; font-size: 14px; font-weight: 700; border: none; cursor: pointer; }
 .btn-submit:hover { background-color: #2563eb; }
 
-/* 추가된 스타일 */
+.btn-submit:hover { background-color: #2563eb; }
+
+/* 유틸리티 */
+.flex { display: flex; }
+.items-center { align-items: center; }
+.gap-2 { gap: 8px; }
+.text-red-600 { color: #dc2626; }
+.font-bold { font-weight: 700; }
+.cursor-pointer { cursor: pointer; }
 .mb-2 { margin-bottom: 8px; }
 .mb-6 { margin-bottom: 24px; }
 .mt-6 { margin-top: 24px; }
