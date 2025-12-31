@@ -15,11 +15,11 @@
       </div>
   
       <select
-        class="category-select"
-        v-model="proxyCategory"
+        class="status-select"
+        v-model="proxystatus"
       >
         <option
-          v-for="cat in categories"
+          v-for="cat in statusList"
           :key="cat.id"
           :value="cat.id"
         >
@@ -38,11 +38,11 @@
       type: String,
       default: '',
     },
-    selectedCategory: {
+    selectedStatus: {
       type: [String, Number],
       default: 'C000',
     },
-    categories: {
+    statusList: {
       type: Array,
       default: () => [],
     },
@@ -55,15 +55,15 @@
       default: true,
     },
   })
-  const emit = defineEmits(['update:searchText', 'update:selectedCategory','search'])
+  const emit = defineEmits(['update:searchText', 'update:selectedStatus','search'])
 
   // 부모의 props를 받아오되(get), 바꿀 때는 부모에게 알리는(set) 완벽한 중계자 역할
-  const proxyCategory = computed({
+  const proxystatus = computed({
     get() {
-      return props.selectedCategory
+      return props.selectedStatus
     },
     set(newValue) {
-      emit('update:selectedCategory', newValue)
+      emit('update:selectedStatus', newValue)
     }
   })
   </script>
@@ -114,7 +114,7 @@
     font-size: 14px;
   }
   
-  .category-select {
+  .status-select {
     min-width: 120px;
     padding: 10px 12px;
     border-radius: 12px;

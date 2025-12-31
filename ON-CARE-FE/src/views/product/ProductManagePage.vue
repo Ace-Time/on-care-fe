@@ -6,8 +6,8 @@
       <!-- 검색 바 -->
       <ProductSearchBar
         v-model:searchText="searchMasterValue"
-        v-model:selectedCategory="selectedCategory"
-        :categories="categoryOptions"
+        v-model:selectedStatus="selectedCategory"
+        :statusList="categoryOptions"
         @search="handleSearchForMaster"
       />
 
@@ -19,14 +19,14 @@
         :categories="categorymaster"
         @needMoreData="fetchNextMasterBatch"
         @row-click="handleRowClick"
+        @open-rental="handleOpenRentalModal"
       />
 
       <br>
       <!-- 검색 바 -->
       <ProductSearchBar
-        v-model:searchText="searchMasterValue"
-        v-model:selectedCategory="selectedStatus"
-        :categories="productStatusOptions"
+        v-model:selectedStatus="selectedStatus"
+        :statusList="productStatusOptions"
         :show-input="false"
       />
 
@@ -49,6 +49,13 @@
       @close="selectedDetailRow = null"
       @needMoreData="fetchNextHistoryBatch"
     />
+
+    <RentalRegisterModal
+      v-if="isRentalModalOpen"
+      :initial-product="targetRentalProduct"
+      @close="isRentalModalOpen = false"
+      @result="handleRentalResult"
+    />
   </div>
 </template>
 
@@ -65,6 +72,10 @@ import { productHistoryMock } from '@/mock/product/productHistoryMock.js'
 import ProductManageTable from '@/components/product/ProductManageTable.vue'
 import ProductManageDetailTable from '@/components/product/ProductManageDetailTable.vue'
 import ProductHistoryPanel from '@/components/product/ProductHistoryPanel.vue'
+import RentalRegisterModal from '@/components/product/RentalRegisterModal.vue'
+
+import { useToast } from '@/lib/toast'
+const {success, error : toastError , info} = useToast();
 
 const selectedMasterName = ref('');
 
@@ -94,16 +105,15 @@ const selectedHistoryEvents = ref([]); //하위에서 제품 선택시 해당 �
 
 const pageSIze = 5;
 
+
 onMounted(async() => {
   const master_category = await getMasterCategoryCode();
   categorymaster.value = {...master_category};
-
   categoryOptions.value = master_category;
   categoryOptions.value.unshift({id:'C000', name:'전체'})
 
   const product_statusData = await getProductStatus();
   productStatuses.value = {...product_statusData};
-
   productStatusOptions.value = product_statusData;
   productStatusOptions.value.unshift({id: 0 , name:'전체'})
 
@@ -209,7 +219,7 @@ const selectedDetailItems = computed(() => {
 
 //  자식 컴포넌트에서 서버에 다음페이지 요청 시 
 const fetchNextProductBatch = async () => {
-  if (!isLastMasterApiBatch.value) {
+  if (!isLastProductsApiBatch.value) {
     await fetchProductApiBatch(masterApiPage.value + 1)
   }
 }
@@ -282,7 +292,7 @@ const handleDetailRowClick = async (row) => {
 
 //  자식 컴포넌트(이력조회)에서 서버에 다음페이지 요청 시 
 const fetchNextHistoryBatch = async () => {
-  if (!isLastMasterApiBatch.value) {
+  if (!isLastHistoryApiBatch.value) {
     await fetchHistory(historyApiPage.value + 1)
   }
 }
@@ -384,6 +394,40 @@ watch(selectedStatus, async () => {
     await fetchProductApiBatch(0);
   }
 });
+
+
+// 모달 관련 변수
+const isRentalModalOpen = ref(false);
+const targetRentalProduct = ref(null);
+
+
+// 렌탈 등록 버튼 클릭 핸들러
+const handleOpenRentalModal = (masterItem) => {
+  console.log("렌탈 계약 시도:", masterItem);
+  
+  // 모달에 넘겨줄 마스터 제품 정보
+  targetRentalProduct.value = {
+    id: masterItem.id,        // 예: EM001
+    productName: masterItem.name // 예: 전동침대
+  };
+  
+  isRentalModalOpen.value = true;
+};
+
+// 등록 성공 시 처리
+const handleRentalResult = (result) => {
+  // 재고 수량이 변경되었을 수 있으므로 마스터 리스트 새로고침
+  // handleSearchForMaster()를 호출하면 검색어 등 조건 유지한 채 리로드
+  if(result === '성공')
+  {
+    success('렌탈 등록',{description: '렌탈 계약 등록에 성공 했습니다.' });
+    handleSearchForMaster();
+  } else {
+    toastError('렌탈 등록',{description: '렌탈 계약 등록에 실패 했습니다.' });
+  }
+
+};
+
 
 </script>
 

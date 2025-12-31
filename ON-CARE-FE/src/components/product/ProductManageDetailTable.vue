@@ -151,7 +151,7 @@
     })
 
     //  다음 페이지로 갈 수 있는지 여부 
-    const canGoNext = computed(() => {
+  const canGoNext = computed(() => {
     // 메모리에 이미 다음 장 데이터가 있거나
     const hasMoreInMemory = (visualPage.value + 1) * pageSize < totalItemCount.value
     // 아니면 서버에 데이터가 더 남아있거나 (last가 false)
