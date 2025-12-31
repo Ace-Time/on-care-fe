@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 
 const props = defineProps({
   isOpen: Boolean,
@@ -7,6 +7,23 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['close', 'approve', 'reject']);
+
+// 키보드 이벤트 핸들러
+const handleKeydown = (e) => {
+  if (!props.isOpen) return;
+
+  if (e.key === 'Escape') {
+    emit('close');
+  }
+};
+
+onMounted(() => {
+  window.addEventListener('keydown', handleKeydown);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeydown);
+});
 
 const activeTab = ref('대기중');
 const selectedCert = ref(null);

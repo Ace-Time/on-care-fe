@@ -1,6 +1,5 @@
 <script setup>
 import { ref, computed, watch, defineProps, defineEmits, onMounted } from 'vue';
-// 1. Mock 데이터 임포트 (컴포넌트 내부에 데이터를 정의하지 않음)
 import { bedsoreAssessment } from '@/mock/careworker/bedsoreData';
 import { getMyBeneficiaries } from '@/api/careworker';
 import { useUserStore } from '@/stores/user';
@@ -35,7 +34,6 @@ const loadBeneficiaries = async () => {
     const data = response?.data ?? response;
     beneficiaries.value = Array.isArray(data) ? data : [];
   } catch (error) {
-    console.error('❌ 담당 수급자 목록 불러오기 실패:', error);
     beneficiaries.value = [];
   } finally {
     loadingBeneficiaries.value = false;
@@ -52,9 +50,8 @@ const formData = ref({
   comment: props.initialData?.comment || ''
 });
 
-// Watch for initialData changes (for edit mode)
+// Watch for initialData changes
 watch(() => props.initialData, (newData) => {
-  // initialData에 실제 데이터가 있을 때만 업데이트 (beneficiaryId가 있는 경우만)
   if (newData && Object.keys(newData).length > 0 && newData.beneficiaryId) {
     formData.value = {
       beneficiaryId: newData.beneficiaryId,
@@ -67,7 +64,7 @@ watch(() => props.initialData, (newData) => {
   }
 }, { deep: true, immediate: true });
 
-// 욕창위험도 점수 계산 (Computed)
+// 욕창위험도 점수 계산
 const totalBedsoreScore = computed(() => {
   let total = 0;
   if (formData.value.bedsoreRisk) {
@@ -79,19 +76,15 @@ const totalBedsoreScore = computed(() => {
   return total;
 });
 
-// 욕창위험도 등급 판정 (Computed)
+// 욕창위험도 등급 판정
 const bedsoreGrade = computed(() => {
   const score = totalBedsoreScore.value;
   const ranges = bedsoreAssessment.grading.ranges;
-  
-  // 점수 범위에 맞는 등급 찾기
   const grade = ranges.find(r => score >= r.min && score <= r.max);
-  
-  // 범위에 없으면(예외) 마지막 등급(가장 위험하거나 기본값) 반환
-  return grade || ranges[ranges.length - 1];
+  return grade || ranges[ranges.length - 1]; // 기본값 처리
 });
 
-// 점수 범위 텍스트 포맷팅 (예: 19점 ~ 23점)
+// 점수 범위 텍스트 포맷팅
 const formatRange = (min, max) => {
   if (min === 0) return `${max}점 이하`;
   if (max >= 99) return `${min}점 이상`;
@@ -100,7 +93,7 @@ const formatRange = (min, max) => {
 
 // 항목 선택 함수
 const selectBedsoreRisk = (itemCode, choice) => {
-  if (!choice) return; // choice가 null이면(빈 칸) 실행 안 함
+  if (!choice) return;
   formData.value.bedsoreRisk[itemCode] = choice.score;
 };
 
@@ -109,9 +102,8 @@ const isSelected = (itemCode, score) => {
   return formData.value.bedsoreRisk?.[itemCode] === score;
 };
 
-// 폼 제출 핸들러
+// 폼 제출
 const handleSubmit = () => {
-  // 1. 필수값 검증
   if (!formData.value.beneficiaryId) {
     alert('수급자를 선택해주세요.');
     return;
@@ -121,7 +113,6 @@ const handleSubmit = () => {
     return;
   }
   
-  // 2. 모든 항목 평가 여부 검증
   const requiredCount = bedsoreAssessment.items.length;
   const selectedCount = Object.keys(formData.value.bedsoreRisk).length;
 
@@ -137,7 +128,7 @@ const handleSubmit = () => {
   });
 };
 
-// 임시저장 핸들러
+// 임시저장
 const handleSaveDraft = () => {
   emit('save-draft', {
     ...formData.value,
@@ -146,7 +137,6 @@ const handleSaveDraft = () => {
   });
 };
 
-// 마운트 시 실행
 onMounted(() => {
   loadBeneficiaries();
 });
@@ -187,66 +177,55 @@ onMounted(() => {
     </section>
 
     <section class="form-section bedsore-section">
-      <h3 class="section-title">평가 항목</h3>
-
+      <h3 class="section-title">욕창위험도 평가 척도 (Braden Scale)</h3>
+      
       <div class="bedsore-table">
         <div class="table-header">
-          <div class="header-label">평가항목</div>
+          <div class="header-label">구분</div>
           <div class="header-scores">
-            <div
-              v-for="col in bedsoreAssessment.columns"
-              :key="col.score"
-              class="score-col"
-            >
+            <div v-for="col in bedsoreAssessment.columns" :key="col.score" class="score-col">
               {{ col.label }}
             </div>
+            <div class="score-col total-col-header">점수</div>
           </div>
         </div>
 
-        <div
-          v-for="item in bedsoreAssessment.items"
-          :key="item.code"
-          class="table-row"
-        >
-          <div class="row-label">
-            {{ item.label }} <span class="required">*</span>
-          </div>
-          
+        <div v-for="item in bedsoreAssessment.items" :key="item.code" class="table-row">
+          <div class="row-label">{{ item.label }}</div>
           <div class="row-choices">
-            <div 
-              v-for="(choice, index) in item.choices" 
-              :key="index" 
+            <div
+              v-for="(choice, index) in item.choices"
+              :key="index"
               class="choice-cell"
               :class="{ 
                 'empty-cell': !choice, 
-                active: choice && isSelected(item.code, choice.score) 
+                active: choice && isSelected(item.code, choice.score),
+                'read-only': readOnly 
               }"
-              @click="selectBedsoreRisk(item.code, choice)"
+              @click="!readOnly && selectBedsoreRisk(item.code, choice)"
             >
               <template v-if="choice">
-                <input 
-                  type="radio" 
-                  :name="`bedsore-${item.code}`" 
-                  :value="choice.score"
-                  :checked="isSelected(item.code, choice.score)"
-                />
+                <div class="radio-circle" :class="{ checked: isSelected(item.code, choice.score) }"></div>
                 <span class="choice-text">{{ choice.label }}</span>
               </template>
+            </div>
+            <div class="score-display-cell">
+              {{ formData.bedsoreRisk[item.code] !== undefined ? formData.bedsoreRisk[item.code] + '점' : '-' }}
             </div>
           </div>
         </div>
 
-        <div class="table-result-row">
-          <div class="total-label">합계 점수</div>
-          <div class="total-value">{{ totalBedsoreScore }}점</div>
+        <div class="table-footer">
+          <div class="footer-label">합계 점수</div>
+          <div class="footer-score">{{ totalBedsoreScore }}점</div>
         </div>
       </div>
 
-      <div class="grading-criteria-box" :style="{ borderColor: bedsoreGrade.border }">
+      <div class="grading-criteria-container">
         <h4 class="criteria-title">점수 판정 기준</h4>
         
         <div class="criteria-table">
-          <div class="c-head">
+          <div class="c-header">
             <div class="c-col">점수</div>
             <div class="c-col">평가</div>
           </div>
@@ -258,14 +237,13 @@ onMounted(() => {
           </div>
         </div>
 
-        <div class="current-eval-banner" :style="{ backgroundColor: bedsoreGrade.bg }">
-          <span class="banner-label">현재 평가:</span>
+        <div class="result-banner">
+          <span class="banner-title">현재 평가:</span>
           <span 
-            class="banner-result-badge"
-            :class="bedsoreGrade.badgeClass"
-            :style="{ 
-               backgroundColor: bedsoreGrade.badgeClass ? '' : (bedsoreGrade.color === 'yellow' ? '#fefcbf' : '#fff'),
-               color: bedsoreGrade.color === 'yellow' ? '#744210' : bedsoreGrade.color 
+            class="banner-result-badge" 
+            :style="{
+              backgroundColor: bedsoreGrade.color === 'red' ? '#FED7D7' : (bedsoreGrade.color === 'yellow' ? '#FEFCBF' : '#dcfce7'),
+              color: bedsoreGrade.color === 'red' ? '#822727' : (bedsoreGrade.color === 'yellow' ? '#744210' : '#16a34a')
             }"
           >
             {{ totalBedsoreScore }}점 - {{ bedsoreGrade.label }}
@@ -275,21 +253,17 @@ onMounted(() => {
 
       <div v-if="bedsoreAssessment.grading.comment_field" class="comment-section">
         <label>특이사항 및 예방 관리 계획</label>
-        <textarea
-          v-model="formData.comment"
+        <textarea 
+          v-model="formData.comment" 
           placeholder="욕창 위험 요인, 예방 조치 사항, 관리 계획 등을 기록해주세요."
-          rows="5"
+          :disabled="readOnly"
         ></textarea>
       </div>
     </section>
 
-    <div class="form-actions">
-      <button type="button" class="btn-secondary" @click="handleSaveDraft">
-        임시저장
-      </button>
-      <button type="button" class="btn-primary" @click="handleSubmit">
-        제출하기
-      </button>
+    <div v-if="!readOnly" class="form-actions">
+      <button class="btn-secondary" @click="handleSaveDraft">임시저장</button>
+      <button class="btn-primary" @click="handleSubmit">저장</button>
     </div>
   </div>
 </template>
@@ -298,285 +272,143 @@ onMounted(() => {
 .bedsore-assessment-form {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 1.5rem;
+  padding: 1rem;
   font-family: 'Noto Sans KR', sans-serif;
 }
 
-/* 섹션 공통 */
+/* 섹션 박스 */
 .form-section {
   background: white;
-  border-radius: 0.5rem;
-  padding: 1.5rem;
-  margin-bottom: 1.5rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+  border: 1px solid #e2e8f0;
 }
 
+/* 헤더 - 보라색 계열로 변경 */
 .section-header h2 {
+  color: #6b21a8; /* Purple 800 */
   font-size: 1.5rem;
   font-weight: 700;
-  color: #1f2937;
-  text-align: center;
-  margin-bottom: 0.5rem;
+  margin-bottom: 5px;
 }
 
-.section-desc {
-  text-align: center;
-  color: #6b7280;
-  font-size: 0.875rem;
-  margin-bottom: 1.5rem;
+.section-desc { color: #718096; font-size: 0.9rem; margin-bottom: 20px; }
+
+/* 섹션 소제목 - 보라색 테마 */
+.section-title { 
+  font-size: 1.1rem; 
+  font-weight: 700; 
+  color: #4a5568; 
+  margin-bottom: 15px; 
+  background: #faf5ff; /* Purple 50 */
+  padding: 10px; 
+  border-left: 4px solid #8b5cf6; /* Violet 500 */
 }
 
-.section-title {
-  font-size: 1.125rem;
-  font-weight: 700;
-  color: #7c3aed; /* 욕창은 보라색 테마 사용 */
-  margin: 0 0 1rem 0;
-  padding-bottom: 0.5rem;
-  border-bottom: 2px solid #ede9fe;
-}
+.required { color: #e53e3e; margin-left: 2px; }
 
-.required { color: #ef4444; margin-left: 0.25rem; }
-
-/* 기본 정보 그리드 */
-.info-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1rem;
-}
-
-.info-row { display: flex; flex-direction: column; gap: 0.5rem; }
-.info-row label { font-weight: 600; color: #4b5563; font-size: 0.875rem; }
-.info-row input, .info-row select {
-  padding: 0.625rem;
-  border: 1px solid #d1d5db;
-  border-radius: 0.375rem;
-  font-size: 0.875rem;
-  background-color: white;
-}
-.info-row input:focus, .info-row select:focus {
-  outline: none;
-  border-color: #7c3aed;
-  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
-}
+/* 정보 입력 그리드 */
+.info-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; }
+.info-row { display: flex; flex-direction: column; gap: 5px; }
+.info-row label { font-size: 0.85rem; font-weight: 600; color: #4a5568; }
+.info-row input, .info-row select { padding: 8px; border: 1px solid #cbd5e0; border-radius: 4px; font-size: 0.9rem; }
 
 /* 테이블 스타일 */
-.bedsore-section { background: #faf5ff; /* 연한 보라 배경 */ }
-.bedsore-table {
-  border: 1px solid #d1d5db;
-  border-radius: 0.5rem;
-  overflow: hidden;
-  margin-bottom: 1.5rem;
-}
+.bedsore-table { border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden; margin-bottom: 30px; }
+.table-header { display: grid; grid-template-columns: 150px 1fr; background: #edf2f7; border-bottom: 1px solid #e2e8f0; }
+.header-label { padding: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; border-right: 1px solid #e2e8f0; }
 
-.table-header {
-  display: grid;
-  grid-template-columns: 200px 1fr;
-  background: #f3f4f6;
-  border-bottom: 1px solid #d1d5db;
-}
-
-.header-label {
-  padding: 1rem;
-  font-weight: 700;
-  color: #1f2937;
-  border-right: 1px solid #d1d5db;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.header-scores {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr); /* 4점까지 있으므로 4등분 */
-}
-
-.score-col {
-  padding: 1rem;
-  text-align: center;
-  font-weight: 600;
-  color: #4b5563;
-  border-right: 1px solid #e5e7eb;
-}
+/* 4점 척도 + 합계칸 */
+.header-scores { display: grid; grid-template-columns: repeat(4, 1fr) 80px; } 
+.score-col { padding: 10px; text-align: center; font-weight: 600; font-size: 0.9rem; border-right: 1px solid #e2e8f0; }
 .score-col:last-child { border-right: none; }
+.total-col-header { background: #fffaf0; color: #d69e2e; }
 
-.table-row {
-  display: grid;
-  grid-template-columns: 200px 1fr;
-  border-bottom: 1px solid #e5e7eb;
+.table-row { display: grid; grid-template-columns: 150px 1fr; border-bottom: 1px solid #e2e8f0; background: white; }
+.row-label { padding: 12px; font-weight: 600; display: flex; align-items: center; background: #f9fafb; border-right: 1px solid #e2e8f0; font-size: 0.9rem; }
+.row-choices { display: grid; grid-template-columns: repeat(4, 1fr) 80px; }
+
+/* 선택 셀 스타일 - 보라색 테마 적용 */
+.choice-cell { padding: 10px; border-right: 1px solid #e2e8f0; display: flex; align-items: center; cursor: pointer; transition: background 0.2s; font-size: 0.85rem; }
+.choice-cell:hover:not(.empty-cell) { background: #faf5ff; /* Purple 50 */ }
+.choice-cell.active { background: #f3e8ff; color: #581c87; font-weight: bold; /* Purple 100 & 900 */ }
+.choice-cell.empty-cell { background: #fafafa; cursor: default; }
+
+/* 라디오 버튼 커스텀 - 보라색 */
+.radio-circle { width: 14px; height: 14px; border: 2px solid #cbd5e0; border-radius: 50%; margin-right: 6px; flex-shrink: 0; }
+.radio-circle.checked { 
+  border-color: #8b5cf6; /* Violet 500 */
+  background: #8b5cf6; 
+  box-shadow: inset 0 0 0 2px white; 
+}
+
+/* 점수 표시 셀 */
+.score-display-cell { display: flex; align-items: center; justify-content: center; font-weight: bold; color: #7c3aed; background: #faf5ff; border-left: 1px solid #e2e8f0; }
+
+.table-footer { display: flex; justify-content: flex-end; align-items: center; padding: 15px; background: #faf5ff; border-top: 2px solid #cbd5e0; gap: 15px; }
+.footer-label { font-weight: 700; font-size: 1.1rem; }
+.footer-score { font-weight: 800; font-size: 1.3rem; color: #6b21a8; }
+
+/* 판정 기준 박스 - 보라색 테마 */
+.grading-criteria-container {
+  border: 1px solid #c4b5fd; /* Violet 300 */
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 25px;
   background: white;
 }
-.table-row:last-child { border-bottom: none; }
+.criteria-title { font-size: 1rem; font-weight: 700; margin-bottom: 15px; color: #2d3748; }
 
-.row-label {
-  padding: 1rem;
-  font-weight: 600;
-  color: #374151;
-  border-right: 1px solid #d1d5db;
-  font-size: 0.875rem;
-  display: flex;
-  align-items: center;
-  background-color: #f9fafb;
-}
-
-.row-choices {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-}
-
-.choice-cell {
-  padding: 1rem;
-  border-right: 1px solid #e5e7eb;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  transition: background 0.2s;
-}
-.choice-cell:last-child { border-right: none; }
-
-.choice-cell.empty-cell {
-  cursor: default;
-  background-color: #fafafa;
-}
-.choice-cell:not(.empty-cell):hover { background: #faf5ff; }
-
-.choice-cell.active {
-  background: #ede9fe;
-  border-color: #7c3aed;
-}
-
-.choice-cell input[type="radio"] { cursor: pointer; accent-color: #7c3aed; }
-.choice-text { font-size: 0.8125rem; color: #374151; line-height: 1.4; flex: 1; }
-
-.table-result-row {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  padding: 1rem 1.5rem;
-  background: #f3f4f6;
-  border-top: 2px solid #d1d5db;
-  gap: 1rem;
-}
-.total-label { font-size: 1rem; font-weight: 600; color: #4b5563; }
-.total-value { font-size: 1.25rem; font-weight: 800; color: #7c3aed; }
-
-/* 점수 판정 기준 및 배너 */
-.grading-criteria-box {
-  border: 1px solid #d1d5db;
-  border-radius: 0.5rem;
-  padding: 1.5rem;
-  margin-bottom: 1.5rem;
-  background: white;
-  transition: border-color 0.3s;
-}
-
-.criteria-title {
-  font-size: 1rem;
-  font-weight: 700;
-  color: #374151;
-  margin-bottom: 1rem;
-}
-
-.criteria-table {
-  width: 100%;
-  border: 1px solid #e5e7eb;
-  border-radius: 0.25rem;
-  margin-bottom: 1rem;
-  font-size: 0.9rem;
-}
-
-.c-head {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  background: #f3f4f6;
-  border-bottom: 1px solid #e5e7eb;
-  font-weight: 600;
-  color: #4b5563;
-  text-align: center;
-}
-
-.c-body .c-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  border-bottom: 1px solid #e5e7eb;
-  text-align: center;
-}
+.criteria-table { width: 100%; border: 1px solid #e2e8f0; margin-bottom: 15px; }
+.c-header { display: flex; background: #f7fafc; border-bottom: 1px solid #e2e8f0; font-weight: 600; text-align: center; }
+.c-body { display: flex; flex-direction: column; }
+.c-row { display: flex; border-bottom: 1px solid #e2e8f0; text-align: center; }
 .c-row:last-child { border-bottom: none; }
-.c-col { padding: 0.75rem; border-right: 1px solid #e5e7eb; }
+.c-col { flex: 1; padding: 12px; border-right: 1px solid #e2e8f0; font-size: 0.9rem; color: #4a5568; }
 .c-col:last-child { border-right: none; }
 
-.current-eval-banner {
+/* 결과 배너 - 보라색 배경 */
+.result-banner {
+  background: #f5f3ff; /* Purple 50 */
+  border: 1px solid #ddd6fe; /* Violet 200 */
+  border-radius: 6px;
+  padding: 15px 20px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem 1.5rem;
-  border-radius: 0.5rem;
-  background-color: #f9fafb; /* 기본 배경 */
 }
-.banner-label { font-weight: 600; color: #374151; }
+.banner-title { font-weight: 600; color: #2D3748; }
 .banner-result-badge {
-  padding: 0.3rem 1rem;
-  border-radius: 9999px;
+  padding: 6px 16px;
+  border-radius: 20px;
   font-weight: 700;
   font-size: 0.95rem;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
 }
 
-/* 배지 색상 (Mock 데이터에 badgeClass가 있다면 활용 가능, 여기선 style 바인딩으로 처리) */
-.safe { background-color: #c6f6d5; color: #22543d; }
-.caution { background-color: #fefcbf; color: #744210; }
-.danger { background-color: #fed7d7; color: #822727; }
+/* 코멘트 섹션 */
+.comment-section { margin-top: 20px; }
+.comment-section textarea { width: 100%; height: 100px; padding: 10px; border: 1px solid #cbd5e0; border-radius: 4px; resize: none; margin-top: 5px; }
+.comment-section textarea:focus { outline: none; border-color: #8b5cf6; }
 
-/* 특이사항 */
-.comment-section textarea {
-  width: 100%;
-  padding: 0.75rem;
-  border: 1px solid #d1d5db;
-  border-radius: 0.375rem;
-  font-size: 0.875rem;
-  resize: vertical;
+/* 버튼 - 보라색 테마 */
+.form-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+.btn-primary { 
+  background: #8b5cf6; /* Violet 500 */
+  color: white; 
+  padding: 10px 25px; 
+  border-radius: 4px; 
+  border: none; 
+  font-weight: 700; 
+  cursor: pointer; 
 }
-.comment-section textarea:focus {
-  outline: none;
-  border-color: #7c3aed;
-  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
-}
+.btn-primary:hover { background: #7c3aed; /* Violet 600 */ }
 
-/* 버튼 */
-.form-actions {
-  display: flex;
-  justify-content: center;
-  gap: 1rem;
-  margin-top: 2rem;
-}
-.btn-primary {
-  background: #7c3aed;
-  color: white;
-  padding: 0.875rem 2.5rem;
-  border-radius: 0.5rem;
-  font-weight: 700;
-  cursor: pointer;
-  border: none;
-}
-.btn-primary:hover { background: #6d28d9; }
-.btn-secondary {
-  background: white;
-  color: #4b5563;
-  padding: 0.875rem 2.5rem;
-  border-radius: 0.5rem;
-  border: 1px solid #d1d5db;
-  font-weight: 700;
-  cursor: pointer;
-}
+.btn-secondary { background: white; color: #4a5568; padding: 10px 25px; border-radius: 4px; border: 1px solid #cbd5e0; font-weight: 600; cursor: pointer; }
 .btn-secondary:hover { background: #f9fafb; }
 
-@media (max-width: 768px) {
-  .info-grid, .table-header, .table-row { grid-template-columns: 1fr; }
-  .header-label, .row-label { border-right: none; border-bottom: 1px solid #d1d5db; }
-  .row-choices { grid-template-columns: repeat(4, 1fr); }
-  .choice-cell { flex-direction: column; text-align: center; padding: 0.5rem; }
-  .choice-text { font-size: 0.75rem; }
-  .current-eval-banner { flex-direction: column; gap: 0.5rem; text-align: center; }
-}
+/* 읽기 전용 모드 */
+.choice-cell.read-only { cursor: default; opacity: 0.9; }
+.choice-cell.read-only:hover { transform: none; }
+input:disabled, select:disabled, textarea:disabled { background: #f7fafc; cursor: not-allowed; }
 </style>

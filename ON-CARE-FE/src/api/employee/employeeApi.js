@@ -136,3 +136,9 @@ export const registerBulkEducation = async (payload) => {
   const response = await api.post('/api/care-workers/educations/bulk', payload);
   return response.data;
 };
+
+// 4. 보수교육 알림 조회
+export const getEducationAlerts = async () => {
+  const response = await api.get('/api/employees/education/alerts');
+  return response.data;
+};

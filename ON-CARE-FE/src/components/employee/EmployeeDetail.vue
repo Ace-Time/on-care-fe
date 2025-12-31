@@ -58,7 +58,7 @@ const tabs = [
           <EmployeeScheduleCalendar :schedules="employee.schedules || []" />
         </div>
 
-        <div v-else-if="activeTab === 'careLogs'" class="empty-view">
+        <div v-else-if="activeTab === 'careLogs'">
           <BeneficiaryLogList :employeeId="employee.id" />
         </div>
 

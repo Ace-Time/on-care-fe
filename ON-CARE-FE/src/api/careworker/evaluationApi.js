@@ -53,10 +53,11 @@ export const updateBedsoreEvaluation = async (evalId, data) => {
 };
 
 // 6. 욕창위험도 평가 삭제
-export const deleteBedsoreEvaluation = async (evalId) => {
+export const deleteBedsoreEvaluation = async (evalId, userId = null) => {
   if (!evalId) throw new Error('evalId is required');
 
-  const res = await api.delete(`/api/bedsore-evaluations/${evalId}`);
+  const config = userId ? { data: { careWorkerId: userId, employeeId: userId } } : {};
+  const res = await api.delete(`/api/bedsore-evaluations/${evalId}`, config);
   return res.data;
 };
 
@@ -105,10 +106,11 @@ export const updateCognitiveEvaluation = async (evalId, data) => {
 };
 
 // 6. 인지기능 평가 삭제
-export const deleteCognitiveEvaluation = async (evalId) => {
+export const deleteCognitiveEvaluation = async (evalId, userId = null) => {
   if (!evalId) throw new Error('evalId is required');
 
-  const res = await api.delete(`/api/cognitive-evaluations/${evalId}`);
+  const config = userId ? { data: { careWorkerId: userId, employeeId: userId } } : {};
+  const res = await api.delete(`/api/cognitive-evaluations/${evalId}`, config);
   return res.data;
 };
 
@@ -157,10 +159,11 @@ export const updateFallEvaluation = async (evalId, data) => {
 };
 
 // 6. 낙상위험도 평가 삭제
-export const deleteFallEvaluation = async (evalId) => {
+export const deleteFallEvaluation = async (evalId, userId = null) => {
   if (!evalId) throw new Error('evalId is required');
 
-  const res = await api.delete(`/api/fall-evaluations/${evalId}`);
+  const config = userId ? { data: { careWorkerId: userId, employeeId: userId } } : {};
+  const res = await api.delete(`/api/fall-evaluations/${evalId}`, config);
   return res.data;
 };
 
@@ -209,9 +212,10 @@ export const updateNeedsEvaluation = async (evalId, data) => {
 };
 
 // 6. 욕구사정 평가 삭제
-export const deleteNeedsEvaluation = async (evalId) => {
+export const deleteNeedsEvaluation = async (evalId, userId = null) => {
   if (!evalId) throw new Error('evalId is required');
 
-  const res = await api.delete(`/api/needs-evaluations/${evalId}`);
+  const config = userId ? { data: { careWorkerId: userId, employeeId: userId } } : {};
+  const res = await api.delete(`/api/needs-evaluations/${evalId}`, config);
   return res.data;
 };

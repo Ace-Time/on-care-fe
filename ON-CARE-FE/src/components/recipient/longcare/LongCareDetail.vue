@@ -61,14 +61,12 @@
           </div>
 
           <div class="history-list scroll-history">
-            <div
-              v-for="log in history"
-              :key="log.noticeId"
-              class="history-item"
-            >
+            <div v-for="log in history" :key="log.noticeId" class="history-item">
               <div class="history-top">
-                <span class="history-date">{{ log.noticeDate }}</span>
-
+                <div class="history-left">
+                  <span class="history-date">{{ log.noticeDate }}</span>
+                  <span class="history-staff">{{ log.empName }}</span>
+                </div>
                 <div class="history-right">
                   <span
                     class="history-type"
@@ -96,17 +94,44 @@
 
         <!-- 입력 폼 (고정) -->
         <section class="form-section">
-          <div class="form-grid">
+          <!-- 현재/직접입력 탭 -->
+          <div class="mode-tabs">
+            <button
+              type="button"
+              class="mode-tab"
+              :class="{ active: contactMode === 'now' }"
+              @click="setContactMode('now')"
+            >
+              현재
+            </button>
+            <button
+              type="button"
+              class="mode-tab"
+              :class="{ active: contactMode === 'manual' }"
+              @click="setContactMode('manual')"
+            >
+              직접입력
+            </button>
+          </div>
+
+          <div class="form-grid single">
             <div class="form-item">
               <label class="label">연락일자</label>
-              <input type="date" v-model="form.date" />
-            </div>
-            <div class="form-item">
-              <label class="label">담당자</label>
+
+              <!-- 현재 탭: 입력 막힘 + 표시용 -->
               <input
+                v-if="contactMode === 'now'"
                 type="text"
-                v-model="form.staff"
-                placeholder="담당자 이름을 입력하세요"
+                :value="nowKstPretty()"
+                disabled
+              />
+
+              <!-- 직접입력 탭: 과거 날짜+시간 입력 가능(미래 금지) -->
+              <input
+                v-else
+                type="datetime-local"
+                v-model="form.contactAt"
+                :max="nowKstDateTimeLocal()"
               />
             </div>
           </div>
@@ -172,10 +197,19 @@ import { useUserStore } from '@/stores/user'
 const props = defineProps({
   expirationId: { type: [Number, String], required: true }
 })
+
 const emit = defineEmits(['close', 'refresh'])
 
 const userStore = useUserStore()
-const myEmpId = computed(() => userStore?.user?.empId ?? userStore?.empId ?? 1)
+const myEmpId = computed(() => userStore?.user?.userId ?? userStore?.userId ?? null)
+
+const requireEmpId = () => {
+  if (!myEmpId.value) {
+    alert('로그인 정보(직원번호)가 없습니다. 다시 로그인 해주세요.')
+    return false
+  }
+  return true
+}
 
 const loading = ref(false)
 const errorMsg = ref('')
@@ -186,26 +220,75 @@ const history = ref([])
 
 const extendPlanned = ref(true)
 
-const today = () => new Date().toISOString().slice(0, 10)
+/**
+ * KST 기준 "오늘 날짜(YYYY-MM-DD)" 만들기
+ */
+const todayKst = () => {
+  const now = new Date()
+  const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000)
+  return kst.toISOString().slice(0, 10)
+}
+
+/**
+ * KST 기준 "지금(YYYY-MM-DDTHH:mm)" (datetime-local용)
+ */
+const nowKstDateTimeLocal = () => {
+  const now = new Date()
+  const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000)
+  return kst.toISOString().slice(0, 16) // YYYY-MM-DDTHH:mm
+}
+
+/**
+ * KST 기준 "지금(YYYY-MM-DD HH:mm)" 표시용
+ */
+const nowKstPretty = () => {
+  return nowKstDateTimeLocal().replace('T', ' ')
+}
+
+/**
+ * datetime-local -> "YYYY-MM-DD HH:mm:ss" 로 변환(백엔드 전달용)
+ */
+const toDbDateTimeString = (dtLocal) => {
+  if (!dtLocal) return null
+  // dtLocal: "YYYY-MM-DDTHH:mm"
+  return `${dtLocal.replace('T', ' ')}:00`
+}
+
+const contactMode = ref('now') // 'now' | 'manual'
+
 const form = ref({
-  date: today(),
-  staff: '',
+  contactAt: nowKstDateTimeLocal(), // 직접입력 탭에서 사용
   memo: '',
 })
+
+const setContactMode = (mode) => {
+  contactMode.value = mode
+  if (mode === 'now') {
+    // 현재 탭으로 바꾸면 "지금"으로 갱신
+    form.value.contactAt = nowKstDateTimeLocal()
+  }
+}
 
 const isEditing = ref(false)
 const editingNoticeId = ref(null)
 
 const autoAbsentMemo = '연락 시도했으나 부재중. 추후 재연락 필요.'
 
+/** 서버에서 noticeDate를 이미 "yyyy-MM-dd HH:mm:ss" 문자열로 내려줌 */
+const prettyDateTime = (s) => {
+  if (!s) return '-'
+  return String(s).slice(0, 16)
+}
+
 const toHistoryItem = (it) => {
   const memo = it?.memo ?? ''
   const type = memo === autoAbsentMemo ? '부재중' : '완료'
   return {
     noticeId: it.noticeId,
-    noticeDate: it.noticeDate,
+    noticeDate: prettyDateTime(it.noticeDate),
     memo,
     empId: it.empId,
+    empName: it.empName ?? '-',
     type,
     title: type === '부재중' ? '부재중 - 재연락 필요' : '만료 안내 완료',
   }
@@ -219,8 +302,9 @@ const fetchDetail = async () => {
     detail.value = data || null
     extendPlanned.value = (detail.value?.extendsStatus ?? 'Y') !== 'N'
 
-    form.value.staff = detail.value?.careWorkerName || ''
-    form.value.date = today()
+    // 폼 초기화
+    contactMode.value = 'now'
+    form.value.contactAt = nowKstDateTimeLocal()
     form.value.memo = ''
   } catch (e) {
     console.error(e)
@@ -252,7 +336,12 @@ watch(extendPlanned, async (val) => {
     const extendsStatus = val ? 'Y' : 'N'
     await api.patch(`/api/care-level/expirations/${props.expirationId}/extends`, { extendsStatus })
     detail.value.extendsStatus = extendsStatus
-    emit('refresh')
+
+    emit('refresh', {
+      type: 'extendsStatus',
+      expirationId: props.expirationId,
+      extendsStatus
+    })
   } catch (e) {
     console.error(e)
     extendPlanned.value = !val
@@ -260,12 +349,47 @@ watch(extendPlanned, async (val) => {
   }
 })
 
+/**
+ * 직접입력 탭일 때만 미래 금지 검사 (과거는 OK)
+ */
+const validateManualDateTimeOrAlert = () => {
+  if (contactMode.value !== 'manual') return true
+  const max = nowKstDateTimeLocal()
+  if (!form.value.contactAt) {
+    alert('연락일자를 입력해주세요.')
+    form.value.contactAt = max
+    return false
+  }
+  if (String(form.value.contactAt) > String(max)) {
+    alert('연락일자는 미래로 입력할 수 없습니다.')
+    form.value.contactAt = max
+    return false
+  }
+  return true
+}
+
+/**
+ * 부재중
+ * - 현재탭: 서버 NOW()
+ * - 직접입력: noticeDate를 함께 보냄(백엔드가 지원하면 해당 시간 저장)
+ */
 const recordAbsent = async () => {
+  if (!requireEmpId()) return
+  if (!validateManualDateTimeOrAlert()) return
+
   actionLoading.value = true
   try {
-    await api.post(`/api/care-level/expirations/${props.expirationId}/notices/absent`, null, {
-      params: { empId: myEmpId.value }
-    })
+    const params = { empId: myEmpId.value }
+    if (contactMode.value === 'manual') {
+      params.noticeDate = toDbDateTimeString(form.value.contactAt)
+    }
+
+    await api.post(
+      `/api/care-level/expirations/${props.expirationId}/notices/absent`,
+      null,
+      { params }
+    )
+
     await fetchNotices()
     emit('refresh')
   } catch (e) {
@@ -276,19 +400,36 @@ const recordAbsent = async () => {
   }
 }
 
+/**
+ * 안내 완료
+ * - 현재탭: 서버 NOW()
+ * - 직접입력: noticeDate 함께 전송
+ */
 const addComplete = async () => {
+  if (!requireEmpId()) return
+  if (!validateManualDateTimeOrAlert()) return
+
   if (!form.value.memo) {
     alert('안내 내용을 입력해주세요.')
     return
   }
+
   actionLoading.value = true
   try {
-    await api.post(`/api/care-level/expirations/${props.expirationId}/notices/complete`, {
-      noticeDate: form.value.date,
+    const payload = {
       memo: form.value.memo,
       empId: myEmpId.value
-    })
+    }
+    if (contactMode.value === 'manual') {
+      payload.noticeDate = toDbDateTimeString(form.value.contactAt)
+    }
+
+    await api.post(`/api/care-level/expirations/${props.expirationId}/notices/complete`, payload)
+
     form.value.memo = ''
+    contactMode.value = 'now'
+    form.value.contactAt = nowKstDateTimeLocal()
+
     await fetchNotices()
     emit('refresh')
   } catch (e) {
@@ -302,20 +443,31 @@ const addComplete = async () => {
 const startEdit = (log) => {
   isEditing.value = true
   editingNoticeId.value = log.noticeId
-  const d = String(log.noticeDate || '').slice(0, 10)
-  form.value.date = d || today()
+
+  // 수정 시작하면: 기본은 "현재" 탭으로 두고(서버 NOW), 필요하면 직접입력으로 바꿔서 수정 가능
+  contactMode.value = 'now'
+  form.value.contactAt = nowKstDateTimeLocal()
   form.value.memo = log.memo || ''
 }
 
 const cancelEdit = () => {
   isEditing.value = false
   editingNoticeId.value = null
-  form.value.date = today()
+
+  contactMode.value = 'now'
+  form.value.contactAt = nowKstDateTimeLocal()
   form.value.memo = ''
 }
 
+/**
+ * 수정 저장
+ * - 현재탭: 서버 NOW()로 업데이트 (00:00 문제 해결)
+ * - 직접입력: noticeDate 함께 전송
+ */
 const saveEdit = async () => {
+  if (!validateManualDateTimeOrAlert()) return
   if (!editingNoticeId.value) return
+
   if (!form.value.memo) {
     alert('안내 내용을 입력해주세요.')
     return
@@ -323,11 +475,19 @@ const saveEdit = async () => {
 
   actionLoading.value = true
   try {
-    await api.put(`/api/care-level/expirations/${props.expirationId}/notices/${editingNoticeId.value}`, {
-      noticeDate: form.value.date,
+    const payload = {
       memo: form.value.memo,
       empId: myEmpId.value
-    })
+    }
+    if (contactMode.value === 'manual') {
+      payload.noticeDate = toDbDateTimeString(form.value.contactAt)
+    }
+
+    await api.put(
+      `/api/care-level/expirations/${props.expirationId}/notices/${editingNoticeId.value}`,
+      payload
+    )
+
     await fetchNotices()
     cancelEdit()
     emit('refresh')
@@ -385,7 +545,7 @@ watch(
   flex-direction: column;
   gap: 14px;
 
-  overflow: hidden; /* 바깥으로 삐져나오는 것 컷 */
+  overflow: hidden;
 }
 
 .detail-body {
@@ -397,30 +557,16 @@ watch(
   gap: 14px;
 }
 
-/* 상태 */
-.state {
-  font-size: 12px;
-  color: #6b7280;
-}
-.state.error {
-  color: #b91c1c;
-}
+.state { font-size: 12px; color: #6b7280; }
+.state.error { color: #b91c1c; }
 
-/* 헤더 */
 .detail-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
 }
-.title h3 {
-  margin: 0;
-  font-size: 16px;
-  color: #15803d;
-}
-.title .sub {
-  font-size: 12px;
-  color: #6b7280;
-}
+.title h3 { margin: 0; font-size: 16px; color: #15803d; }
+.title .sub { font-size: 12px; color: #6b7280; }
 .close-btn {
   border: none;
   background: transparent;
@@ -429,32 +575,16 @@ watch(
   cursor: pointer;
 }
 
-/* 기본 정보 */
-.info-section {
-  padding: 10px 12px;
-  border-radius: 12px;
-  background: #f9fafb;
-}
+.info-section { padding: 10px 12px; border-radius: 12px; background: #f9fafb; }
 .info-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px 16px;
 }
-.info-item .label {
-  font-size: 11px;
-  color: #6b7280;
-}
-.info-item .value {
-  font-size: 13px;
-  font-weight: 500;
-  color: #111827;
-}
+.info-item .label { font-size: 11px; color: #6b7280; }
+.info-item .value { font-size: 13px; font-weight: 500; color: #111827; }
 
-/* 연장 예정 */
-.extend-section {
-  margin-top: -4px;
-  padding: 8px 12px 4px;
-}
+.extend-section { margin-top: -4px; padding: 8px 12px 4px; }
 .extend-checkbox {
   display: inline-flex;
   align-items: center;
@@ -462,45 +592,24 @@ watch(
   font-size: 13px;
   color: #111827;
 }
-.extend-checkbox input[type='checkbox'] {
-  width: 14px;
-  height: 14px;
-}
+.extend-checkbox input[type='checkbox'] { width: 14px; height: 14px; }
 .extend-label { font-weight: 500; }
-.extend-help {
-  margin: 2px 0 0;
-  font-size: 11px;
-  color: #6b7280;
-}
+.extend-help { margin: 2px 0 0; font-size: 11px; color: #6b7280; }
 
-/* 안내 이력 */
 .history-section {
   border-radius: 12px;
   background: #f9fafb;
   padding: 10px 12px;
-
-  /* history가 길어져도 아래 폼/버튼을 밀어내지 않도록 */
   min-height: 0;
 }
-
-/* 여기만 스크롤 */
 .scroll-history {
-  max-height: 240px;   /* 여기 숫자만 조절하면 됨 */
+  max-height: 240px;
   overflow-y: auto;
   padding-right: 4px;
 }
-
-/* 스크롤바 */
-.scroll-history::-webkit-scrollbar {
-  width: 6px;
-}
-.scroll-history::-webkit-scrollbar-thumb {
-  background-color: #d1d5db;
-  border-radius: 4px;
-}
-.scroll-history::-webkit-scrollbar-track {
-  background-color: transparent;
-}
+.scroll-history::-webkit-scrollbar { width: 6px; }
+.scroll-history::-webkit-scrollbar-thumb { background-color: #d1d5db; border-radius: 4px; }
+.scroll-history::-webkit-scrollbar-track { background-color: transparent; }
 
 .section-title-row {
   display: flex;
@@ -508,76 +617,22 @@ watch(
   align-items: center;
   margin-bottom: 6px;
 }
-.section-title {
-  font-size: 13px;
-  font-weight: 600;
-}
+.section-title { font-size: 13px; font-weight: 600; }
 
-.history-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
+.history-list { display: flex; flex-direction: column; gap: 6px; }
+.history-item { border-radius: 8px; background: #e0f2fe; padding: 8px 10px; }
+.history-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.history-date { font-size: 11px; color: #1e3a8a; }
+.history-right { display:flex; align-items:center; gap:6px; }
+.history-type { font-size: 11px; padding: 2px 8px; border-radius: 999px; }
+.type-complete { background: #dcfce7; color: #15803d; }
+.type-missed { background: #fee2e2; color: #b91c1c; }
+.icon-btn { border:none; background: transparent; font-size: 11px; color:#374151; cursor:pointer; padding:2px 4px; }
+.icon-btn.danger { color:#b91c1c; }
+.history-title { font-size: 12px; font-weight: 600; color: #1e3a8a; }
+.history-memo { font-size: 12px; color: #374151; }
+.history-empty { font-size: 12px; color: #9ca3af; }
 
-.history-item {
-  border-radius: 8px;
-  background: #e0f2fe;
-  padding: 8px 10px;
-}
-.history-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 4px;
-}
-.history-date {
-  font-size: 11px;
-  color: #1e3a8a;
-}
-.history-right{
-  display:flex;
-  align-items:center;
-  gap:6px;
-}
-.history-type {
-  font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 999px;
-}
-.type-complete {
-  background: #dcfce7;
-  color: #15803d;
-}
-.type-missed {
-  background: #fee2e2;
-  color: #b91c1c;
-}
-.icon-btn{
-  border:none;
-  background: transparent;
-  font-size: 11px;
-  color:#374151;
-  cursor:pointer;
-  padding:2px 4px;
-}
-.icon-btn.danger{
-  color:#b91c1c;
-}
-.history-title {
-  font-size: 12px;
-  font-weight: 600;
-  color: #1e3a8a;
-}
-.history-memo {
-  font-size: 12px;
-  color: #374151;
-}
-.history-empty {
-  font-size: 12px;
-  color: #9ca3af;
-}
-
-/* 폼 */
 .form-section {
   border-radius: 12px;
   background: #f9fafb;
@@ -586,25 +641,40 @@ watch(
   flex-direction: column;
   gap: 8px;
 }
+
+/* 현재/직접입력 탭 */
+.mode-tabs {
+  display: flex;
+  gap: 6px;
+}
+.mode-tab {
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  color: #374151;
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.mode-tab.active {
+  border-color: #22c55e;
+  color: #15803d;
+  font-weight: 700;
+  background: #ecfdf5;
+}
+
 .form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px 12px;
 }
-.form-item {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.form-item.full {
-  grid-column: 1 / -1;
-}
-.label {
-  font-size: 11px;
-  color: #6b7280;
-}
-input,
-textarea {
+.form-grid.single { grid-template-columns: 1fr; }
+
+.form-item { display: flex; flex-direction: column; gap: 4px; }
+.form-item.full { grid-column: 1 / -1; }
+.label { font-size: 11px; color: #6b7280; }
+
+input, textarea {
   box-sizing: border-box;
   width: 100%;
   border-radius: 8px;
@@ -613,19 +683,16 @@ textarea {
   padding: 6px 8px;
   outline: none;
 }
-input:focus,
-textarea:focus {
-  border-color: #22c55e;
-}
+input:focus, textarea:focus { border-color: #22c55e; }
 
-.edit-hint{
+.edit-hint {
   display:flex;
   justify-content: space-between;
   align-items:center;
   font-size: 11px;
   color:#6b7280;
 }
-.mini-btn{
+.mini-btn {
   border:none;
   background:#e5e7eb;
   color:#374151;
@@ -635,14 +702,8 @@ textarea:focus {
   cursor:pointer;
 }
 
-/* 버튼 */
-.detail-footer {
-  margin-top: 4px;
-  display: flex;
-  gap: 10px;
-}
-.btn-primary,
-.btn-secondary {
+.detail-footer { margin-top: 4px; display: flex; gap: 10px; }
+.btn-primary, .btn-secondary {
   flex: 1;
   border-radius: 999px;
   border: none;
@@ -651,17 +712,18 @@ textarea:focus {
   font-weight: 600;
   cursor: pointer;
 }
-.btn-primary {
-  background: #22c55e;
-  color: #ffffff;
+.btn-primary { background: #22c55e; color: #ffffff; }
+.btn-secondary { background: #fed7aa; color: #92400e; }
+.btn-primary:disabled, .btn-secondary:disabled { opacity:.6; cursor:not-allowed; }
+
+.history-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
-.btn-secondary {
-  background: #fed7aa;
-  color: #92400e;
-}
-.btn-primary:disabled,
-.btn-secondary:disabled{
-  opacity:.6;
-  cursor:not-allowed;
+.history-staff {
+  font-size: 11px;
+  color: #374151;
+  font-weight: 600;
 }
 </style>
