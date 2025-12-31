@@ -98,9 +98,9 @@ const handleDongChange = () => {
 // 주소 업데이트 함수
 const updateAddress = () => {
   if (selectedGu.value && selectedDong.value) {
-    form.value.address = `서울시 ${selectedGu.value} ${selectedDong.value}`;
+    form.value.address = `${selectedGu.value} ${selectedDong.value}`;
   } else if (selectedGu.value) {
-    form.value.address = `서울시 ${selectedGu.value}`;
+    form.value.address = `${selectedGu.value}`;
   } else {
     form.value.address = '';
   }
@@ -264,6 +264,7 @@ watch(() => props.employee, (newVal) => {
     ...newVal,
 
     // [중요] null 방지 처리
+    emergencyNumber: newVal.emergencyNumber || newVal.emergencyContact || '',
     gender: newVal.gender || 'F',
     hireDate: newVal.hireDate || '',
     birth: newVal.birth || '',
@@ -370,7 +371,7 @@ const handleSubmit = () => {
     address: form.value.address,
     email: form.value.email,
     phone: form.value.phone,
-    emergencyNumber: form.value.emergencyNumber || form.value.emergencyContact, // 둘 중 하나
+    emergencyNumber: form.value.emergencyNumber || null, // 미입력 시 null
     hireDate: form.value.hireDate,
     deptCode: form.value.deptCode,
     jobCode: form.value.jobCode,

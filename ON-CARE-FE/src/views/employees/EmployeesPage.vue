@@ -323,7 +323,8 @@ const handleRegisterEmployee = async (payload) => {
 
   } catch (error) {
     console.error('직원 등록 실패:', error);
-    alert('등록 중 오류가 발생했습니다.');
+    const errorMessage = error.response?.data?.message || '등록 중 오류가 발생했습니다.';
+    alert(`직원 등록 실패: ${errorMessage}`);
   }
 };
 
@@ -351,7 +352,8 @@ const handleUpdateEmployee = async (updatedData) => {
     
   } catch (error) {
     console.error('수정 실패:', error);
-    alert('수정 중 오류가 발생했습니다.');
+    const errorMessage = error.response?.data?.message || '수정 중 오류가 발생했습니다.';
+    alert(`직원 수정 실패: ${errorMessage}`);
   }
 };
 

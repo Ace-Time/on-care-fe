@@ -112,11 +112,12 @@ const handleDongChange = () => {
 };
 
 // 주소 업데이트 함수
+// 주소 업데이트 함수
 const updateAddress = () => {
   if (selectedGu.value && selectedDong.value) {
-    form.value.address = `서울시 ${selectedGu.value} ${selectedDong.value}`;
+    form.value.address = `${selectedGu.value} ${selectedDong.value}`;
   } else if (selectedGu.value) {
-    form.value.address = `서울시 ${selectedGu.value}`;
+    form.value.address = `${selectedGu.value}`;
   } else {
     form.value.address = '';
   }
@@ -328,6 +329,8 @@ const handleSubmit = () => {
 
   const payload = {
     ...form.value,
+    // 수정: 비상연락처 미입력 시 null 전송
+    emergencyNumber: form.value.emergencyNumber || null,
     serviceTypeIds: selectedServiceIds.value
     // certificates 필드 제거됨
   };
