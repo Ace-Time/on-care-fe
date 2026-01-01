@@ -1,8 +1,7 @@
 import api from '@/lib/api';
 import { PAGE_CONSTANT } from '../constants/common';
 
-export const getRenal = async({page, size, beneficiaryOrEmployee, contractStatus }) => {
-    console.log("getRental:",beneficiaryOrEmployee,",,,,",contractStatus)
+export const getRenal = async({page, size, beneficiaryOrEmployee, contractStatus }) => { 
     const params ={
         page,
         ...(size != null ? {size} : PAGE_CONSTANT),
@@ -44,5 +43,39 @@ export const createRentalContract = async({
     }
     const res = await api.post('/rental/contract',params);
 
+    return res.data;
+}
+
+export const updateRentalContract = async({
+    id,
+    expectedDate,
+    wantedDate,
+    contractStatusCd
+}) => {
+    const params = {
+        id,
+        ...(expectedDate == null ? {} : {expectedDate}),
+        ...(wantedDate == null ? {} : {wantedDate}),
+        ...(contractStatusCd == null ? {} : {contractStatusCd})
+    }
+    console.log("params::",params)
+
+    const res = await api.patch('/rental/contract', params);
+    return res.data;
+}
+
+export const terminateRentalContract = async({
+    id,
+    endDate,
+    contractStatusCd
+}) => {
+    const params = {
+        id,
+        ...(endDate == null ? {} : {endDate}),
+        contractStatusCd
+    }
+    console.log("params::",params)
+
+    const res = await api.patch('/rental/contract/termination', params);
     return res.data;
 }

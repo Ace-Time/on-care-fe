@@ -23,10 +23,11 @@
 
           <button 
             v-if="contract?.statusName === '접수'" 
-            @click="handleDelete" 
-            class="btn-danger"
+            @click="selectedAction = 'START'"
+            :class="{ active: selectedAction === 'START' }"
+            class="btn-restore"
           >
-            계약 삭제
+            렌탈 시작
           </button>
 
           <button 
@@ -47,8 +48,9 @@
           </button>
 
           <button 
-            v-if="contract?.statusName === '취소'" 
-            @click="handleRestore" 
+            v-if="contract?.statusName === '종료'" 
+            @click="selectedAction = 'START'"
+            :class="{ active: selectedAction === 'START' }"
             class="btn-restore"
           >
             계약 취소 철회
@@ -62,7 +64,7 @@
             <h4>만료일 연장</h4>
             <div class="input-group">
               <label>변경할 만료일</label>
-              <input type="date" v-model="form.expectedDate" :min="today" />
+              <input type="date" v-model="form.expectedDate" :min="minDate" />
             </div>
             <p class="desc">계약 기간을 연장합니다.</p>
           </div>
@@ -71,18 +73,23 @@
             <h4>시작일 변경</h4>
             <div class="input-group">
               <label>변경할 시작일</label>
-              <input type="date" v-model="form.wantedDate" />
+              <input type="date" v-model="form.wantedDate" :min="minDate" />
             </div>
             <p class="desc">아직 시작되지 않은 계약의 시작일을 변경합니다.</p>
           </div>
 
           <div v-if="selectedAction === 'TERMINATE'">
             <h4>계약 종료 처리</h4>
-            <div class="input-group">
+            <!-- <div class="input-group">
               <label>종료일 (반납일)</label>
-              <input type="date" v-model="form.endDate" :max="today" />
-            </div>
+              <input type="date" v-model="form.endDate" :min="minDate" />
+            </div> -->
             <p class="desc warning">계약을 조기 종료하거나 만료 처리합니다.</p>
+          </div>
+          
+          <div v-if="selectedAction === 'START'">
+            <h4>렌탈 시작</h4>
+            <p class="desc warning">렌탈 용품 배달이 완료되어 렌탈을 시작합니다.</p>
           </div>
         </div>
       </div>
@@ -102,8 +109,10 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue';
-import api from '@/lib/api'; 
+import { ref, reactive,computed } from 'vue';
+import {updateRentalContract ,terminateRentalContract}from '@/api/product/rentalAPI.js'
+import { useToast } from '@/lib/toast'
+const {success, error : toastError , info} = useToast();
 
 const props = defineProps({
   contract: Object
@@ -120,46 +129,52 @@ const form = reactive({
 
 const today = new Date().toISOString().split('T')[0];
 
-// [추가] 계약 삭제 핸들러 (즉시 실행)
-const handleDelete = async () => {
-  if (!confirm('정말 계약을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')) return;
+const minDate = computed(() => {
+  const now = new Date();
+  const offset = now.getTimezoneOffset() * 60000;
+  const localISOTime = new Date(now - offset).toISOString().split('T')[0];
+  return localISOTime;
+});
 
-  try {
-    // 삭제 API 호출 (REST 표준에 따라 ID를 경로에 포함)
-    // 만약 백엔드가 쿼리 파라미터를 원하면: api.delete(`/rental/contract`, { params: { id: props.contract.id } })
-    await api.delete(`/rental/contract/${props.contract.id}`);
-    
-    alert('삭제되었습니다.');
-    emit('refresh');
-    emit('close');
-  } catch (error) {
-    console.error(error);
-    alert('삭제 중 오류가 발생했습니다.');
-  }
-};
-
-// 기존 로직들
 const extendContract = async () => {
-  await api.patch('/rental/contract', {
+  const data = await updateRentalContract({
     id: props.contract.id,
     expectedDate: form.expectedDate
   });
+
+  return data;
 };
 
 const changeStartDate = async () => {
-  await api.patch('/rental/contract', {
+  const data = await updateRentalContract({
     id: props.contract.id,
     wantedDate: form.wantedDate
   });
+
+  return data;
 };
 
 const terminateContract = async () => {
-  await api.patch('/rental/contract/termination', {
+  const data = await terminateRentalContract({
     id: props.contract.id,
     contractStatusCd: 3, 
-    endDate: form.endDate
+    endDate: new Date().toISOString().split('T')[0]
   });
+
+  return data;
 };
+
+
+const startContract = async () => {
+  const data = await updateRentalContract({
+    id: props.contract.id,
+    contractStatusCd: 2, 
+    wantedDate: new Date().toISOString().split('T')[0]
+  });
+
+  return data;
+};
+
 
 const handleRestore = async () => {
   if (!confirm('정말 취소를 철회하시겠습니까?')) return;
@@ -178,11 +193,42 @@ const handleRestore = async () => {
 
 const handleSubmit = async () => {
   try {
-    if (selectedAction.value === 'EXTEND') await extendContract();
-    else if (selectedAction.value === 'START_DATE') await changeStartDate();
-    else if (selectedAction.value === 'TERMINATE') await terminateContract();
+    let data;
+    let message = '';
+    if (selectedAction.value === 'EXTEND' || selectedAction.value === 'START_DATE'
+      || selectedAction.value === 'TERMINATE'
+    ) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const selectedDate = new Date(form.wantedDate);
+      selectedDate.setHours(0, 0, 0, 0);
+
+      if (selectedDate < today){
+        toastError('렌탈 계약 변경',{description: '계약 시작 날짜를 과거로 선택 할 수 없습니다.' });
+        return;
+      }
+      if(selectedAction.value === 'START_DATE'){
+        await changeStartDate();
+        message = '렌탈 시작 날짜 변경에 성공 했습니다.'
+
+      }
+      else if(selectedAction.value === 'EXTEND' ){
+        await extendContract();
+        message = '렌탈 종료 날짜 변경에 성공 했습니다.'
+
+      }
+      else if(selectedAction.value === 'TERMINATE' ){
+        await terminateContract();
+        message = '렌탈 계약 종료 변경에 성공 했습니다.'
+      }
+    } 
+    else if (selectedAction.value === 'START') {
+      await startContract();
+        message = '렌탈이 시작 되었습니다.'
+    }
     
-    alert('처리되었습니다.');
+    success('렌탈 계약 변경',{description: message });
     emit('refresh');
     emit('close');
   } catch (error) {
