@@ -14,19 +14,39 @@ const toTimeSeconds = (t) => {
   return s
 }
 
-const buildCreatePayload = ({ day, startTime, endTime, beneficiaryId, serviceTypeId }) => ({
+const toDate = (d) => {
+  if (!d) return null
+  return String(d)
+}
+
+const buildCreatePayload = ({
+  day,
+  startTime,
+  endTime,
+  beneficiaryId,
+  serviceTypeId,
+  effectiveDate,
+}) => ({
   day: toNum(day),
   startTime: toTimeSeconds(startTime),
   endTime: toTimeSeconds(endTime),
   beneficiaryId: toNum(beneficiaryId),
   serviceTypeId: toNum(serviceTypeId),
+  effectiveDate: toDate(effectiveDate),
 })
 
-const buildUpdatePayload = ({ day, startTime, endTime, serviceTypeId }) => ({
+const buildUpdatePayload = ({
+  day,
+  startTime,
+  endTime,
+  serviceTypeId,
+  effectiveDate,
+}) => ({
   day: toNum(day),
   startTime: toTimeSeconds(startTime),
   endTime: toTimeSeconds(endTime),
   serviceTypeId: toNum(serviceTypeId),
+  effectiveDate: toDate(effectiveDate),
 })
 
 // 생성
@@ -44,7 +64,9 @@ export const updateBeneficiarySchedule = async (id, params) => {
 }
 
 // 삭제
-export const deleteBeneficiarySchedule = async (id) => {
-  const res = await api.delete(`/beneficiary-schedules/${toNum(id)}`)
+export const deleteBeneficiarySchedule = async (id, effectiveDate) => {
+  const res = await api.delete(`/beneficiary-schedules/${toNum(id)}`, {
+    params: { effectiveDate: toDate(effectiveDate) },
+  })
   return res.data
 }
