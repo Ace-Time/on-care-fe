@@ -168,31 +168,50 @@ const onCloseCreateVisitModal = () => {
 }
 
 const onCreateVisit = async (payload) => {
-  const { beneficiaryId, careWorkerId, serviceTypeId, startDt, endDt, note = '' } = payload || {}
+  const list = Array.isArray(payload) ? payload : [payload]
+  const tasks = list
+    .filter(Boolean)
+    .map((p) => ({
+      beneficiaryId: p.beneficiaryId,
+      careWorkerId: p.careWorkerId,
+      serviceTypeId: p.serviceTypeId,
+      startDt: p.startDt,
+      endDt: p.endDt,
+      note: p.note ?? '',
+    }))
 
-  if (!beneficiaryId || !careWorkerId || !serviceTypeId || !startDt || !endDt) {
-    alert('수급자/요양보호사/서비스유형/날짜/시간을 모두 선택해 주세요.')
+  if (tasks.length === 0) return
+
+  const invalid = tasks.some(
+    (p) => !p.beneficiaryId || !p.careWorkerId || !p.serviceTypeId || !p.startDt || !p.endDt
+  )
+  if (invalid) {
+    window.alert('수급자/요양보호사/서비스유형/날짜/시간을 모두 선택해 주세요.')
     return
   }
 
-  try {
-    await createVisitSchedule({
-      beneficiaryId,
-      careWorkerId,
-      serviceTypeId,
-      startDt,
-      endDt,
-      note,
-    })
+  let success = 0
+  const failed = []
 
-    selection.refresh()
-
-    alert('일정이 생성되었습니다.')
-    showCreateVisitModal.value = false
-  } catch (e) {
-    console.error('[일정 생성 실패]', e)
-    alert(e?.response?.data?.message || '일정 생성에 실패했습니다.')
+  for (const t of tasks) {
+    try {
+      await createVisitSchedule(t)
+      success += 1
+    } catch (e) {
+      failed.push(e?.response?.data?.message || '일정 생성에 실패했습니다.')
+    }
   }
+
+  selection.refresh()
+
+  if (failed.length === 0) {
+    window.alert(`${success}건 일정이 생성되었습니다.`)
+    showCreateVisitModal.value = false
+    return
+  }
+
+  const preview = failed.slice(0, 3).map((m) => `- ${m}`).join('\n')
+  window.alert(`성공 ${success}건 / 실패 ${failed.length}건\n${preview}${failed.length > 3 ? '\n...' : ''}`)
 }
 
 const rightButton = computed(() => {
