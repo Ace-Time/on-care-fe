@@ -3,7 +3,6 @@
     
     <div class="top-bar">
       <div class="search-box">
-        <span class="search-icon">🔍</span>
         <input 
           type="text" 
           v-model="searchQuery" 
@@ -58,7 +57,7 @@
             <span class="username">{{ item.drafterName }}</span>
           </div>
         </div>
-        <div class="item-date">📅 {{ formatDate(item.createdAt) }}</div>
+        <div class="item-date">{{ formatDate(item.createdAt) }}</div>
         <div class="item-status">
           <span class="status-badge" :class="getStatusClass(item.status)">
             {{ item.status }}

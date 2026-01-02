@@ -7,7 +7,7 @@
 
     <div class="detail-content">
       <div class="alert-box" v-if="['대기중', 'PENDING', 'WAITING'].includes(item.status?.toUpperCase())">
-        ⚠️ 결재 대기 중 - 내가 승인할 차례
+        결재 대기 중 - 내가 승인할 차례
       </div>
 
       <div class="detail-section">

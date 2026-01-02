@@ -4,7 +4,6 @@
       
       <div class="modal-header">
         <div class="header-title">
-          <span class="icon">📄</span> 
           <span>결재 요청</span>
         </div>
         <button class="close-btn" @click="$emit('close')">✕</button>

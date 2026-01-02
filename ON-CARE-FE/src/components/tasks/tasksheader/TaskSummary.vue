@@ -4,7 +4,6 @@
     <div class="summary-card orange">
       <div class="card-content">
         <div class="card-header">
-          <span class="status-icon">⚠️</span>
           <span class="card-title">나의 결재 대기</span>
         </div>
         <p class="card-desc">내가 지금 승인해야 할 문서</p>
@@ -19,7 +18,6 @@
           -->
         </div>
       </div>
-      <div class="bg-icon">📝</div>
     </div>
 
     <div class="summary-card yellow">
@@ -30,7 +28,6 @@
           <span class="count">{{ dashboardData.myRequestPendingCount }}건</span>
         </div>
       </div>
-      <div class="bg-icon">🕒</div>
     </div>
 
     <div class="summary-card green">
@@ -41,7 +38,6 @@
           <span class="count">{{ dashboardData.myRequestApprovedCount }}건</span>
         </div>
       </div>
-      <div class="bg-icon">✅</div>
     </div>
 
     <div class="summary-card red">
@@ -52,7 +48,6 @@
           <span class="count">{{ dashboardData.myRequestRejectedCount }}건</span>
         </div>
       </div>
-      <div class="bg-icon">❎</div>
     </div>
 
   </div>
@@ -132,28 +127,24 @@ onMounted(() => {
 .summary-card.orange .card-title { color: #9a3412; }
 .summary-card.orange .card-desc { color: #c2410c; }
 .summary-card.orange .count { color: #9a3412; }
-.summary-card.orange .bg-icon { color: #ffedd5; }
 
 /* Yellow */
 .summary-card.yellow { background-color: #fefce8; border-color: #fef08a; }
 .summary-card.yellow .card-title { color: #854d0e; }
 .summary-card.yellow .card-desc { color: #a16207; }
 .summary-card.yellow .count { color: #854d0e; }
-.summary-card.yellow .bg-icon { color: #fef08a; }
 
 /* Green */
 .summary-card.green { background-color: #f0fdf4; border-color: #bbf7d0; }
 .summary-card.green .card-title { color: #166534; }
 .summary-card.green .card-desc { color: #15803d; }
 .summary-card.green .count { color: #166534; }
-.summary-card.green .bg-icon { color: #bbf7d0; }
 
 /* Red */
 .summary-card.red { background-color: #fef2f2; border-color: #fecaca; }
 .summary-card.red .card-title { color: #991b1b; }
 .summary-card.red .card-desc { color: #b91c1c; }
 .summary-card.red .count { color: #991b1b; }
-.summary-card.red .bg-icon { color: #fecaca; }
 
 /* 내부 텍스트 스타일 */
 .card-header {
