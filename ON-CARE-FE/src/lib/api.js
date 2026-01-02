@@ -30,7 +30,7 @@ const formattedTimeForKor =  () => {
   return formatted;
 }
 
-const API_BASE_URL = (import.meta.env?.VITE_API_BASE_URL || 'http://localhost:8081').replace(/\/$/, '');
+
 
 // ------------------------------------------------------------
 // 전역에서 쓸 Axios 인스턴스 1개 생성
@@ -55,10 +55,10 @@ const api = axios.create({
 let refreshPromise = null;                 // ✔ 진행 중인 리프레시 요청이 없으면 null
 let isRefreshing = false;                  // ✔ (선택) 디버깅용 플래그
 const EXCLUDED_URLS = [                    // ✔ 인터셉터 제외 대상 URL들
-  '/auth/refresh',                         //    리프레시 호출 경로
-  '/auth/login',                        //  로그인 요청(환경에 맞게 추가/수정)
+  '/api/auth/refresh',                         //    리프레시 호출 경로
+  '/api/auth/login',                        //  로그인 요청(환경에 맞게 추가/수정)
 ];
-const refreshUrl = '/auth/refresh';
+const refreshUrl = '/api/auth/refresh';
 
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -15,7 +15,7 @@ on:
 
 # 워크플로우 실행 작업 정의
 jobs:
-  pr-request:
+  deployment:
     runs-on: ubuntu-latest
     # 실행 시간 제한 설정 (무한 루프 방지, 비용 절감)
     timeout-minutes: 15

@@ -10,17 +10,17 @@ export const getRenal = async({page, size, beneficiaryOrEmployee, contractStatus
         ...(contractStatus != null ? {contractStatus} : {})
     }
 
-    const res = await api.get('/rental/rental',{params});
+    const res = await api.get('/api/rental/rental',{params});
     return res.data;
 };
 
 export const getRentalStatus = async() => {
-    const res = await api.get('/rental/rental-product/status');
+    const res = await api.get('/api/rental/rental-product/status');
     return res.data;
 };
 
 export const getContractStatus = async() => {
-    const res = await api.get('/rental/contract/type');
+    const res = await api.get('/api/rental/contract/type');
     return res.data;
 };
 
@@ -28,7 +28,7 @@ export const getRentalItems = async(id) => {
     const params = {
             contractCode : id
         };
-    const res = await api.get('/rental/rental-product',{params});
+    const res = await api.get('/api/rental/rental-product',{params});
     return res.data;
 };
 
@@ -42,7 +42,7 @@ export const createRentalContract = async({
         wantedDate,
         termMonth
     }
-    const res = await api.post('/rental/contract',params);
+    const res = await api.post('/api/rental/contract',params);
 
     return res.data;
 }
