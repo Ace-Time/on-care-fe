@@ -1,7 +1,7 @@
 <template>
   <div class="summary-grid">
     
-    <div class="summary-card orange">
+    <div class="summary-card orange" @click="handleCardClick('to-approve')">
       <div class="card-content">
         <div class="card-header">
           <span class="card-title">나의 결재 대기</span>
@@ -9,18 +9,11 @@
         <p class="card-desc">내가 지금 승인해야 할 문서</p>
         <div class="card-bottom">
           <span class="count">{{ dashboardData.pendingApprovalCount }}건</span>
-          <!-- API 응답에 세부 카운트가 없으므로 일단 숨김 처리하거나 0으로 표시 -->
-          <!--
-          <div class="sub-info">
-            <span class="dot red"></span> 긴급 {{ dashboardData.urgentCount }}건
-            <span class="dot orange"></span> 일반 {{ dashboardData.normalCount }}건
-          </div>
-          -->
         </div>
       </div>
     </div>
 
-    <div class="summary-card yellow">
+    <div class="summary-card yellow" @click="handleCardClick('my-pending')">
       <div class="card-content">
         <div class="card-title">승인 대기중</div>
         <p class="card-desc">내가 올린 결재</p>
@@ -30,7 +23,7 @@
       </div>
     </div>
 
-    <div class="summary-card green">
+    <div class="summary-card green" @click="handleCardClick('my-approved')">
       <div class="card-content">
         <div class="card-title">승인됨</div>
         <p class="card-desc">내가 올린 결재</p>
@@ -40,7 +33,7 @@
       </div>
     </div>
 
-    <div class="summary-card red">
+    <div class="summary-card red" @click="handleCardClick('my-rejected')">
       <div class="card-content">
         <div class="card-title">반려됨</div>
         <p class="card-desc">내가 올린 결재</p>
@@ -68,6 +61,12 @@ const dashboardData = ref({
   myRequestApprovedCount: 0,
   myRequestRejectedCount: 0
 });
+
+const emit = defineEmits(['filter-change']);
+
+const handleCardClick = (type) => {
+  emit('filter-change', type);
+};
 
 const fetchDashboardData = async () => {
   try {
@@ -119,7 +118,10 @@ onMounted(() => {
   justify-content: space-between;
   border: 1px solid transparent;
   overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
 }
+.summary-card:hover { transform: translateY(-3px); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
 
 /* 카드별 테마 색상 */
 /* Orange */

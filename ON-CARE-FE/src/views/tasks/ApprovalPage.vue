@@ -30,13 +30,17 @@
         <div class="select-wrapper">
           <select v-model="selectedStatus" class="custom-select">
             <option value="">전체 상태</option>
-            <option value="대기중">대기중</option>
-            <option value="승인">승인</option>
-            <option value="반려">반려</option>
+            <option value="0">대기중</option>
+            <option value="1">승인</option>
+            <option value="2">반려</option>
           </select>
           <span class="arrow-icon">⌵</span>
         </div>
       </div>
+
+      <button class="btn-reset" @click="handleReset" title="초기화">
+        ↺
+      </button>
     </div>
 
     <div class="list-container">
@@ -119,16 +123,21 @@
 
 <script setup>
 import { ref, watch, onMounted } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import DetailPanel from '@/components/tasks/approve/DetailPanel.vue'; 
 import { getPaymentList, getPaymentDetail, getPaymentCategories, approvePayment, rejectPayment } from '@/api/payment/paymentApi';
 import { useUserStore } from '@/stores/user';
 
+const route = useRoute();
+const router = useRouter();
 const userStore = useUserStore();
 
 // 상태 변수들
 const searchQuery = ref('');
 const selectedCategory = ref('');
 const selectedStatus = ref('');
+const cardFilterStatus = ref(''); // 카드 클릭으로 인한 필터 상태
+const myRequest = ref(false);
 const selectedItem = ref(null);
 const approvalList = ref([]); // 현재 페이지 목록
 const categoryList = ref([]);
@@ -168,7 +177,12 @@ const fetchList = async () => {
 
     if (searchQuery.value) params.search = searchQuery.value;
     if (selectedCategory.value) params.category = selectedCategory.value;
-    if (selectedStatus.value) params.status = selectedStatus.value;
+    
+    // 카드 필터 우선 적용, 없으면 드롭다운 값 사용
+    const statusFilter = cardFilterStatus.value || selectedStatus.value;
+    if (statusFilter) params.status = statusFilter;
+
+    if (myRequest.value) params.myRequest = true; // myRequest 파라미터 추가
     
     const data = await getPaymentList(params);
     
@@ -204,9 +218,56 @@ const goToPage = (page) => {
   }
 };
 
-// 필터 변경 감지
-watch([searchQuery, selectedCategory, selectedStatus], () => {
-    currentPage.value = 1; // 검색 조건 변경 시 1페이지로
+const handleFilterChange = (type) => {
+    // 필터 초기화
+    searchQuery.value = '';
+    selectedCategory.value = '';
+    selectedStatus.value = ''; // 드롭다운 초기화
+    currentPage.value = 1;
+
+    switch(type) {
+        case 'to-approve':
+            cardFilterStatus.value = '0'; 
+            myRequest.value = false;
+            break;
+        case 'my-pending':
+            cardFilterStatus.value = '0';
+            myRequest.value = true;
+            break;
+        case 'my-approved':
+            cardFilterStatus.value = '1';
+            myRequest.value = true;
+            break;
+        case 'my-rejected':
+            cardFilterStatus.value = '2';
+            myRequest.value = true;
+            break;
+    }
+};
+
+// 드롭다운 변경 감지: 사용자가 드롭다운을 선택하면 카드 필터 해제 및 전체 모드로 전환
+watch(selectedStatus, (newVal) => {
+    if (newVal) {
+        cardFilterStatus.value = '';
+        myRequest.value = false; // 드롭다운 사용 시 '나의 요청' 모드 해제
+    }
+});
+
+const handleReset = () => {
+  searchQuery.value = '';
+  selectedCategory.value = '';
+  selectedStatus.value = '';
+  cardFilterStatus.value = '';
+  myRequest.value = false;
+  currentPage.value = 1;
+  
+  // URL 쿼리 파라미터 제거
+  router.push({ query: {} });
+};
+
+// 전체 필터 변경 감지
+watch([searchQuery, selectedCategory, selectedStatus, myRequest, cardFilterStatus], () => {
+    currentPage.value = 1; 
     fetchList();
 });
 
@@ -263,6 +324,17 @@ const getStatusClass = (s) => {
   return 's-waiting'; 
 }
 
+watch(() => route.query.filterType, (newVal) => {
+    if (newVal) {
+        handleFilterChange(newVal);
+    } else {
+        // 필터 해제 시 초기화
+        cardFilterStatus.value = '';
+        myRequest.value = false;
+        // selectedStatus.value = ''; // 드롭다운도 초기화하고 싶으면 추가
+    }
+}, { immediate: true });
+
 onMounted(() => {
   fetchCategories();
   fetchList();
@@ -282,6 +354,13 @@ onMounted(() => {
 .custom-select { width: 100%; padding: 10px 32px 10px 12px; font-size: 14px; color: #334155; background-color: white; border: 1px solid #e2e8f0; border-radius: 8px; outline: none; appearance: none; cursor: pointer; box-sizing: border-box; }
 .custom-select:focus { border-color: #4ade80; }
 .arrow-icon { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: #64748b; font-size: 12px; pointer-events: none; }
+
+.btn-reset {
+  width: 42px; height: 42px; background: white; border: 1px solid #e2e8f0; border-radius: 8px;
+  cursor: pointer; color: #64748b; font-size: 20px; display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s; min-width: 42px;
+}
+.btn-reset:hover { background: #f1f5f9; color: #475569; border-color: #cbd5e1; }
 
 /* 리스트 스타일 */
 .list-container { display: flex; flex-direction: column; gap: 12px; min-height: 500px; } /* 높이 고정하여 페이징 시 덜렁거림 방지 */
