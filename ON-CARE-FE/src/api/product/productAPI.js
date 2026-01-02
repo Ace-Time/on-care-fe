@@ -48,3 +48,8 @@ export const getProductHistory = async({page, size, productId, historyStatus }) 
     const res = await api.get('/product/product-history',{params});
     return res.data;
 };
+
+export const getBeneficaryForRental = async(name) => {
+    const res = await api.get(`/api/beneficiaries/rental/${name}`);
+    return res.data;
+}

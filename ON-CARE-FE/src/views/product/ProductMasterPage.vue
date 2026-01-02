@@ -3,8 +3,8 @@
     <!-- 검색 바 -->
     <ProductSearchBar
       v-model:searchText="searchValue"
-      v-model:selectedCategory="selectedCategory"
-      :categories="categoryOptions"
+      v-model:selectedStatus="selectedCategory"
+      :statusList="categoryOptions"
       @search="handleSearch"
     />
 

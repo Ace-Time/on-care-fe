@@ -14,6 +14,7 @@
               <th>렌탈중</th>
               <th>예약</th>
               <th>폐기</th>
+              <th>관리</th>
             </tr>
           </thead>
           <tbody>
@@ -65,6 +66,15 @@
                   {{ item.discardProducts }}
                 </span>
               </td>
+              <td @click.stop>
+                <button 
+                  class="action-btn"
+                  :disabled="item.availableProducts <= 0"
+                  @click="$emit('open-rental', item)"
+                >
+                  계약
+                </button>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -96,7 +106,7 @@
   <script setup>
   import { computed ,watch, ref} from 'vue'
 
-  const emit = defineEmits(['needMoreData','row-click'])
+const emit = defineEmits(['needMoreData', 'row-click', 'open-rental'])
 
   
   const visualPage = ref(0) // 현재 내가 보고 있는 화면 페이지
@@ -119,11 +129,11 @@
         type: Array,
         default: () => [],
       },
-    // 어떤 행이 선택됐는지
-    selectedId: {
-      type: [Number, String],
-      default: null,
-    },
+      // 어떤 행이 선택됐는지
+      selectedId: {
+        type: [Number, String],
+        default: null,
+      },
     })
 
 
@@ -139,15 +149,11 @@
       
       // 안전하게 slice 호출
       return props.products.slice(start, end)
-    })
+  })
 
-    //  다음 페이지로 갈 수 있는지 여부 
-    const canGoNext = computed(() => {
-    // 메모리에 이미 다음 장 데이터가 있거나
+  const canGoNext = computed(() => {
     const hasMoreInMemory = (visualPage.value + 1) * pageSize < totalItemCount.value
-    // 아니면 서버에 데이터가 더 남아있거나 (last가 false)
     const hasMoreInServer = !props.isLastBatch
-    
     return hasMoreInMemory || hasMoreInServer
   })
 
@@ -308,4 +314,27 @@
   .page-btn:hover:not(:disabled) { background-color: #f3f4f6; border-color: #d1d5db; }
   .page-btn:disabled { opacity: 0.5; cursor: not-allowed; background-color: #f9fafb; }
   .page-info { font-size: 13px; color: #6b7280; }
+
+  .action-btn {
+    padding: 4px 10px;
+    background-color: #ffffff;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    font-size: 12px;
+    color: #374151;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .action-btn:hover:not(:disabled) {
+    background-color: #166534;
+    color: white;
+    border-color: #166534;
+  }
+  .action-btn:disabled {
+    background-color: #f3f4f6;
+    color: #9ca3af;
+    cursor: not-allowed;
+    border-color: #e5e7eb;
+  }
+
   </style>

@@ -54,188 +54,208 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
-import searchIcon from '@/assets/img/common/search.png'
-import {
-  getCandidateCareWorkerCards,
-  getCreateVisitAvailableCareWorkerCards,
-} from '@/api/schedule/matching.js'
-
-const props = defineProps({
-  recipient: { type: Object, default: null },
-  startDt: { type: String, default: '' },
-  endDt: { type: String, default: '' },
-  serviceTypeId: { type: Number, default: null },
-})
-
-const emit = defineEmits(['select-caregiver'])
-
-const search = ref('')
-const page = ref(1)
-const pageSize = 8
-
-const loading = ref(false)
-const error = ref('')
-const caregiversRaw = ref([])
-const total = ref(0)
-
-const selectedCareWorkerId = ref(null)
-
-const getBeneficiaryId = (obj) => obj?.beneficiaryId ?? obj?.id ?? null
-const beneficiaryId = computed(() => getBeneficiaryId(props.recipient))
-
-// ✅ 생성 모드: startDt/endDt + serviceTypeId까지 있어야 true
-const isCreateVisitMode = computed(() => {
-  return Boolean(props.startDt && props.endDt && props.serviceTypeId)
-})
-
-const shouldAutoPickFirst = ref(false)
-
-const handleSelect = (item) => {
-  const careWorkerId = item?.careWorkerId ?? item?.id ?? null
-  selectedCareWorkerId.value = careWorkerId
-  emit('select-caregiver', { ...item, careWorkerId })
-}
-
-const normalizeList = (list) =>
-  (Array.isArray(list) ? list : []).map((c) => ({
-    careWorkerId: c?.careWorkerId ?? c?.id ?? null,
-    name: c?.name ?? '-',
-    gender: c?.gender ?? '-',
-    tags: Array.isArray(c?.tags) ? c.tags : [],
-  }))
-
-const pickPage = (resData) => {
-  // PageResponse: { content, total, ... }
-  if (resData && typeof resData === 'object' && Array.isArray(resData.content)) {
-    return {
-      content: normalizeList(resData.content),
-      total: Number.isFinite(resData.total) ? resData.total : resData.content.length,
+  import { ref, computed, watch } from 'vue'
+  import searchIcon from '@/assets/img/common/search.png'
+  import {
+    getCandidateCareWorkerCards,
+    getCreateVisitAvailableCareWorkerCards,
+  } from '@/api/schedule/matching.js'
+  import { useMatchingSelectionStore } from '@/stores/matchingSelection'
+  
+  const props = defineProps({
+    recipient: { type: Object, default: null },
+    startDt: { type: String, default: '' },
+    endDt: { type: String, default: '' },
+    serviceTypeId: { type: Number, default: null },
+    refreshKey: { type: Number, default: 0 },
+  })
+  
+  const emit = defineEmits(['select-caregiver'])
+  const store = useMatchingSelectionStore()
+  
+  const search = ref('')
+  const page = ref(1)
+  const pageSize = 8
+  
+  const loading = ref(false)
+  const error = ref('')
+  const caregiversRaw = ref([])
+  const total = ref(0)
+  
+  const selectedCareWorkerId = ref(null)
+  const autoPickedKey = ref('')
+  
+  const getCareWorkerId = (obj) => obj?.careWorkerId ?? obj?.id ?? null
+  const getBeneficiaryId = (obj) => obj?.beneficiaryId ?? obj?.id ?? null
+  
+  const beneficiaryId = computed(() => getBeneficiaryId(props.recipient))
+  
+  const isCreateVisitMode = computed(() => Boolean(props.startDt && props.endDt && props.serviceTypeId))
+  
+  const normalizeList = (list) =>
+    (Array.isArray(list) ? list : []).map((c) => ({
+      careWorkerId: getCareWorkerId(c),
+      name: c?.name ?? '-',
+      gender: c?.gender ?? '-',
+      tags: Array.isArray(c?.tags) ? c.tags : [],
+    }))
+  
+  const pickPage = (resData) => {
+    if (resData && Array.isArray(resData.content)) {
+      return {
+        content: normalizeList(resData.content),
+        total: Number.isFinite(resData.total) ? resData.total : resData.content.length,
+      }
+    }
+    if (Array.isArray(resData)) {
+      const list = normalizeList(resData)
+      return { content: list, total: list.length }
+    }
+    if (resData && Array.isArray(resData.data)) {
+      const list = normalizeList(resData.data)
+      return { content: list, total: list.length }
+    }
+    return { content: [], total: 0 }
+  }
+  
+  const loadCareWorkers = async () => {
+    if (!beneficiaryId.value) {
+      caregiversRaw.value = []
+      total.value = 0
+      error.value = ''
+      selectedCareWorkerId.value = null
+      return
+    }
+  
+    try {
+      loading.value = true
+      error.value = ''
+  
+      const keyword = search.value?.trim() || null
+  
+      const res = isCreateVisitMode.value
+        ? await getCreateVisitAvailableCareWorkerCards({
+            beneficiaryId: beneficiaryId.value,
+            startDt: props.startDt,
+            endDt: props.endDt,
+            serviceTypeId: props.serviceTypeId,
+            page: page.value - 1,
+            size: pageSize,
+            keyword,
+          })
+        : await getCandidateCareWorkerCards({
+            beneficiaryId: beneficiaryId.value,
+            page: page.value - 1,
+            size: pageSize,
+            keyword,
+          })
+  
+      const { content, total: t } = pickPage(res?.data)
+      caregiversRaw.value = content
+      total.value = t
+  
+      const assigned = props.recipient?.assignedCareWorker
+      const assignedId = getCareWorkerId(assigned)
+  
+      if (assignedId) {
+        selectedCareWorkerId.value = assignedId
+        emit('select-caregiver', assigned)
+        return
+      }
+  
+      const storeId = store.caregiverId
+      if (storeId) {
+        const found = content.find((c) => c.careWorkerId === storeId)
+        if (found) {
+          selectedCareWorkerId.value = storeId
+          emit('select-caregiver', found)
+          return
+        }
+      }
+  
+      const key = `${beneficiaryId.value}-${props.startDt || ''}-${props.endDt || ''}-${props.serviceTypeId || ''}`
+      if (autoPickedKey.value !== key) {
+        autoPickedKey.value = key
+        const first = content[0] || null
+        if (first) {
+          selectedCareWorkerId.value = first.careWorkerId
+          emit('select-caregiver', first)
+        } else {
+          selectedCareWorkerId.value = null
+        }
+      }
+    } catch (e) {
+      caregiversRaw.value = []
+      total.value = 0
+      error.value = e?.response?.data?.message || '요양보호사 목록을 불러오지 못했습니다.'
+    } finally {
+      loading.value = false
     }
   }
-
-  // Array response
-  if (Array.isArray(resData)) {
-    const list = normalizeList(resData)
-    return { content: list, total: list.length }
-  }
-
-  // { data: [...] } 같은 케이스도 방어
-  if (resData && Array.isArray(resData.data)) {
-    const list = normalizeList(resData.data)
-    return { content: list, total: list.length }
-  }
-
-  return { content: [], total: 0 }
-}
-
-const loadCareWorkers = async () => {
-  // ✅ 수급자 없으면 비움
-  if (!beneficiaryId.value) {
-    caregiversRaw.value = []
-    total.value = 0
-    error.value = ''
-    shouldAutoPickFirst.value = false
-    return
-  }
-
-  // ✅ 생성 모드인데 필수 값 부족하면 비움 (로딩도 켜지지 않게)
-  if (isCreateVisitMode.value && (!props.startDt || !props.endDt || !props.serviceTypeId)) {
-    caregiversRaw.value = []
-    total.value = 0
-    error.value = ''
-    shouldAutoPickFirst.value = false
-    return
-  }
-
-  try {
-    loading.value = true
-    error.value = ''
-
-    const keyword = search.value?.trim() || null
-
-    const res = isCreateVisitMode.value
-      ? await getCreateVisitAvailableCareWorkerCards({
-          beneficiaryId: beneficiaryId.value,
-          startDt: props.startDt,
-          endDt: props.endDt,
-          serviceTypeId: props.serviceTypeId,
-          page: page.value - 1,
-          size: pageSize,
-          keyword,
-        })
-      : await getCandidateCareWorkerCards({
-          beneficiaryId: beneficiaryId.value,
-          page: page.value - 1,
-          size: pageSize,
-          keyword,
-        })
-
-    const { content, total: t } = pickPage(res?.data)
-
-    caregiversRaw.value = content
-    total.value = t
-
-    if (shouldAutoPickFirst.value && caregiversRaw.value.length > 0 && !selectedCareWorkerId.value) {
-      handleSelect(caregiversRaw.value[0])
-    }
-  } catch (e) {
-    caregiversRaw.value = []
-    total.value = 0
-    error.value =
-      (typeof e?.response?.data === 'string' && e.response.data) ||
-      e?.response?.data?.message ||
-      '요양보호사 목록을 불러오지 못했습니다.'
-  } finally {
-    loading.value = false
-    shouldAutoPickFirst.value = false
-  }
-}
-
-// ✅ 입력 조건(수급자/시간/서비스유형) 바뀌면: 페이지/검색/선택 초기화
-watch(
-  () => [beneficiaryId.value, props.startDt, props.endDt, props.serviceTypeId, isCreateVisitMode.value],
-  () => {
+  
+  watch(
+    () => [beneficiaryId.value, props.startDt, props.endDt, props.serviceTypeId],
+    () => {
+      page.value = 1
+      search.value = ''
+      autoPickedKey.value = ''
+      loadCareWorkers()
+    },
+    { immediate: true }
+  )
+  
+  watch(search, () => {
     page.value = 1
-    search.value = ''
-    selectedCareWorkerId.value = null
-    shouldAutoPickFirst.value = true
     loadCareWorkers()
-  },
-  { immediate: true }
-)
-
-// ✅ 검색/페이지 변경 시 재조회 (서버 keyword/page 적용)
-watch(search, () => {
-  page.value = 1
-  loadCareWorkers()
-})
-
-watch(page, () => {
-  loadCareWorkers()
-})
-
-const pagedList = computed(() => caregiversRaw.value)
-
-const totalPages = computed(() => Math.max(1, Math.ceil((total.value || 0) / pageSize)))
-
-const prevPage = () => {
-  if (page.value > 1) page.value--
-}
-
-const nextPage = () => {
-  if (page.value < totalPages.value) page.value++
-}
-
-const badgeClass = (gender) => ({
-  badge: true,
-  male: gender === '남자',
-  female: gender === '여자',
-})
-</script>
+  })
+  
+  watch(page, () => {
+    loadCareWorkers()
+  })
+  
+  watch(
+    () => props.refreshKey,
+    () => {
+      autoPickedKey.value = ''
+      loadCareWorkers()
+    }
+  )
+  
+  watch(
+    () => store.caregiverId,
+    (id) => {
+      selectedCareWorkerId.value = id
+    },
+    { immediate: true }
+  )
+  
+  const pagedList = computed(() => caregiversRaw.value)
+  
+  const totalPages = computed(() => Math.max(1, Math.ceil((total.value || 0) / pageSize)))
+  
+  const prevPage = () => {
+    if (page.value > 1) page.value--
+  }
+  
+  const nextPage = () => {
+    if (page.value < totalPages.value) page.value++
+  }
+  
+  const handleSelect = (item) => {
+    const careWorkerId = getCareWorkerId(item)
+    selectedCareWorkerId.value = careWorkerId
+    emit('select-caregiver', item)
+  }
+  
+  const badgeClass = (gender) => ({
+    badge: true,
+    male: gender === '남자',
+    female: gender === '여자',
+  })
+  </script>
+  
 
 <style scoped>
-/* (스타일은 기존 그대로 유지) */
 .matching-panel {
   background: #ffffff;
   border-radius: 16px;
