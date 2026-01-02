@@ -315,10 +315,15 @@ watch(() => props.employee, (newVal) => {
   }
 
   // 4. 에러 메시지 초기화
-  errors.value = { phone: '', email: '', name: '', emergencyNumber: '' };
+  errors.value = { phone: '', email: '', name: '', emergencyNumber: '', password: '' };
 
   // 5. 경력 재계산
   calculateTotalCareer();
+  
+  // 6. 비밀번호 필드 초기화
+  form.value.currentPassword = '';
+  form.value.newPassword = '';
+  form.value.confirmPassword = '';
 }, { deep: true, immediate: true });
 
 
@@ -363,6 +368,18 @@ const handleSubmit = () => {
     return;
   }
 
+  // 비밀번호 변경 시 유효성 검사
+  if (form.value.newPassword) {
+      if (form.value.newPassword !== form.value.confirmPassword) {
+          alert('새 비밀번호가 일치하지 않습니다.');
+          return;
+      }
+      if (!form.value.currentPassword) {
+          alert('현재 비밀번호를 입력해주세요.');
+          return;
+      }
+  }
+
   const payload = {
     // 1. 기본 정보 필드 매핑
     name: form.value.name,
@@ -377,6 +394,10 @@ const handleSubmit = () => {
     jobCode: form.value.jobCode,
     statusId: form.value.statusId,
     id: form.value.id, // ID 포함
+
+    // 비밀번호 필드 (입력된 경우만 전송)
+    currentPassword: form.value.currentPassword || null,
+    newPassword: form.value.newPassword || null,
 
     // 2. 체크된 서비스 ID 배열 ([1] 형태)
     serviceTypeIds: selectedServiceIds.value,
@@ -598,6 +619,24 @@ const handleSubmit = () => {
           </div>
         </div>
 
+        <div class="form-section gray-theme">
+          <h4 class="section-title">계정 설정 (비밀번호 변경)</h4>
+          <div class="grid-2">
+            <div class="form-group full-width">
+              <label>현재 비밀번호</label>
+              <input v-model="form.currentPassword" type="password" class="input" placeholder="비밀번호 변경 시 입력" />
+            </div>
+            <div class="form-group">
+              <label>새 비밀번호</label>
+              <input v-model="form.newPassword" type="password" class="input" placeholder="새 비밀번호" />
+            </div>
+            <div class="form-group">
+              <label>새 비밀번호 확인</label>
+              <input v-model="form.confirmPassword" type="password" class="input" placeholder="새 비밀번호 확인" />
+            </div>
+          </div>
+        </div>
+
       </div>
 
       <div class="modal-footer">
@@ -623,6 +662,8 @@ const handleSubmit = () => {
 .blue-theme .section-title { color: #1e40af; }
 .purple-theme { background-color: #faf5ff; border-color: #f3e8ff; }
 .purple-theme .section-title { color: #6b21a8; }
+.gray-theme { background-color: #f9fafb; border-color: #f3f4f6; }
+.gray-theme .section-title { color: #374151; }
 .section-title { margin: 0 0 16px 0; font-size: 16px; font-weight: 700; }
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .full-width { grid-column: 1 / -1; }

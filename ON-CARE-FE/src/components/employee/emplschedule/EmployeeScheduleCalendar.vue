@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed } from 'vue';
+import { Icon } from '@iconify/vue';
 
 const props = defineProps({
   schedules: { type: Array, default: () => [] }
@@ -18,18 +19,20 @@ const currentYear = computed(() => currentDate.value.getFullYear());
 const currentMonth = computed(() => currentDate.value.getMonth());
 const monthNames = ["1월", "2월", "3월", "4월", "5월", "6월", "7월", "8월", "9월", "10월", "11월", "12월"];
 
-// 날짜 선택기(input date)와 연동하기 위한 Computed 속성
-// currentDate(Date객체) <-> input(String) 변환 담당
+// 날짜 선택기(input month)와 연동하기 위한 Computed 속성
+// currentDate(Date객체) <-> input(String "YYYY-MM") 변환 담당
 const datePickerValue = computed({
   get() {
     const year = currentDate.value.getFullYear();
     const month = String(currentDate.value.getMonth() + 1).padStart(2, '0');
-    const day = String(currentDate.value.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+    return `${year}-${month}`;
   },
   set(val) {
-    // 사용자가 날짜를 변경하면 currentDate 업데이트
-    if (val) currentDate.value = new Date(val);
+    // 사용자가 월을 변경하면 currentDate 업데이트 (해당 월 1일로)
+    if (val) {
+      const [y, m] = val.split('-');
+      currentDate.value = new Date(y, m - 1, 1);
+    }
   }
 });
 
@@ -157,13 +160,12 @@ const nextMonth = () => currentDate.value = new Date(currentYear.value, currentM
 
         <div class="title-area">
           <div class="date-picker-wrapper">
-            <input type="date" v-model="datePickerValue" class="hidden-date-input" />
+            <input type="month" v-model="datePickerValue" class="hidden-date-input" />
             <button type="button" class="btn-calendar-icon" title="날짜 선택">
-              📅
+              <Icon icon="line-md:calendar" width="20" height="20" />
             </button>
+            <span class="current-date-text">{{ currentYear }}년 {{ monthNames[currentMonth] }}</span>
           </div>
-
-          <span class="current-date-text">{{ currentYear }}년 {{ monthNames[currentMonth] }}</span>
         </div>
 
         <button @click="nextMonth" class="nav-btn">
@@ -231,17 +233,17 @@ const nextMonth = () => currentDate.value = new Date(currentYear.value, currentM
             <span class="event-content">
               <!-- Case A: 물품/렌탈 (아이콘 변경) -->
               <span v-if="['물품수령', '물품회수', '복지용구'].includes(event.serviceTypeName) || event.type === 'rental'" class="icon-box">
-                 🚚
+                 <Icon icon="line-md:download-outline" width="14" height="14" />
               </span>
               
               <!-- Case B: 일반 요양 (기본 아이콘) -->
               <span v-else-if="event.type === 'care'" class="icon-box">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m22 4-12 12-4-4"/></svg>
+                <Icon icon="line-md:clipboard-check" width="14" height="14" />
               </span>
 
               <span class="event-title truncate">
                 <!-- allday가 true이면 시간 숨김 -->
-                <span v-if="!event.allDay && event.time" class="time-text mr-1">⏱ {{ event.time }}</span>
+                <span v-if="!event.allDay && event.time" class="time-text mr-1"><Icon icon="line-md:watch-loop" width="12" height="12" style="display:inline; vertical-align:middle; margin-right:2px;" /> {{ event.time }}</span>
                 {{ event.title }}
               </span>
             </span>
@@ -325,11 +327,11 @@ const nextMonth = () => currentDate.value = new Date(currentYear.value, currentM
 /* 날짜 선택기 래퍼 (아이콘 위에 투명 input 겹치기) */
 .date-picker-wrapper {
   position: relative;
-  width: 28px;
-  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 8px; /* 아이콘과 텍스트 사이 간격 */
+  cursor: pointer;
 }
 
 /* 투명한 날짜 input (클릭 영역 확보용) */

@@ -1,10 +1,11 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue';
+import { Icon } from '@iconify/vue';
 import { getAssignedBeneficiaries } from '@/api/employee/employeeApi';
 import { getCounselingLogListByBeneficiary } from '@/api/careworker/counselingLogApi';
 
-import SummaryRecord from '@/components/recipient/main/category/record/SummaryRecord.vue';
-import BasicTest from '@/components/recipient/main/category/record/BasicTest.vue';
+import CareLogHistoryList from '@/components/employee/diary/CareLogHistoryList.vue';
+import EvaluationHistoryList from '@/components/employee/diary/EvaluationHistoryList.vue';
 import VisitCounselHistoryList from '@/components/careworker/activity/VisitCounselHistoryList.vue';
 
 const props = defineProps({
@@ -41,7 +42,6 @@ const fetchCounselHistory = async () => {
   try {
     // 수급자 ID로 방문상담 목록 조회
     const response = await getCounselingLogListByBeneficiary(beneficiaryId);
-    console.log('방문상담 조회 응답:', response);
     
     // 응답 객체에서 실제 데이터 추출 (response.data 혹은 response 자체가 배열일 수 있음)
     const rawData = response?.data ?? response;
@@ -152,9 +152,7 @@ watch(() => props.employeeId, fetchData);
       <!-- 상단 네비게이션 -->
       <div class="nav-header">
         <button class="back-btn" @click="goBack">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="15 18 9 12 15 6"></polyline>
-          </svg>
+          <Icon icon="line-md:chevron-left" width="20" height="20" />
           전체 수급자 목록
         </button>
         <span class="divider">|</span>
@@ -188,12 +186,12 @@ watch(() => props.employeeId, fetchData);
 
       <!-- 탭 컨텐츠 -->
       <div class="tab-content-area">
-        <SummaryRecord 
+        <CareLogHistoryList 
           v-if="selectedTab === 'summary'" 
           :beneficiaryId="selectedBeneficiary.beneficiaryId || selectedBeneficiary.id" 
         />
         
-        <BasicTest 
+        <EvaluationHistoryList 
           v-else-if="selectedTab === 'basic'" 
           :beneficiaryId="selectedBeneficiary.beneficiaryId || selectedBeneficiary.id" 
         />
@@ -231,9 +229,7 @@ watch(() => props.employeeId, fetchData);
           <div class="card-right">
             <div v-if="item.logCount" class="count-badge">{{ item.logCount }}건</div>
             <div class="arrow-icon">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="m9 18 6-6-6-6"/>
-              </svg>
+              <Icon icon="line-md:chevron-right" width="20" height="20" style="color:#999;" />
             </div>
           </div>
         </div>
