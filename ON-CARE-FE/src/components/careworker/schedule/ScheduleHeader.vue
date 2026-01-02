@@ -15,9 +15,6 @@ onMounted(async () => {
     // 백엔드 ApiResponse<{data}> 형태와 순수 데이터 반환을 모두 대응
     const data = response?.data?.data ?? response?.data ?? response;
 
-    console.log('📊 일정관리 통계 - 백엔드 응답:', response);
-    console.log('📊 일정관리 통계 - 파싱된 data:', data);
-
     summaryStats.value = [
       {
         label: '오늘 일정',
@@ -36,7 +33,7 @@ onMounted(async () => {
       },
     ];
   } catch (error) {
-    console.error('❌ 대시보드 요약 정보 불러오기 실패:', error);
+    // 에러 처리
   }
 });
 </script>

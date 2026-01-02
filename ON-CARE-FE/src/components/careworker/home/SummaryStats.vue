@@ -15,15 +15,6 @@ onMounted(async () => {
     // 백엔드 ApiResponse<{data}> 형태와 순수 데이터 반환을 모두 대응
     const data = response?.data?.data ?? response?.data ?? response;
 
-    console.log('📊 백엔드 응답 전체:', response);
-    console.log('📊 파싱된 data:', data);
-    console.log('📊 근무시간 필드들:', {
-      weeklyWorkHours: data?.weeklyWorkHours,
-      monthlyWorkHours: data?.monthlyWorkHours,
-      workHours: data?.workHours,
-      allKeys: Object.keys(data || {})
-    });
-
     summaryStats.value = [
       {
         label: '오늘 일정',
@@ -42,7 +33,7 @@ onMounted(async () => {
       },
     ];
   } catch (error) {
-    console.error('대시보드 요약 데이터를 불러오지 못했습니다:', error);
+    // 에러 처리
   }
 });
 </script>

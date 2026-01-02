@@ -9,20 +9,24 @@ const props = defineProps({
   }
 });
 
-// 상세 모달 상태
+// 상세 모달 상태 관리
 const showModal = ref(false);
 const selectedItem = ref(null);
 
+// 상세 정보 열기 (API 호출 포함)
 const openDetail = async (item) => {
-  // 이미 상세 정보가 로드되지 않았다면 로드
+  // 1. 이미 상세 정보가 로드되지 않았다면 API 호출
+
   if (!item.detailsLoaded) {
     try {
       const { getCounselingLogDetail } = await import('@/api/careworker/counselingLogApi');
       const detailResponse = await getCounselingLogDetail(item.counselingId);
       const detailData = detailResponse?.data ?? detailResponse;
 
+      // 데이터 매핑
       item.visitPurpose = detailData.visitPurpose || '정보 없음';
-      item.observedCondition = detailData.attendees || '정보 없음'; // attendees 필드가 관찰내용인지는 확인 필요하지만 기존 코드 따름
+      item.observedCondition = detailData.attendees || '정보 없음'; // attendees 필드 매핑 유지
+
       item.subjectiveNeeds = detailData.discussionContent || '정보 없음';
       item.counselorNotes = detailData.agreementContent || '정보 없음';
       item.nextVisit = detailData.nextVisitDate ? detailData.nextVisitDate.split('T')[0] : '-';
@@ -56,14 +60,6 @@ const closeModal = () => {
 
 <template>
   <div class="counsel-history-list">
-    <!-- 헤더 (선택 사항, 필요 없으면 제거) -->
-    <!-- <div class="list-header">
-      <span>수급자</span>
-      <span>방문일자</span>
-      <span>유형/만족도</span>
-      <span>상태</span>
-    </div> -->
-
     <div 
       v-for="item in items" 
       :key="item.id" 
@@ -80,7 +76,7 @@ const closeModal = () => {
 
       <div class="row-right">
         <span class="badge type">{{ item.counselType }}</span>
-        <span class="satisfaction-text" :class="{'good': item.reaction.includes('만족'), 'bad': item.reaction.includes('불만')}">
+        <span class="satisfaction-text" :class="{'good': item.reaction?.includes('만족'), 'bad': item.reaction?.includes('불만')}">
           {{ item.reaction }}
         </span>
         <span 
@@ -97,7 +93,10 @@ const closeModal = () => {
       등록된 상담 내역이 없습니다.
     </div>
 
+<<<<<<< HEAD
+=======
     <!-- 상세 모달 -->
+>>>>>>> dev
     <div v-if="showModal && selectedItem" class="modal-overlay" @click="closeModal">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
@@ -147,7 +146,10 @@ const closeModal = () => {
             <span class="next-visit-date">{{ selectedItem.nextVisit }}</span>
           </div>
 
+<<<<<<< HEAD
+=======
           <!-- 서명 이미지 섹션 -->
+>>>>>>> dev
           <div class="signature-section-view">
             <div class="signature-item">
               <span class="sig-label">수급자(보호자) 서명</span>
@@ -176,6 +178,7 @@ const closeModal = () => {
 </template>
 
 <style scoped>
+/* 리스트 스타일 */
 .counsel-history-list {
   display: flex;
   flex-direction: column;
@@ -214,7 +217,7 @@ const closeModal = () => {
 .satisfaction-text {
   font-size: 13px;
   font-weight: 700;
-  color: #10b981; /* Default Green for '보통'/'만족' */
+  color: #10b981;
 }
 .satisfaction-text.bad { color: #ef4444; }
 
@@ -230,12 +233,10 @@ const closeModal = () => {
   background: #fef3c7;
   color: #d97706;
 }
-
 .arrow-icon { color: #d1d5db; font-size: 18px; margin-left: 4px; }
-
 .empty-text { text-align: center; color: #999; padding: 40px; }
 
-/* Modal Styles */
+/* 모달 스타일 */
 .modal-overlay {
   position: fixed; top: 0; left: 0; width: 100%; height: 100%;
   background: rgba(0,0,0,0.5); z-index: 1000;
@@ -284,6 +285,7 @@ const closeModal = () => {
 .next-visit-label { font-weight: 600; color: #92400e; font-size: 14px; }
 .next-visit-date { font-weight: 700; color: #92400e; font-size: 14px; }
 
+/* 서명 이미지 섹션 */
 .signature-section-view {
   margin-top: 24px; border-top: 1px solid #eee; padding-top: 20px;
   display: grid; grid-template-columns: 1fr 1fr; gap: 16px;

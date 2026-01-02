@@ -1,9 +1,10 @@
 ﻿<script setup>
-import { ref, onMounted, defineProps, watch } from 'vue'; // ✅ defineProps, watch 추가
+import { ref, onMounted, defineProps, watch } from 'vue'; // defineProps, watch 추가
 import { getTodos, getTodoDetail, createTodo, updateTodo, completeTodo, uncompleteTodo, deleteTodo } from '@/api/careworker';
 import TodoModal from './TodoModal.vue';
+import { Icon } from '@iconify/vue';
 
-// ✅ 부모 컴포넌트에서 선택된 수급자 ID를 받아옵니다.
+// 부모 컴포넌트에서 선택된 수급자 ID를 받아옵니다.
 const props = defineProps({
   beneficiaryId: {
     type: [Number, String],
@@ -22,7 +23,7 @@ const detailLoading = ref(false);
 const selectedDetailId = ref(null);
 const detailError = ref(null);
 
-// ✅ 수급자 ID가 변경되면 목록을 다시 불러오는 기능 추가 (선택 사항)
+// 수급자 ID가 변경되면 목록을 다시 불러오는 기능 추가 (선택 사항)
 watch(() => props.beneficiaryId, () => {
   loadTodos();
 });
@@ -41,7 +42,7 @@ const checkAndResetIfNewDay = () => {
 };
 
 const loadTodos = async () => {
-  // ✅ 수급자 ID가 없으면 로딩하지 않음
+  // 수급자 ID가 없으면 로딩하지 않음
   loading.value = true;
 
   try {
@@ -74,13 +75,11 @@ const loadTodos = async () => {
           try {
             await uncompleteTodo(todo.id);
           } catch (error) {
-            console.error('할일 리셋 실패:', todo.id, error);
           }
         }
       }
     }
   } catch (error) {
-    console.error('할 일 목록 로드 실패:', error);
   } finally {
     loading.value = false;
   }
@@ -120,7 +119,6 @@ const handleAddTodo = async ({ content, type, todoDate, beneficiaryId }) => {
       beneficiaryId: targetBeneficiaryId,
     };
 
-    console.log('전송할 TODO 데이터:', newTodo);
     await createTodo(newTodo);
 
     if (modalRef.value) {
@@ -128,9 +126,7 @@ const handleAddTodo = async ({ content, type, todoDate, beneficiaryId }) => {
     }
     isModalOpen.value = false;
     await loadTodos();
-    console.log('할 일이 성공적으로 추가되었습니다.');
   } catch (error) {
-    console.error('할 일 추가 실패:', error);
     const errorMessage = error.response?.data || error.message || '알 수 없는 오류';
     alert(`할 일 추가 실패: ${errorMessage}\n\n서버 오류일 수 있습니다.`);
   }
@@ -163,9 +159,7 @@ const handleUpdateTodo = async ({ id, content, type, todoDate, beneficiaryId }) 
     isModalOpen.value = false;
     editingTodo.value = null;
     await loadTodos();
-    console.log('할 일이 성공적으로 수정되었습니다.');
   } catch (error) {
-    console.error('할 일 수정 실패:', error);
     const errorMessage = error.response?.data || error.message || '알 수 없는 오류';
     alert(`할 일 수정 실패: ${errorMessage}\n\n서버 오류일 수 있습니다.`);
   }
@@ -217,7 +211,6 @@ const handleSelectTodo = async (todo) => {
       careLevel: data.careLevel ?? data.beneficiary?.careLevel ?? '',
     };
   } catch (error) {
-    console.error('할 일 상세 불러오기 실패:', error);
     detailError.value = '상세 정보를 불러오지 못했습니다.';
   } finally {
     detailLoading.value = false;
@@ -251,7 +244,6 @@ const toggleTodo = async (todo) => {
 
   } catch (error) {
 
-    console.error('할 일 상태 변경 실패:', error);
 
   }
 
@@ -271,7 +263,6 @@ const removeTodo = async (id) => {
 
   } catch (error) {
 
-    console.error('할 일 삭제 실패:', error);
 
   }
 
@@ -292,7 +283,7 @@ onMounted(() => {
 <template>
   <section class="todo-section">
     <div class="header-row">
-      <h2 class="section-title">📋 오늘의 할일</h2>
+      <h2 class="section-title"><Icon icon="line-md:clipboard-check" class="title-icon" /> 오늘의 할일</h2>
       <button class="add-btn-small" @click="openAddModal">+ 할 일 추가</button>
     </div>
 
@@ -328,8 +319,12 @@ onMounted(() => {
             </div>
           </div>
           <div class="todo-actions">
-            <button class="icon-btn edit" @click.stop="openEditModal(todo)">✏️</button>
-            <button class="icon-btn delete" @click.stop="removeTodo(todo.id)">🗑️</button>
+            <button class="icon-btn edit" @click.stop="openEditModal(todo)">
+              <Icon icon="line-md:edit" />
+            </button>
+            <button class="icon-btn delete" @click.stop="removeTodo(todo.id)">
+              <Icon icon="line-md:close" />
+            </button>
           </div>
         </div>
 
@@ -428,6 +423,13 @@ onMounted(() => {
   font-weight: 700;
   color: #388e3c;
   margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.title-icon {
+  font-size: 1.5rem;
 }
 
 .add-btn-small {
