@@ -305,33 +305,6 @@ const loadSchedules = async () => {
     // 백엔드 데이터를 프론트엔드 형식으로 변환
     schedules.value = rawSchedules.map(transformSchedule);
   } catch (error) {
-    console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.error('❌ 일정 불러오기 실패');
-    console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.error('에러 메시지:', error.message);
-    console.error('HTTP 상태:', error.response?.status);
-    console.error('응답 데이터:', error.response?.data);
-    console.error('전체 에러:', error);
-
-    // 백엔드 오류 시 임시 빈 배열 설정 (500 에러는 백엔드 문제)
-    if (error.response?.status === 500) {
-      console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      console.error('⚠️  백엔드 500 에러 디버깅 가이드');
-      console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      console.error('1️⃣  Network 탭에서 요청 헤더 확인:');
-      console.error('   - Authorization: Bearer <token>');
-      console.error('   - Care-Worker-Id:', useUserStore().userId);
-      console.error('');
-      console.error('2️⃣  백엔드 콘솔에서 에러 로그 확인:');
-      console.error('   - ScheduleQueryService.getSchedules()');
-      console.error('   - CalendarScheduleDto 매핑 과정');
-      console.error('');
-      console.error('3️⃣  DB 데이터 확인:');
-      console.error('   - employee_id =', useUserStore().userId, '의 일정 데이터 존재 여부');
-      console.error('   - visit_schedule, personal_schedule 테이블 조회');
-      console.error('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    }
-
     // 에러 발생 시에도 빈 배열로 설정 (UI가 깨지지 않도록)
     schedules.value = [];
   } finally {
@@ -345,7 +318,7 @@ const loadPersonalTypes = async () => {
     const response = await getPersonalTypes();
     personalTypes.value = response?.data || response || [];
   } catch (error) {
-    console.error('개인 일정 유형 불러오기 실패:', error);
+    // 에러 처리
   }
 };
 
@@ -373,7 +346,6 @@ const loadMyBeneficiaries = async () => {
 
 
   } catch (error) {
-    console.error('담당 수급자 목록 불러오기 실패:', error);
     myBeneficiaries.value = [];
   }
 };
@@ -568,7 +540,6 @@ const deleteSchedule = async (schedule) => {
       scheduleStore.notifyScheduleUpdate();
     }, 100);
   } catch (error) {
-    console.error('일정 삭제 실패:', error);
     alert(`일정 삭제 실패: ${error.message || '알 수 없는 오류'}`);
   }
 };
@@ -642,7 +613,6 @@ const saveSchedule = async () => {
           const serviceTypeId = getServiceTypeId(serviceTypeName);
 
           if (!serviceTypeId) {
-            console.warn(`알 수 없는 서비스 타입: ${serviceTypeName}`);
             return;
           }
 
@@ -711,7 +681,6 @@ const saveSchedule = async () => {
       scheduleStore.notifyScheduleUpdate();
     }, 100);
   } catch (error) {
-    console.error('일정 저장 실패:', error);
     alert(`일정 저장 실패: ${error.message || '알 수 없는 오류'}`);
   }
 };
@@ -742,7 +711,6 @@ const onSelectSchedule = async (schedule) => {
   const scheduleId = schedule.scheduleId || schedule.id || schedule.vsId || schedule.psId;
 
   if (!scheduleId) {
-    console.warn('일정 ID를 찾을 수 없습니다:', schedule);
     // ID가 없어도 기본 정보는 표시
     selectedSchedule.value = schedule;
     return;
@@ -784,7 +752,6 @@ const onSelectSchedule = async (schedule) => {
 
     selectedSchedule.value = transformedData;
   } catch (error) {
-    console.error('일정 상세 조회 실패:', error);
     // 실패 시 기본 정보만 표시
     selectedSchedule.value = schedule;
   }

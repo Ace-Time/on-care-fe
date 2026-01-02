@@ -1,6 +1,7 @@
 ﻿<script setup>
 import { ref, defineProps, defineEmits, onMounted, onUnmounted, watch, computed } from "vue";
 import { getMyBeneficiaries } from "@/api/careworker";
+import { Icon } from '@iconify/vue';
 
 const props = defineProps({
   isOpen: Boolean,
@@ -67,7 +68,6 @@ const fetchBeneficiaries = async () => {
       name: b.name ?? b.beneficiaryName ?? "수급자",
     }));
   } catch (error) {
-    console.error("수급자 목록 불러오기 실패:", error);
     beneficiaries.value = [];
   } finally {
     loadingBeneficiaries.value = false;
@@ -147,14 +147,14 @@ defineExpose({ resetForm });
       <div class="modal-header">
         <h3 class="modal-title">{{ isEditMode ? "할 일 수정" : "할 일 추가" }}</h3>
         <button class="close-icon-btn" @click="onClose">
-          <span class="close-icon">&times;</span>
+          <Icon icon="line-md:close" class="close-icon" />
         </button>
       </div>
 
       <div class="modal-body">
         <div class="form-group">
           <label class="form-label">
-            <span class="label-icon">📝</span>
+            <Icon icon="line-md:edit" class="label-icon" />
             할 일 내용
             <span class="required">*</span>
           </label>
@@ -168,7 +168,7 @@ defineExpose({ resetForm });
 
         <div class="form-group">
           <label class="form-label">
-            <span class="label-icon">🏷️</span>
+             <Icon icon="line-md:hash" class="label-icon" />
             유형
           </label>
           <select
@@ -188,7 +188,7 @@ defineExpose({ resetForm });
 
         <div class="form-group">
           <label class="form-label">
-            <span class="label-icon">👤</span>
+            <Icon icon="line-md:account" class="label-icon" />
             수급자
             <span class="required">*</span>
           </label>
@@ -206,10 +206,10 @@ defineExpose({ resetForm });
             </option>
           </select>
           <p v-if="loadingBeneficiaries" class="help-text">
-            <span class="loading-spinner">⏳</span> 수급자를 불러오는 중...
+            <Icon icon="line-md:loading-twotone-loop" class="loading-spinner" /> 수급자를 불러오는 중...
           </p>
           <p v-else-if="!beneficiaries.length" class="help-text warning">
-            ⚠️ 담당 수급자가 없습니다.
+            <Icon icon="line-md:alert" /> 담당 수급자가 없습니다.
           </p>
         </div>
       </div>

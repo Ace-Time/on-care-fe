@@ -4,6 +4,7 @@
 import { defineProps, defineEmits, computed, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { getBeneficiaryDetail } from '@/api/careworker';
+import { Icon } from '@iconify/vue';
 
 const router = useRouter();
 
@@ -28,7 +29,6 @@ const loadBeneficiaryDetail = async (beneficiaryId) => {
     const data = response?.data?.data ?? response?.data ?? response;
     beneficiaryDetail.value = data;
   } catch (error) {
-    console.error('❌ 수급자 정보 로드 실패:', error);
     beneficiaryDetail.value = null;
   }
 };
@@ -89,14 +89,23 @@ const handleViewCareLog = () => {
   if (!props.schedule?.beneficiaryId) return;
   router.push({
     name: 'activity-care',
-    query: { beneficiaryId: props.schedule.beneficiaryId, tab: 'history' }
+    query: { 
+      beneficiaryId: props.schedule.beneficiaryId, 
+      tab: 'history',
+      scheduleId: props.schedule.scheduleId || props.schedule.id,
+      serviceDate: props.schedule.date,
+      startTime: props.schedule.startTime,
+      endTime: props.schedule.endTime,
+      serviceType: props.schedule.serviceLabel || props.schedule.service || '방문요양',
+      beneficiaryName: props.schedule.recipient || props.schedule.beneficiaryName
+    }
   });
 };
 
 const handleViewAssessment = () => {
   if (!props.schedule?.beneficiaryId) return;
   router.push({
-    name: 'activity-evaluation',
+    name: 'activity-basic',
     query: { beneficiaryId: props.schedule.beneficiaryId }
   });
 };
@@ -106,7 +115,9 @@ const handleViewAssessment = () => {
   <div class="schedule-detail">
     <!-- 빈 상태 -->
     <div v-if="!schedule" class="empty-state">
-      <div class="empty-icon">📅</div>
+      <div class="empty-icon">
+        <Icon icon="line-md:calendar" />
+      </div>
       <p class="empty-title">일정을 선택하면</p>
       <p class="empty-subtitle">상세 정보가 표시됩니다</p>
     </div>
@@ -121,7 +132,9 @@ const handleViewAssessment = () => {
         <div class="header-actions">
           <span :class="['status-badge', statusBadgeClass]">{{ statusText }}</span>
           <span class="date-badge">{{ schedule.date }}</span>
-          <button class="close-btn" @click="onClose">✕</button>
+          <button class="close-btn" @click="onClose">
+            <Icon icon="line-md:close" />
+          </button>
         </div>
       </header>
 
@@ -154,7 +167,7 @@ const handleViewAssessment = () => {
             </div>
 
             <div class="schedule-time">
-              <span class="time-icon">🕐</span>
+              <span class="time-icon"><Icon icon="line-md:home-md" /></span>
               <div class="time-content">
                 <span class="time-range">{{ schedule.startTime }} - {{ schedule.endTime }}</span>
                 <span class="service-type">개인 일정</span>
@@ -165,7 +178,7 @@ const handleViewAssessment = () => {
           <!-- 메모 -->
           <div v-if="schedule.notes && schedule.notes.trim()" class="info-section">
             <div class="section-header">
-              <span class="section-icon">📝</span>
+              <span class="section-icon"><Icon icon="line-md:edit-twotone" /></span>
               <h4 class="section-title">메모</h4>
             </div>
             <div class="memo-box">{{ schedule.notes }}</div>
@@ -174,10 +187,10 @@ const handleViewAssessment = () => {
           <!-- 수정/삭제 버튼 -->
           <div class="action-footer">
             <button class="btn btn-edit" @click="handleEdit">
-              <span>✏️</span> 수정
+              <span><Icon icon="line-md:edit" /></span> 수정
             </button>
             <button class="btn btn-delete" @click="handleDelete">
-              <span>🗑️</span> 삭제
+              <span><Icon icon="line-md:remove" /></span> 삭제
             </button>
           </div>
         </template>
@@ -217,7 +230,7 @@ const handleViewAssessment = () => {
             </div>
 
             <div class="schedule-time">
-              <span class="time-icon">🕐</span>
+              <span class="time-icon"><Icon icon="line-md:home-md" /></span>
               <div class="time-content">
                 <span class="time-range">{{ schedule.startTime }} - {{ schedule.endTime }}</span>
                 <span class="service-type">{{ schedule.serviceLabel || '방문요양' }}</span>
@@ -228,17 +241,17 @@ const handleViewAssessment = () => {
           <!-- 액션 버튼 -->
           <div class="action-buttons">
             <button class="btn btn-primary" @click="handleViewCareLog">
-              <span>📋</span> 요양일지 기록보기
+              <span><Icon icon="line-md:clipboard-list" /></span> 요양일지 기록보기
             </button>
             <button class="btn btn-secondary" @click="handleViewAssessment">
-              <span>📊</span> 기초평가 기록보기
+              <span><Icon icon="line-md:text-box" /></span> 기초평가 기록보기
             </button>
           </div>
 
           <!-- 보호자 정보 -->
           <div v-if="beneficiaryDetail?.guardians?.length" class="info-section">
             <div class="section-header">
-              <span class="section-icon">👨‍👩‍👧</span>
+              <span class="section-icon"><Icon icon="line-md:account-group" /></span>
               <h4 class="section-title">보호자 정보</h4>
             </div>
             <div class="guardian-list">
@@ -256,7 +269,7 @@ const handleViewAssessment = () => {
           <!-- 위험요소 -->
           <div v-if="beneficiaryDetail?.riskFactors?.length" class="info-section warning">
             <div class="section-header">
-              <span class="section-icon">⚠️</span>
+              <span class="section-icon"><Icon icon="line-md:alert" /></span>
               <h4 class="section-title">위험요소</h4>
             </div>
             <div class="tag-list">
@@ -269,7 +282,7 @@ const handleViewAssessment = () => {
           <!-- 수급자 특이사항 (태그) -->
           <div v-if="beneficiaryDetail?.significants?.length" class="info-section special">
             <div class="section-header">
-              <span class="section-icon">⚡</span>
+              <span class="section-icon"><Icon icon="line-md:sunny-outline-loop" /></span>
               <h4 class="section-title">수급자 특이사항</h4>
             </div>
             <div class="tag-list">
@@ -282,7 +295,7 @@ const handleViewAssessment = () => {
           <!-- 태그 -->
           <div v-if="beneficiaryDetail?.tags?.length" class="info-section">
             <div class="section-header">
-              <span class="section-icon">🏷️</span>
+              <span class="section-icon"><Icon icon="line-md:hash" /></span>
               <h4 class="section-title">태그</h4>
             </div>
             <div class="tag-list">
@@ -295,7 +308,7 @@ const handleViewAssessment = () => {
           <!-- 메모 -->
           <div v-if="hasScheduleNotes" class="info-section">
             <div class="section-header">
-              <span class="section-icon">📝</span>
+              <span class="section-icon"><Icon icon="line-md:edit-twotone" /></span>
               <h4 class="section-title">메모</h4>
             </div>
             <div class="memo-box">{{ schedule.specialNotes || schedule.notes }}</div>
@@ -305,7 +318,7 @@ const handleViewAssessment = () => {
           <!-- 장기요양인정 정보 -->
           <div v-if="beneficiaryDetail?.careLevelNumber" class="info-section">
             <div class="section-header">
-              <span class="section-icon">📄</span>
+              <span class="section-icon"><Icon icon="line-md:document" /></span>
               <h4 class="section-title">장기요양인정 정보</h4>
             </div>
             <div class="care-level-info">
@@ -325,10 +338,10 @@ const handleViewAssessment = () => {
           <!-- 수정/삭제 버튼 -->
           <div class="action-footer">
             <button class="btn btn-edit" @click="handleEdit">
-              <span>✏️</span> 수정
+              <span><Icon icon="line-md:edit" /></span> 수정
             </button>
             <button class="btn btn-delete" @click="handleDelete">
-              <span>🗑️</span> 삭제
+              <span><Icon icon="line-md:remove" /></span> 삭제
             </button>
           </div>
         </template>

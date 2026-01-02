@@ -1,6 +1,10 @@
 ﻿<script setup>
 import { ref, computed, watch, onMounted } from "vue";
+import { useRoute } from 'vue-router';
 import { useUserStore } from '@/stores/user';
+import { Icon } from '@iconify/vue';
+
+const route = useRoute();
 
 // 1. 각 평가 폼 컴포넌트 임포트
 import FallRiskAssessmentForm from "@/components/careworker/activity/FallRiskAssessmentForm.vue";
@@ -43,19 +47,20 @@ const evalHistory = ref([]);
 const loading = ref(false);
 const selectedYear = ref(new Date().getFullYear());
 const yearStats = ref({});
+const selectedBeneficiaryId = ref(null);
 
 // 평가 카테고리 정의
 const categories = [
-  { key: "fallRisk", label: "낙상위험도", icon: "⚠️", component: FallRiskAssessmentForm },
-  { key: "bedsore", label: "욕창위험도", icon: "🩹", component: BedsoreAssessmentForm },
-  { key: "cognitive", label: "인지기능", icon: "🧠", component: CognitiveAssessmentForm },
-  { key: "needs", label: "욕구사정", icon: "📋", component: NeedsAssessmentForm || null },
+  { key: "fallRisk", label: "낙상위험도", icon: "line-md:alert", component: FallRiskAssessmentForm },
+  { key: "bedsore", label: "욕창위험도", icon: "line-md:plus-square", component: BedsoreAssessmentForm },
+  { key: "cognitive", label: "인지기능", icon: "line-md:lightbulb", component: CognitiveAssessmentForm },
+  { key: "needs", label: "욕구사정", icon: "line-md:clipboard-list", component: NeedsAssessmentForm || null },
 ];
 
 // 보기 모드 탭 정의
 const viewTabs = [
-  { key: "write", label: "작성하기", icon: "✏️" },
-  { key: "history", label: "작성 내역", icon: "📑" },
+  { key: "write", label: "작성하기", icon: "line-md:edit" },
+  { key: "history", label: "작성 내역", icon: "line-md:document-list" },
 ];
 
 const apiMap = {
@@ -95,9 +100,12 @@ const currentTabComponent = computed(() => {
 // 평가 등급 판정
 const getGradeLabel = (resultGrade) => {
   if (!resultGrade) return '-';
-  if (resultGrade.includes('낮음') || resultGrade.includes('정상') || resultGrade.includes('없음')) return '낮음';
-  if (resultGrade.includes('중간') || resultGrade.includes('보통')) return '중간';
-  if (resultGrade.includes('높음')) return '높음';
+  // Green / Safe
+  if (resultGrade.includes('낮음') || resultGrade.includes('정상') || resultGrade.includes('없음') || resultGrade.includes('양호')) return '낮음';
+  // Yellow / Warning
+  if (resultGrade.includes('중간') || resultGrade.includes('보통') || resultGrade.includes('경계')) return '중간';
+  // Red / Danger
+  if (resultGrade.includes('높음') || resultGrade.includes('나쁨') || resultGrade.includes('주의') || resultGrade.includes('인지저하') || resultGrade.includes('치매') || resultGrade.includes('의심')) return '높음';
   return '-';
 };
 
@@ -182,16 +190,24 @@ const loadEvaluationHistory = async () => {
     // 날짜 최신순 정렬
     formattedData.sort((a, b) => new Date(b.evalDate) - new Date(a.evalDate));
 
-    evalHistory.value = formattedData;
-    yearStats.value = calculateYearStats(formattedData);
-    
+    // beneficiaryId로 필터링 (쿼리 파라미터로 전달된 경우)
+    let filteredData = formattedData;
+    if (selectedBeneficiaryId.value) {
+      filteredData = formattedData.filter(item => {
+        return item.beneficiaryId && item.beneficiaryId.toString() === selectedBeneficiaryId.value.toString();
+      });
+    }
+
+    evalHistory.value = filteredData;
+    yearStats.value = calculateYearStats(filteredData);
+
+    // 항상 최신 연도를 선택하도록 수정
     const years = Object.keys(yearStats.value).sort((a, b) => b - a);
-    if (years.length > 0 && !yearStats.value[selectedYear.value]) {
+    if (years.length > 0) {
       selectedYear.value = parseInt(years[0]);
     }
 
   } catch (error) {
-    console.error(error);
   } finally {
     loading.value = false;
   }
@@ -315,7 +331,6 @@ const checkDuplicateEvaluation = async (beneficiaryId, year) => {
 
     return exists;
   } catch (error) {
-    console.error('중복 체크 실패:', error);
     return false; // 에러 시에는 일단 통과 (혹은 차단 정책에 따라 변경 가능)
   }
 };
@@ -344,7 +359,6 @@ const handleSubmit = async (data) => {
     activeView.value = 'history';
     await loadEvaluationHistory();
   } catch (error) {
-    console.error('평가 저장 실패:', error);
     alert(`평가 저장 실패: ${error.message}`);
   }
 };
@@ -368,7 +382,6 @@ const handleSaveDraft = async (data) => {
     activeView.value = 'history';
     await loadEvaluationHistory();
   } catch (error) {
-    console.error('임시저장 실패:', error);
     alert(`임시저장 실패: ${error.message}`);
   }
 };
@@ -406,7 +419,6 @@ const parseDetailData = (item) => {
       if (evalJson.comment) parsed.comment = evalJson.comment;
       
     } catch (e) {
-      console.error('evalData 파싱 실패:', e);
     }
   }
   return parsed;
@@ -430,7 +442,6 @@ const openDetailModal = async (item) => {
     detailItem.value = parseDetailData(data);
     showDetailModal.value = true;
   } catch (error) {
-    console.error('평가 상세 조회 실패:', error);
     alert('평가 정보를 불러오는데 실패했습니다.');
   }
 };
@@ -460,7 +471,6 @@ const openEditModal = async (item) => {
     editItem.value = parseDetailData(data);
     showEditModal.value = true;
   } catch (error) {
-    console.error('평가 상세 조회 실패:', error);
     alert('평가 정보를 불러오는데 실패했습니다.');
   }
 };
@@ -482,7 +492,6 @@ const handleEditSubmit = async (formData) => {
     const evalId = formData.id || (editItem.value && (editItem.value.id || editItem.value.evalId));
     
     if (!evalId) {
-      console.error('ID 없음. formData:', formData, 'editItem:', editItem.value);
       throw new Error('평가 ID를 찾을 수 없습니다.');
     }
 
@@ -493,7 +502,6 @@ const handleEditSubmit = async (formData) => {
     closeDetailModal(); // 상세 모달도 닫기
     await loadEvaluationHistory();
   } catch (error) {
-    console.error('평가 수정 실패:', error);
     alert('평가 수정 실패');
   }
 };
@@ -519,7 +527,6 @@ const handleEditDraft = async (formData) => {
     closeDetailModal(); // 상세 모달도 닫기
     await loadEvaluationHistory();
   } catch (error) {
-    console.error('평가 임시저장 수정 실패:', error);
     alert('평가 임시저장 수정 실패');
   }
 };
@@ -549,6 +556,13 @@ watch([activeCategory, activeView], ([newCategory, newView]) => {
 });
 
 onMounted(() => {
+  // 쿼리 파라미터에서 beneficiaryId가 있으면 필터링 설정
+  if (route.query.beneficiaryId) {
+    selectedBeneficiaryId.value = route.query.beneficiaryId;
+    // 내역 탭으로 전환
+    activeView.value = 'history';
+  }
+
   if (activeView.value === 'history') loadEvaluationHistory();
 });
 </script>
@@ -565,7 +579,7 @@ onMounted(() => {
           :class="{ active: activeCategory === cat.key }"
           @click="activeCategory = cat.key"
         >
-          <span class="tab-icon">{{ cat.icon }}</span>
+          <Icon :icon="cat.icon" class="tab-icon" />
           <span>{{ cat.label }}</span>
         </button>
       </div>
@@ -578,7 +592,7 @@ onMounted(() => {
           :class="{ active: activeView === tab.key }"
           @click="activeView = tab.key"
         >
-          <span class="view-icon">{{ tab.icon }}</span>
+          <Icon :icon="tab.icon" class="view-icon" />
           <span>{{ tab.label }}</span>
         </button>
       </div>
@@ -666,13 +680,13 @@ onMounted(() => {
                     <span class="score-value">{{ item.totalScore }}점</span>
                  </div>
                  <div v-if="item.comment" class="comment-preview">
-                    <span class="comment-icon">💬</span>
+                    <Icon icon="line-md:chat" class="comment-icon" />
                     <span class="comment-text">{{ item.comment }}</span>
                  </div>
               </div>
 
               <div class="row-col action-col">
-                 <span class="chevron">›</span>
+                 <Icon icon="line-md:chevron-right" class="chevron" />
               </div>
             </div>
 
@@ -684,7 +698,7 @@ onMounted(() => {
                 :disabled="currentPage === 1" 
                 @click="changePage(currentPage - 1)"
               >
-                &lt;
+                <Icon icon="line-md:chevron-left" />
               </button>
               
               <button 
@@ -702,7 +716,7 @@ onMounted(() => {
                 :disabled="currentPage === totalPages" 
                 @click="changePage(currentPage + 1)"
               >
-                &gt;
+                <Icon icon="line-md:chevron-right" />
               </button>
             </div>
           </div>

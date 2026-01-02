@@ -22,7 +22,6 @@ const loadBeneficiaries = async () => {
     const data = response?.data ?? response;
     beneficiaries.value = Array.isArray(data) ? data : [];
   } catch (error) {
-    console.error('❌ 담당 수급자 목록 불러오기 실패:', error);
     beneficiaries.value = [];
   } finally {
     loadingBeneficiaries.value = false;
@@ -88,8 +87,55 @@ const toggleCheckbox = (code, value) => {
 
 const checkShowCondition = (condition) => {
   if (!condition) return true;
-  return Object.keys(condition).every(key => formData.value.responses[key] === condition[key]);
+  return Object.keys(condition).every(key => {
+    const expectedValue = condition[key];
+    const actualValue = formData.value.responses[key];
+
+    // 배열인 경우 actualValue가 배열에 포함되는지 확인
+    if (Array.isArray(expectedValue)) {
+      return expectedValue.includes(actualValue);
+    }
+
+    // 단일 값인 경우 정확히 일치하는지 확인
+    return actualValue === expectedValue;
+  });
 };
+
+// 주수발자 선택 시 관계 필드 초기화
+watch(() => formData.value.responses['main_supporter'], (newValue) => {
+  if (newValue === '무') {
+    // 주수발자가 '무'인 경우 관계 필드 초기화
+    delete formData.value.responses['supporter_relation'];
+    // 기타 선택으로 인한 텍스트 입력도 초기화
+    delete formData.value.textResponses['supporter_relation_기타'];
+  }
+});
+
+// 자녀 유무 선택 시 자녀 수 초기화
+watch(() => formData.value.responses['has_children'], (newValue) => {
+  if (newValue === '유') {
+    // '유' 선택 시 아들 수와 딸 수를 0으로 초기화 (값이 없을 때만)
+    if (formData.value.responses['son_count'] === undefined || formData.value.responses['son_count'] === null || formData.value.responses['son_count'] === '') {
+      formData.value.responses['son_count'] = 0;
+    }
+    if (formData.value.responses['daughter_count'] === undefined || formData.value.responses['daughter_count'] === null || formData.value.responses['daughter_count'] === '') {
+      formData.value.responses['daughter_count'] = 0;
+    }
+  } else if (newValue === '무') {
+    // '무' 선택 시 자녀 수 필드 초기화
+    delete formData.value.responses['son_count'];
+    delete formData.value.responses['daughter_count'];
+  }
+});
+
+// 욕창 단계 선택 시 욕창 부위 초기화
+watch(() => formData.value.responses['bedsore_stage'], (newValue) => {
+  if (newValue === '없음') {
+    // '없음' 선택 시 욕창 부위 필드 초기화
+    delete formData.value.responses['bedsore_site'];
+    delete formData.value.textResponses['bedsore_site_기타'];
+  }
+});
 
 const shouldShowTextInput = (item, choice) => {
   if (!item.hasTextWhen) return false;
@@ -109,6 +155,9 @@ const handleSubmit = () => {
   for (const section of needsAssessment.sections) {
     for (const item of section.items) {
       if (item.isOptional) continue; // 선택 항목은 건너뜀
+
+      // 조건부 표시 항목인 경우, 조건을 만족하지 않으면 검증 건너뜀
+      if (item.showWhen && !checkShowCondition(item.showWhen)) continue;
 
       // 1. 일반 텍스트/라디오/숫자
       if (['text', 'number', 'radio', 'textarea'].includes(item.type)) {
@@ -372,11 +421,28 @@ onMounted(() => {
                   :disabled="readOnly"
                 />
                 
-                <div v-else-if="field.type === 'radio'" class="radio-inline">
-                  <label v-for="c in field.choices" :key="c" class="radio-label small">
-                    <input type="radio" :name="field.code" :value="c" v-model="formData.responses[field.code]" :disabled="readOnly" />
-                    {{ c }}
-                  </label>
+                <div v-else-if="field.type === 'radio'" class="choice-group">
+                  <div
+                    v-for="c in field.choices"
+                    :key="c"
+                    class="choice-chip radio"
+                    :class="{
+                      active: formData.responses[field.code] === c,
+                      'read-only': readOnly
+                    }"
+                  >
+                    <label class="choice-label">
+                      <input
+                        type="radio"
+                        :name="field.code"
+                        :value="c"
+                        v-model="formData.responses[field.code]"
+                        :disabled="readOnly"
+                      />
+                      <div class="custom-radio"></div>
+                      <span class="choice-text">{{ c }}</span>
+                    </label>
+                  </div>
                 </div>
               </div>
             </div>

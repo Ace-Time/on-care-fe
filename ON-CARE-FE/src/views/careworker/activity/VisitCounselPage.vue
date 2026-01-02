@@ -3,13 +3,14 @@ import { onMounted, ref, computed, watch } from "vue";
 import VisitCounselForm from "@/components/careworker/activity/VisitCounselForm.vue";
 import { createCounselingLog, getCounselingLogList, updateCounselingLog, deleteCounselingLog, getCounselingLogDetail } from '@/api/careworker/counselingLogApi';
 import { useUserStore } from '@/stores/user';
+import { Icon } from '@iconify/vue';
 
 const userStore = useUserStore();
 
 const mainTab = ref("write");
 const mainTabs = [
-      { key: "write", label: "작성하기", icon: "✏️" },
-      { key: "history", label: "작성 내역", icon: "📑" },
+      { key: "write", label: "작성하기", icon: "line-md:edit" },
+      { key: "history", label: "작성 내역", icon: "line-md:document-list" },
     ];
 
 const counselHistory = ref([]);
@@ -115,7 +116,6 @@ const loadCounselingHistory = async () => {
       };
     });
   } catch (error) {
-    console.error('❌ 방문상담 목록 불러오기 실패:', error);
     counselHistory.value = [];
   } finally {
     loading.value = false;
@@ -160,7 +160,6 @@ const openDetail = async (item) => {
 
     showDetailModal.value = true;
   } catch (error) {
-    console.error('❌ 상세 정보 조회 실패:', error);
     if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
       alert('서버 응답 시간이 초과되었습니다.\n데이터 중복 문제로 인해 처리가 지연되고 있을 수 있습니다.');
     } else if (error.response?.status === 500) {
@@ -200,7 +199,6 @@ const handleSubmit = async (formData, isDraft = false) => {
     mainTab.value = 'history';
     await loadCounselingHistory();
   } catch (error) {
-    console.error('제출 오류:', error);
     if (error.response?.status === 500) {
       alert('서버 내부 오류가 발생했습니다. (데이터 중복 가능성)\n관리자에게 문의해 주세요.');
     } else {
@@ -406,7 +404,6 @@ const saveSignature = async () => {
     await loadCounselingHistory();
 
   } catch (error) {
-    console.error("서명 저장 실패:", error);
     alert("서명 저장 중 오류가 발생했습니다.");
   }
 };
@@ -427,7 +424,7 @@ onMounted(() => {
           :class="{ active: mainTab === tab.key }"
           @click="mainTab = tab.key"
         >
-          <span class="tab-icon">{{ tab.icon }}</span>
+          <Icon :icon="tab.icon" class="tab-icon" />
           <span>{{ tab.label }}</span>
         </button>
       </div>
@@ -488,7 +485,7 @@ onMounted(() => {
             </div>
 
             <div class="row-col action-col">
-              <span class="chevron">›</span>
+              <Icon icon="line-md:chevron-right" class="chevron" />
             </div>
           </div>
         </div>
@@ -500,7 +497,7 @@ onMounted(() => {
             :disabled="currentPage === 1" 
             @click="changePage(currentPage - 1)"
           >
-            &lt;
+            <Icon icon="line-md:chevron-left" />
           </button>
           
           <button 
@@ -518,7 +515,7 @@ onMounted(() => {
             :disabled="currentPage === totalPages" 
             @click="changePage(currentPage + 1)"
           >
-            &gt;
+            <Icon icon="line-md:chevron-right" />
           </button>
         </div>
       </div>
@@ -548,7 +545,7 @@ onMounted(() => {
             <p class="section-content">{{ selectedItem.counselorNotes }}</p>
           </div>
           <div class="detail-section next-visit">
-            <span class="label">📅 다음 방문 예정:</span>
+            <span class="label"><Icon icon="line-md:calendar" /> 다음 방문 예정:</span>
             <span class="value">{{ selectedItem.nextVisit }}</span>
           </div>
 
@@ -559,7 +556,7 @@ onMounted(() => {
                  <img :src="selectedItem.guardianSignUrl" alt="수급자 서명" class="sig-img" />
               </div>
               <div v-else class="sig-status">
-                서명 하기 ✍️
+                서명 하기 <Icon icon="line-md:edit-twotone" />
               </div>
             </div>
 
@@ -569,7 +566,7 @@ onMounted(() => {
                  <img :src="selectedItem.counselorSignUrl" alt="요양보호사 서명" class="sig-img" />
               </div>
               <div v-else class="sig-status">
-                 서명 하기 ✍️
+                 서명 하기 <Icon icon="line-md:edit-twotone" />
               </div>
             </div>
           </div>

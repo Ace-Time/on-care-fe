@@ -34,7 +34,6 @@ const loadBeneficiaries = async () => {
     const data = response?.data ?? response;
     beneficiaries.value = data || [];
   } catch (error) {
-    console.error('❌ 담당 수급자 목록 불러오기 실패:', error);
     beneficiaries.value = [];
   } finally {
     loadingBeneficiaries.value = false;

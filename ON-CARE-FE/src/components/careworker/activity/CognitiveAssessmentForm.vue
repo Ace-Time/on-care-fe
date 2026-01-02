@@ -22,7 +22,6 @@ const loadBeneficiaries = async () => {
     const data = response?.data ?? response;
     beneficiaries.value = Array.isArray(data) ? data : [];
   } catch (error) {
-    console.error('API Error:', error);
     beneficiaries.value = [];
   } finally {
     loadingBeneficiaries.value = false;

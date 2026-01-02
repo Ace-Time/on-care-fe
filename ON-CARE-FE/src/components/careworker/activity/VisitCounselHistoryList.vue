@@ -39,7 +39,6 @@ const toggleDetails = async (item) => {
     item.detailsLoaded = true;
     item.showDetails = true;
   } catch (error) {
-    console.error('상세 정보 조회 실패:', error);
     alert('상세 정보를 불러올 수 없습니다.');
   }
 };
