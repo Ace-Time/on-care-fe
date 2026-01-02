@@ -3,8 +3,8 @@ import { ref, onMounted, watch } from 'vue';
 import { getAssignedBeneficiaries } from '@/api/employee/employeeApi';
 import { getCounselingLogListByBeneficiary } from '@/api/careworker/counselingLogApi';
 
-import SummaryRecord from '@/components/recipient/main/category/record/SummaryRecord.vue';
-import BasicTest from '@/components/recipient/main/category/record/BasicTest.vue';
+import CareLogHistoryList from '@/components/employee/diary/CareLogHistoryList.vue';
+import EvaluationHistoryList from '@/components/employee/diary/EvaluationHistoryList.vue';
 import VisitCounselHistoryList from '@/components/careworker/activity/VisitCounselHistoryList.vue';
 
 const props = defineProps({
@@ -41,7 +41,6 @@ const fetchCounselHistory = async () => {
   try {
     // 수급자 ID로 방문상담 목록 조회
     const response = await getCounselingLogListByBeneficiary(beneficiaryId);
-    console.log('방문상담 조회 응답:', response);
     
     // 응답 객체에서 실제 데이터 추출 (response.data 혹은 response 자체가 배열일 수 있음)
     const rawData = response?.data ?? response;
@@ -188,12 +187,12 @@ watch(() => props.employeeId, fetchData);
 
       <!-- 탭 컨텐츠 -->
       <div class="tab-content-area">
-        <SummaryRecord 
+        <CareLogHistoryList 
           v-if="selectedTab === 'summary'" 
           :beneficiaryId="selectedBeneficiary.beneficiaryId || selectedBeneficiary.id" 
         />
         
-        <BasicTest 
+        <EvaluationHistoryList 
           v-else-if="selectedTab === 'basic'" 
           :beneficiaryId="selectedBeneficiary.beneficiaryId || selectedBeneficiary.id" 
         />

@@ -9,11 +9,14 @@
         </div>
         <p class="card-desc">내가 지금 승인해야 할 문서</p>
         <div class="card-bottom">
-          <span class="count">3건</span>
+          <span class="count">{{ dashboardData.pendingApprovalCount }}건</span>
+          <!-- API 응답에 세부 카운트가 없으므로 일단 숨김 처리하거나 0으로 표시 -->
+          <!--
           <div class="sub-info">
-            <span class="dot red"></span> 긴급 2건
-            <span class="dot orange"></span> 일반 1건
+            <span class="dot red"></span> 긴급 {{ dashboardData.urgentCount }}건
+            <span class="dot orange"></span> 일반 {{ dashboardData.normalCount }}건
           </div>
+          -->
         </div>
       </div>
       <div class="bg-icon">📝</div>
@@ -24,7 +27,7 @@
         <div class="card-title">승인 대기중</div>
         <p class="card-desc">내가 올린 결재</p>
         <div class="card-bottom">
-          <span class="count">1건</span>
+          <span class="count">{{ dashboardData.myRequestPendingCount }}건</span>
         </div>
       </div>
       <div class="bg-icon">🕒</div>
@@ -35,7 +38,7 @@
         <div class="card-title">승인됨</div>
         <p class="card-desc">내가 올린 결재</p>
         <div class="card-bottom">
-          <span class="count">1건</span>
+          <span class="count">{{ dashboardData.myRequestApprovedCount }}건</span>
         </div>
       </div>
       <div class="bg-icon">✅</div>
@@ -46,7 +49,7 @@
         <div class="card-title">반려됨</div>
         <p class="card-desc">내가 올린 결재</p>
         <div class="card-bottom">
-          <span class="count">0건</span>
+          <span class="count">{{ dashboardData.myRequestRejectedCount }}건</span>
         </div>
       </div>
       <div class="bg-icon">❎</div>
@@ -54,6 +57,53 @@
 
   </div>
 </template>
+
+<script setup>
+import { ref, onMounted } from 'vue';
+import { getPaymentDashboard } from '@/api/payment/paymentApi';
+import { useUserStore } from '@/stores/user';
+
+const userStore = useUserStore();
+
+const dashboardData = ref({
+  pendingApprovalCount: 0,
+  urgentCount: 0,
+  normalCount: 0,
+  myRequestPendingCount: 0,
+  myRequestApprovedCount: 0,
+  myRequestRejectedCount: 0
+});
+
+const fetchDashboardData = async () => {
+  try {
+    // 400 에러 방지를 위해 employeeId 전달 (백엔드 요구사항에 따라 선택적)
+    const employeeId = userStore.userId;
+    const data = await getPaymentDashboard(employeeId);
+    
+    // API 응답 매핑: 
+    // myPendingCount -> pendingApprovalCount
+    // myDraftPendingCount -> myRequestPendingCount
+    // myApprovedCount -> myRequestApprovedCount
+    // myRejectedCount -> myRequestRejectedCount
+    if (data) {
+      dashboardData.value = {
+        pendingApprovalCount: data.myPendingCount || 0,
+        urgentCount: 0, 
+        normalCount: 0,
+        myRequestPendingCount: data.myDraftPendingCount || 0,
+        myRequestApprovedCount: data.myApprovedCount || 0,
+        myRequestRejectedCount: data.myRejectedCount || 0
+      };
+    }
+  } catch (error) {
+    console.error('Failed to fetch payment dashboard data:', error);
+  }
+};
+
+onMounted(() => {
+  fetchDashboardData();
+});
+</script>
 
 <style scoped>
 .summary-grid {

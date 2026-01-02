@@ -15,10 +15,13 @@
         <div class="select-wrapper">
           <select v-model="selectedCategory" class="custom-select">
             <option value="">전체 유형</option>
-            <option value="급여">급여</option>
-            <option value="구매">구매</option>
-            <option value="휴가">휴가</option>
-            <option value="기타">기타</option>
+            <option 
+              v-for="cat in categoryList" 
+              :key="cat.id" 
+              :value="cat.name"
+            >
+              {{ cat.name }}
+            </option>
           </select>
           <span class="arrow-icon">⌵</span>
         </div>
@@ -39,7 +42,7 @@
 
     <div class="list-container">
       <div 
-        v-for="item in filteredList" 
+        v-for="item in approvalList" 
         :key="item.id" 
         class="list-item"
         :class="{ 'active': selectedItem && selectedItem.id === item.id }"
@@ -48,15 +51,14 @@
         <div class="item-main">
           <div class="title-row">
             <span class="title">{{ item.title }}</span>
-            <span class="badge category">{{ item.category }}</span>
+            <span class="badge category">{{ item.categoryName }}</span>
             <span class="badge priority" :class="getPriorityClass(item.priority)">{{ item.priority }}</span>
           </div>
           <div class="info-row">
-            <span class="user-icon">👤</span>
-            <span class="username">{{ item.requestor }}</span>
+            <span class="username">{{ item.drafterName }}</span>
           </div>
         </div>
-        <div class="item-date">📅 {{ item.date }}</div>
+        <div class="item-date">📅 {{ formatDate(item.createdAt) }}</div>
         <div class="item-status">
           <span class="status-badge" :class="getStatusClass(item.status)">
             {{ item.status }}
@@ -64,9 +66,41 @@
         </div>
       </div>
 
-      <div v-if="filteredList.length === 0" class="no-result">
+      <div v-if="approvalList.length === 0 && !isLoading" class="no-result">
         조건에 맞는 결과가 없습니다.
       </div>
+       <div v-if="isLoading" class="no-result">
+        불러오는 중...
+      </div>
+    </div>
+
+    <!-- 페이지네이션 컨트롤 -->
+    <div class="pagination" v-if="totalPages > 1">
+      <button 
+        class="page-btn nav" 
+        :disabled="currentPage === 1" 
+        @click="goToPage(currentPage - 1)"
+      >
+        &lt;
+      </button>
+      
+      <button 
+        v-for="page in totalPages" 
+        :key="page" 
+        class="page-btn" 
+        :class="{ active: currentPage === page }"
+        @click="goToPage(page)"
+      >
+        {{ page }}
+      </button>
+      
+      <button 
+        class="page-btn nav" 
+        :disabled="currentPage === totalPages" 
+        @click="goToPage(currentPage + 1)"
+      >
+        &gt;
+      </button>
     </div>
 
     <Transition name="slide">
@@ -85,71 +119,155 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
-// DetailPanel 컴포넌트 import (경로 확인 필요)
+import { ref, watch, onMounted } from 'vue';
 import DetailPanel from '@/components/tasks/approve/DetailPanel.vue'; 
+import { getPaymentList, getPaymentDetail, getPaymentCategories, approvePayment, rejectPayment } from '@/api/payment/paymentApi';
+import { useUserStore } from '@/stores/user';
+
+const userStore = useUserStore();
 
 // 상태 변수들
 const searchQuery = ref('');
 const selectedCategory = ref('');
 const selectedStatus = ref('');
-const selectedItem = ref(null); // 선택된 항목 저장
+const selectedItem = ref(null);
+const approvalList = ref([]); // 현재 페이지 목록
+const categoryList = ref([]);
+const isLoading = ref(false);
 
-// 샘플 데이터 (상세 패널 표시를 위해 amount, content 등 데이터 보강)
-const approvalList = ref([
-  { 
-    id: 1, title: '11월 급여 지급 결재', category: '급여', priority: '긴급', requestor: '김관리', date: '2024-11-27', status: '대기중',
-    amount: 42350000, content: '2024년 11월 급여 지급 승인을 요청합니다.', approvalLine: [{ role: '팀장', name: '김팀장' }]
-  },
-  { 
-    id: 2, title: '전동 휠체어 구매 요청', category: '구매', priority: '보통', requestor: '박담당', date: '2024-11-26', status: '승인',
-    amount: 2500000, content: '신규 입소 어르신을 위한 휠체어 구매', approvalLine: [{ role: '팀장', name: '김팀장' }]
-  },
-  { id: 3, title: '휴가 신청 - 이영희', category: '휴가', priority: '낮음', requestor: '이영희', date: '2024-11-25', status: '승인', amount: 0, content: '연차 사용', approvalLine: [] },
-  { id: 4, title: '신규 직원 채용 승인', category: '기타', priority: '긴급', requestor: '최인사', date: '2024-11-24', status: '승인', amount: 0, content: '인력 충원', approvalLine: [] },
-  { id: 5, title: '시설 보수 공사 승인', category: '구매', priority: '보통', requestor: '김관리', date: '2024-11-23', status: '반려', amount: 1500000, content: '타일 보수', approvalLine: [] },
-  { id: 6, title: '교육 프로그램 참가 신청', category: '기타', priority: '낮음', requestor: '박민수', date: '2024-11-22', status: '대기중', amount: 100000, content: '직무 교육', approvalLine: [] },
-  { id: 7, title: '신규 용품 구매 계약', category: '구매', priority: '긴급', requestor: '이자재', date: '2024-11-28', status: '대기중', amount: 500000, content: '소모품 구매', approvalLine: [] },
-]);
+// 페이지네이션 상태
+const currentPage = ref(1);
+const itemsPerPage = 10;
+const totalPages = ref(1); // 서버 응답에 따라 갱신
 
-// 3단 필터링 로직
-const filteredList = computed(() => {
-  return approvalList.value.filter(item => {
-    const matchSearch = item.title.includes(searchQuery.value) || item.requestor.includes(searchQuery.value);
-    const matchCategory = selectedCategory.value === '' || item.category === selectedCategory.value;
-    const matchStatus = selectedStatus.value === '' || item.status === selectedStatus.value;
+// 날짜 포맷팅 함수
+const formatDate = (dateString) => {
+  if (!dateString) return '-';
+  return dateString.split('T')[0];
+};
 
-    return matchSearch && matchCategory && matchStatus;
-  });
+// 카테고리 목록 조회
+const fetchCategories = async () => {
+    try {
+        const data = await getPaymentCategories();
+        categoryList.value = data || [];
+    } catch (error) {
+        console.error('Failed to fetch categories:', error);
+    }
+};
+
+// 목록 조회 함수 (서버 사이드 페이징)
+const fetchList = async () => {
+  isLoading.value = true;
+  try {
+    // 0-based index 적용 및 빈 파라미터 제거
+    const params = {
+      page: currentPage.value - 1, 
+      size: itemsPerPage,
+      employeeId: userStore.userId
+    };
+
+    if (searchQuery.value) params.search = searchQuery.value;
+    if (selectedCategory.value) params.category = selectedCategory.value;
+    if (selectedStatus.value) params.status = selectedStatus.value;
+    
+    const data = await getPaymentList(params);
+    
+    // 응답 구조 처리
+    if (data && data.list) {
+        approvalList.value = data.list;
+        totalPages.value = data.totalPages || 1;
+    } else if (data && data.content) {
+        // Fallback for standard Page structure
+        approvalList.value = data.content;
+        totalPages.value = data.totalPages || 1;
+    } else if (Array.isArray(data)) {
+        // 페이징 없이 리스트만 온 경우 (fallback)
+        approvalList.value = data; 
+        totalPages.value = 1;
+    } else {
+        approvalList.value = [];
+        totalPages.value = 1;
+    }
+  } catch (error) {
+    console.error('Failed to fetch payment list:', error);
+    approvalList.value = [];
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+// 페이지 이동
+const goToPage = (page) => {
+  if (page >= 1 && page <= totalPages.value) {
+    currentPage.value = page;
+    fetchList();
+  }
+};
+
+// 필터 변경 감지
+watch([searchQuery, selectedCategory, selectedStatus], () => {
+    currentPage.value = 1; // 검색 조건 변경 시 1페이지로
+    fetchList();
 });
 
-// 상세 패널 관련 함수
-const selectItem = (item) => {
-  selectedItem.value = item;
+// 상세 조회 및 모달 열기
+const selectItem = async (item) => {
+  try {
+    const detailData = await getPaymentDetail(item.id);
+    selectedItem.value = detailData;
+  } catch (error) {
+    console.error('Failed to fetch payment detail:', error);
+    alert('상세 정보를 불러오는데 실패했습니다.');
+  }
 };
+
 const closeDetail = () => {
   selectedItem.value = null;
 };
-const handleApprove = (id) => {
-  alert('승인되었습니다.');
-  closeDetail();
+
+const handleApprove = async (id) => {
+  if (!confirm('승인하시겠습니까?')) return;
+  try {
+    await approvePayment(id);
+    alert('승인되었습니다.');
+    closeDetail();
+    fetchList(); 
+  } catch (error) {
+    console.error('Approve failed:', error);
+    alert('승인 처리 중 오류가 발생했습니다.');
+  }
 };
-const handleReject = (id) => {
-  alert('반려되었습니다.');
-  closeDetail();
+
+const handleReject = async (id) => {
+  if (!confirm('반려하시겠습니까?')) return;
+  try {
+    await rejectPayment(id);
+    alert('반려되었습니다.');
+    closeDetail();
+    fetchList(); 
+  } catch (error) {
+    console.error('Reject failed:', error);
+    alert('반려 처리 중 오류가 발생했습니다.');
+  }
 };
 
 // 스타일 헬퍼
 const getPriorityClass = (p) => {
-  if(p === '긴급') return 'p-high';
-  if(p === '보통') return 'p-medium';
+  if(p === '긴급' || p === 'HIGH') return 'p-high'; 
+  if(p === '보통' || p === 'MEDIUM') return 'p-medium';
   return 'p-low';
 }
 const getStatusClass = (s) => {
-  if(s === '승인') return 's-approved';
-  if(s === '반려') return 's-rejected';
-  return 's-waiting';
+  if(s === '승인' || s === 'APPROVED') return 's-approved';
+  if(s === '반려' || s === 'REJECTED') return 's-rejected';
+  return 's-waiting'; 
 }
+
+onMounted(() => {
+  fetchCategories();
+  fetchList();
+});
 </script>
 
 <style scoped>
@@ -167,7 +285,7 @@ const getStatusClass = (s) => {
 .arrow-icon { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: #64748b; font-size: 12px; pointer-events: none; }
 
 /* 리스트 스타일 */
-.list-container { display: flex; flex-direction: column; gap: 12px; }
+.list-container { display: flex; flex-direction: column; gap: 12px; min-height: 500px; } /* 높이 고정하여 페이징 시 덜렁거림 방지 */
 .list-item { display: flex; align-items: center; justify-content: space-between; background: white; padding: 20px 24px; border-radius: 12px; border: 1px solid #e2e8f0; cursor: pointer; transition: all 0.2s; }
 .list-item:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
 /* 선택된 아이템 강조 */
@@ -190,6 +308,18 @@ const getStatusClass = (s) => {
 .s-approved { background: #dcfce7; color: #16a34a; }
 .s-rejected { background: #fee2e2; color: #dc2626; }
 .no-result { text-align: center; padding: 40px; color: #94a3b8; }
+
+/* 페이지네이션 */
+.pagination { display: flex; justify-content: center; gap: 8px; margin-top: 20px; padding-bottom: 20px; }
+.page-btn { 
+  width: 36px; height: 36px; border: 1px solid #e2e8f0; border-radius: 8px; 
+  background: white; cursor: pointer; color: #64748b; font-weight: 600; 
+  display: flex; align-items: center; justify-content: center;
+}
+.page-btn:hover:not(:disabled) { background: #f8fafc; color: #4ade80; border-color: #4ade80; }
+.page-btn.active { background: #4ade80; color: white; border-color: #4ade80; }
+.page-btn.nav { font-size: 12px; }
+.page-btn:disabled { cursor: not-allowed; opacity: 0.5; }
 
 /* 상세 패널 슬라이드 애니메이션 & 오버레이 */
 .slide-enter-active, .slide-leave-active { transition: transform 0.3s ease; }
