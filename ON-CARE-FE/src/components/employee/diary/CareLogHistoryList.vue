@@ -1,5 +1,6 @@
 <script setup>
 import { ref, watch, onMounted, computed } from 'vue';
+import { Icon } from '@iconify/vue';
 import { getCareLogListByBeneficiary, getCareLogDetail } from '@/api/careworker/careLogApi';
 import CareLogForm from '@/components/careworker/activity/CareLogForm.vue';
 
@@ -215,13 +216,13 @@ watch(() => props.beneficiaryId, loadCareLogHistory, { immediate: true });
 
         <div class="row-col note-info">
           <div v-if="item.specialNotes" class="note-preview">
-            <span class="note-icon">💬</span>
+            <span class="note-icon"><Icon icon="line-md:chat" width="16" height="16" /></span>
             <span class="note-text">{{ item.specialNotes }}</span>
           </div>
         </div>
         
         <div class="row-col action-col">
-          <span class="chevron">›</span>
+          <span class="chevron"><Icon icon="line-md:chevron-right" width="20" height="20" /></span>
         </div>
       </div>
     </div>

@@ -1,8 +1,9 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue';
 import { getAssignedBeneficiaries } from '@/api/employee/employeeApi';
-import axios from 'axios'; // [수정] API 호출을 위해 axios 추가 (또는 global api instance)
+import axios from 'axios';
 import BeneficiaryDetailModal from './BeneficiaryDetailModal.vue';
+import { Icon } from '@iconify/vue';
 
 const props = defineProps({
   employeeId: {
@@ -101,7 +102,7 @@ onMounted(() => {
         </div>
 
         <button class="detail-link">
-          클릭하여 상세정보 보기 →
+          클릭하여 상세정보 보기 <Icon icon="line-md:arrow-right" width="16" height="16" style="vertical-align: middle;" />
         </button>
       </div>
     </div>

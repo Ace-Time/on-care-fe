@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, watch, onMounted } from "vue";
 import { useUserStore } from '@/stores/user';
+import { Icon } from '@iconify/vue';
 
 // 1. 각 평가 폼 컴포넌트 임포트
 import FallRiskAssessmentForm from "@/components/careworker/activity/FallRiskAssessmentForm.vue";
@@ -39,10 +40,10 @@ const yearStats = ref({});
 
 // 평가 카테고리 정의
 const categories = [
-  { key: "fallRisk", label: "낙상위험도", icon: "⚠️", component: FallRiskAssessmentForm },
-  { key: "bedsore", label: "욕창위험도", icon: "🩹", component: BedsoreAssessmentForm },
-  { key: "cognitive", label: "인지기능", icon: "🧠", component: CognitiveAssessmentForm },
-  { key: "needs", label: "욕구사정", icon: "📋", component: NeedsAssessmentForm || null },
+  { key: "fallRisk", label: "낙상위험도", icon: "line-md:alert", component: FallRiskAssessmentForm },
+  { key: "bedsore", label: "욕창위험도", icon: "line-md:plus-square", component: BedsoreAssessmentForm },
+  { key: "cognitive", label: "인지기능", icon: "line-md:question-circle", component: CognitiveAssessmentForm },
+  { key: "needs", label: "욕구사정", icon: "line-md:clipboard-check", component: NeedsAssessmentForm || null },
 ];
 
 const apiMap = {
@@ -148,7 +149,7 @@ const loadEvaluationHistory = async () => {
         gradeLabel: getGradeLabel(resultGrade),
         totalScore: totalScore,
         status: isDraft ? '임시저장' : '제출됨',
-        evaluatorName: item.employeeName || item.evaluatorName || '-',
+        evaluatorName: item.employeeName || item.evaluatorName || item.writerName || item.createdByName || item.careWorkerName || '-', 
         comment: item.specialNote || item.comment || '',
         scoreDetails: item.scoreDetails || ''
       };
@@ -270,7 +271,7 @@ watch(activeCategory, loadEvaluationHistory);
         :class="{ active: activeCategory === cat.key }"
         @click="activeCategory = cat.key"
       >
-        <span class="tab-icon">{{ cat.icon }}</span>
+        <span class="tab-icon"><Icon :icon="cat.icon" width="20" height="20" /></span>
         <span>{{ cat.label }}</span>
       </button>
     </div>
@@ -326,7 +327,6 @@ watch(activeCategory, loadEvaluationHistory);
 
           <div class="row-col date-info">
             <span class="row-date">{{ item.evalDate?.split('T')[0] }}</span>
-            <span class="row-evaluator">평가자: {{ item.evaluatorName }}</span>
           </div>
 
           <div class="row-col score-info">
@@ -335,13 +335,13 @@ watch(activeCategory, loadEvaluationHistory);
                 <span class="score-value">{{ item.totalScore }}점</span>
              </div>
              <div v-if="item.comment" class="comment-preview">
-                <span class="comment-icon">💬</span>
+                <span class="comment-icon"><Icon icon="line-md:chat" width="16" height="16" /></span>
                 <span class="comment-text">{{ item.comment }}</span>
              </div>
           </div>
 
           <div class="row-col action-col">
-             <span class="chevron">›</span>
+             <span class="chevron"><Icon icon="line-md:chevron-right" width="20" height="20" /></span>
           </div>
         </div>
       </div>

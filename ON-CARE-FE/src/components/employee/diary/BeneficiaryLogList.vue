@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue';
+import { Icon } from '@iconify/vue';
 import { getAssignedBeneficiaries } from '@/api/employee/employeeApi';
 import { getCounselingLogListByBeneficiary } from '@/api/careworker/counselingLogApi';
 
@@ -151,9 +152,7 @@ watch(() => props.employeeId, fetchData);
       <!-- 상단 네비게이션 -->
       <div class="nav-header">
         <button class="back-btn" @click="goBack">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="15 18 9 12 15 6"></polyline>
-          </svg>
+          <Icon icon="line-md:chevron-left" width="20" height="20" />
           전체 수급자 목록
         </button>
         <span class="divider">|</span>
@@ -230,9 +229,7 @@ watch(() => props.employeeId, fetchData);
           <div class="card-right">
             <div v-if="item.logCount" class="count-badge">{{ item.logCount }}건</div>
             <div class="arrow-icon">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="m9 18 6-6-6-6"/>
-              </svg>
+              <Icon icon="line-md:chevron-right" width="20" height="20" style="color:#999;" />
             </div>
           </div>
         </div>
