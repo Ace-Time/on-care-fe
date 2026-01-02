@@ -16,6 +16,7 @@ const selectedItem = ref(null);
 // 상세 정보 열기 (API 호출 포함)
 const openDetail = async (item) => {
   // 1. 이미 상세 정보가 로드되지 않았다면 API 호출
+
   if (!item.detailsLoaded) {
     try {
       const { getCounselingLogDetail } = await import('@/api/careworker/counselingLogApi');
@@ -25,11 +26,11 @@ const openDetail = async (item) => {
       // 데이터 매핑
       item.visitPurpose = detailData.visitPurpose || '정보 없음';
       item.observedCondition = detailData.attendees || '정보 없음'; // attendees 필드 매핑 유지
+
       item.subjectiveNeeds = detailData.discussionContent || '정보 없음';
       item.counselorNotes = detailData.agreementContent || '정보 없음';
       item.nextVisit = detailData.nextVisitDate ? detailData.nextVisitDate.split('T')[0] : '-';
       
-      // 서명 데이터 매핑
       if (detailData.guardianSignUrl) {
         item.guardianSignUrl = detailData.guardianSignUrl;
         item.recipientSigned = true;
@@ -39,7 +40,6 @@ const openDetail = async (item) => {
         item.caregiverSigned = true;
       }
       
-      // 로드 완료 플래그 설정
       item.detailsLoaded = true;
     } catch (error) {
       console.error('상세 정보 조회 실패:', error);
@@ -48,12 +48,10 @@ const openDetail = async (item) => {
     }
   }
   
-  // 2. 선택된 아이템 설정 및 모달 열기
   selectedItem.value = item;
   showModal.value = true;
 };
 
-// 모달 닫기
 const closeModal = () => {
   showModal.value = false;
   selectedItem.value = null;
@@ -95,6 +93,10 @@ const closeModal = () => {
       등록된 상담 내역이 없습니다.
     </div>
 
+<<<<<<< HEAD
+=======
+    <!-- 상세 모달 -->
+>>>>>>> dev
     <div v-if="showModal && selectedItem" class="modal-overlay" @click="closeModal">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
@@ -144,6 +146,10 @@ const closeModal = () => {
             <span class="next-visit-date">{{ selectedItem.nextVisit }}</span>
           </div>
 
+<<<<<<< HEAD
+=======
+          <!-- 서명 이미지 섹션 -->
+>>>>>>> dev
           <div class="signature-section-view">
             <div class="signature-item">
               <span class="sig-label">수급자(보호자) 서명</span>
@@ -227,7 +233,6 @@ const closeModal = () => {
   background: #fef3c7;
   color: #d97706;
 }
-
 .arrow-icon { color: #d1d5db; font-size: 18px; margin-left: 4px; }
 .empty-text { text-align: center; color: #999; padding: 40px; }
 
