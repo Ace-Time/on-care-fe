@@ -19,6 +19,24 @@
       <div class="description-box">
         <p class="description-text">{{ content }}</p>
       </div>
+
+      <!-- Summary 표시 -->
+      <div v-if="summary" class="additional-info">
+        <div class="info-label">요약</div>
+        <div class="info-content">{{ summary }}</div>
+      </div>
+
+      <!-- Follow Up 표시 -->
+      <div v-if="followUp" class="additional-info">
+        <div class="info-label">후속 조치</div>
+        <div class="info-content">{{ followUp }}</div>
+      </div>
+
+      <!-- Churn Reason 표시 -->
+      <div v-if="churnReason" class="additional-info churn">
+        <div class="info-label">해지 사유</div>
+        <div class="info-content">{{ churnReason }}</div>
+      </div>
     </div>
   </div>
 </template>
@@ -44,6 +62,18 @@ defineProps({
   content: {
     type: String,
     default: '상담 내용이 없습니다.'
+  },
+  summary: {
+    type: String,
+    default: null
+  },
+  followUp: {
+    type: String,
+    default: null
+  },
+  churnReason: {
+    type: String,
+    default: null
   }
 });
 </script>
@@ -130,5 +160,35 @@ defineProps({
   margin: 0;
   word-break: break-word;
   white-space: pre-wrap; /* [핵심] 줄바꿈 문자(\n)를 화면에 반영 */
+}
+
+/* 추가 정보 스타일 */
+.additional-info {
+  background-color: rgba(255, 255, 255, 0.8);
+  padding: 12px;
+  border-radius: 8px;
+  border-left: 3px solid #3B82F6;
+}
+
+.additional-info.churn {
+  border-left-color: #DC2626;
+  background-color: rgba(254, 226, 226, 0.5);
+}
+
+.info-label {
+  color: #6B7280;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+.info-content {
+  color: #374151;
+  font-size: 14px;
+  line-height: 1.6;
+  word-break: break-word;
+  white-space: pre-wrap;
 }
 </style>

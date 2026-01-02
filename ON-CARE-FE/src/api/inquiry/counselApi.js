@@ -64,7 +64,35 @@ export const registExistingGeneral = (customerId, params, data) => {
   return api.post(`/api/counsel/${customerId}/general`, data, { params });
 };
 
+/**
+ * 가입상담 단계별 데이터 저장
+ * POST /api/counsel/potentialStage/{stage}/{customerId}
+ * @param {number|string} customerId - 잠재고객 ID
+ * @param {number} stage - 단계 번호 (1, 2, 3, 4)
+ * @param {Object} data - 저장할 데이터 { stage, potentialCustomerId, stageData, processStatus }
+ */
 export const saveStageDataApi = (customerId, stage, data) => {
   // 백엔드: CounselCommandController.saveStageData
   return api.post(`/api/counsel/potentialStage/${stage}/${customerId}`, data);
+};
+
+/**
+ * 가입상담 단계별 데이터 조회
+ * GET /api/counsel/potentialStage/{customerId}
+ * @param {number|string} customerId - 잠재고객 ID
+ * @returns {Promise} - { stageData: { 1: {...}, 2: {...}, 3: {...}, 4: {...} } }
+ */
+export const getStageDataApi = (customerId) => {
+  // 백엔드: CounselCommandController.getStageData
+  return api.get(`/api/counsel/potentialStage/${customerId}`);
+};
+
+// 매칭 태그 조회
+export const getMatchTagsApi = () => {
+  return api.get('/api/beneficiaries/meta/tags');
+};
+
+// 위험 요소 조회
+export const getRiskFactorsApi = () => {
+  return api.get('/api/beneficiaries/meta/risk-factors');
 };

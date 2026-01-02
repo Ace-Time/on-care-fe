@@ -6,7 +6,8 @@
     
     <div class="detail-body">
       <div v-if="customer?.customerType === 'potential'">
-        <SubscriptProcess :customer="customer" />
+        <SubscriptProcess 
+        :customer="customer" />
       </div>
       <div v-if="counselDetail" class="selected-detail">
         <CounselDetailCard v-bind="counselDetail" />
