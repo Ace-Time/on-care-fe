@@ -215,6 +215,30 @@ const availableYears = computed(() => {
   return Object.keys(yearStats.value).sort((a, b) => b - a);
 });
 
+// 페이지네이션
+const currentPage = ref(1);
+const itemsPerPage = ref(15); 
+
+const paginatedList = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage.value;
+  const end = start + itemsPerPage.value;
+  return filteredByYear.value.slice(start, end);
+});
+
+const totalPages = computed(() => {
+  return Math.ceil(filteredByYear.value.length / itemsPerPage.value);
+});
+
+const changePage = (page) => {
+  if (page < 1 || page > totalPages.value) return;
+  currentPage.value = page;
+};
+
+// 필터 변경 시 페이지 초기화
+watch([activeCategory, selectedYear, searchQuery], () => {
+  currentPage.value = 1;
+});
+
 
 // --- Actions ---
 const createPayload = (data, isDraft = false) => {
@@ -259,11 +283,58 @@ const createPayload = (data, isDraft = false) => {
   return payload;
 };
 
+// 중복 작성 체크 (연 1회 제한)
+const checkDuplicateEvaluation = async (beneficiaryId, year) => {
+  try {
+    const listApi = apiMap[activeCategory.value];
+    if (!listApi) return false;
+
+    // 해당 카테고리 전체 목록 조회 (서버 부하가 걱정되면 별도 API 필요하지만, 현재는 전체 조회 후 필터링)
+    const response = await listApi();
+    const data = response?.data ?? response;
+    
+    if (!data || !Array.isArray(data)) return false;
+
+    // 수급자 ID와 연도가 일치하고, 임시저장이 아닌(완료된) 데이터가 있는지 확인
+    const exists = data.some(item => {
+      const itemYear = new Date(item.evalDate || item.assessmentDate || item.evaluationDate).getFullYear();
+      
+      // isDraft 필드 체크 (문자열/불리언/JSON 내부 등 다양한 케이스 대응)
+      let isDraft = item.isDraft === true || item.isDraft === 'true' || item.isDraft === 1;
+      
+      // evalData 내부에 isDraft가 있을 수도 있음 (loadEvaluationHistory 로직 참고)
+      if (!isDraft && item.evalData) {
+         try {
+            const parsed = typeof item.evalData === 'string' ? JSON.parse(item.evalData) : item.evalData;
+            if (parsed.isDraft) isDraft = true;
+         } catch (e) {}
+      }
+
+      return item.beneficiaryId === beneficiaryId && itemYear === year && !isDraft;
+    });
+
+    return exists;
+  } catch (error) {
+    console.error('중복 체크 실패:', error);
+    return false; // 에러 시에는 일단 통과 (혹은 차단 정책에 따라 변경 가능)
+  }
+};
+
 const handleSubmit = async (data) => {
   try {
     const createApi = createApiMap[activeCategory.value];
     if (!createApi) {
       alert('저장 기능이 준비되지 않았습니다.');
+      return;
+    }
+
+    // 중복 체크
+    // 평가 연도는 입력된 날짜 기준
+    const evalYear = new Date(data.assessmentDate).getFullYear();
+    const isDuplicate = await checkDuplicateEvaluation(data.beneficiaryId, evalYear);
+
+    if (isDuplicate) {
+      alert(`${evalYear}년도 해당 수급자의 평가는 이미 완료되었습니다.\n수정은 '작성 내역' 탭에서 가능합니다.`);
       return;
     }
 
@@ -557,7 +628,7 @@ onMounted(() => {
 
           <div v-else-if="filteredByYear.length > 0" class="history-list">
             <div
-              v-for="item in filteredByYear"
+              v-for="item in paginatedList"
               :key="item.id"
               class="eval-row"
               @click="openDetailModal(item)"
@@ -603,6 +674,36 @@ onMounted(() => {
               <div class="row-col action-col">
                  <span class="chevron">›</span>
               </div>
+            </div>
+
+            
+            <!-- 페이지네이션 컨트롤 -->
+            <div class="pagination-controls" v-if="totalPages > 0">
+              <button 
+                class="page-btn prev-btn" 
+                :disabled="currentPage === 1" 
+                @click="changePage(currentPage - 1)"
+              >
+                &lt;
+              </button>
+              
+              <button 
+                v-for="page in totalPages" 
+                :key="page" 
+                class="page-btn number-btn" 
+                :class="{ active: currentPage === page }"
+                @click="changePage(page)"
+              >
+                {{ page }}
+              </button>
+              
+              <button 
+                class="page-btn next-btn" 
+                :disabled="currentPage === totalPages" 
+                @click="changePage(currentPage + 1)"
+              >
+                &gt;
+              </button>
             </div>
           </div>
 
@@ -798,9 +899,53 @@ onMounted(() => {
 
 /* 상태 배지 스타일 - 수정됨 */
 .status-badge {
-  display: inline-block; padding: 4px 8px; border-radius: 6px;
-  font-size: 0.8rem; font-weight: 600; width: fit-content;
+  display: inline-block; padding: 2px 8px; background: #dcfce7; color: #16a34a;
+  font-size: 0.7rem; font-weight: 600; border-radius: 4px; width: fit-content;
 }
+
+/* 페이지네이션 스타일 */
+.pagination-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin-top: 24px;
+}
+
+.page-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  border: 1px solid #e5e7eb;
+  background: white;
+  border-radius: 6px;
+  cursor: pointer;
+  color: #4b5563;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+
+.page-btn:hover:not(:disabled) {
+  border-color: #16a34a;
+  color: #16a34a;
+  background: #f0fdf4;
+}
+
+.page-btn.active {
+  background: #16a34a;
+  border-color: #16a34a;
+  color: white;
+  font-weight: 600;
+}
+
+.page-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #f9fafb;
+}
+
 
 /* 임시저장: 노란색 테마 (CareLog form DailyCarePage) */
 .status-badge.draft { 

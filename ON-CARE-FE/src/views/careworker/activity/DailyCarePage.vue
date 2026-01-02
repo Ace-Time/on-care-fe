@@ -1,5 +1,5 @@
 ﻿<script setup>
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import CareLogForm from '@/components/careworker/activity/CareLogForm.vue';
 import { getCareLogList, getCareLogDetail, createCareLog, updateCareLog, deleteCareLog } from '@/api/careworker/careLogApi';
@@ -391,6 +391,33 @@ const filteredCareLogHistory = computed(() => {
   return result;
 });
 
+// 페이지네이션 상태
+const currentPage = ref(1);
+const itemsPerPage = ref(15); // 한 페이지당 15건 표시
+
+// 페이지네이션된 데이터
+const paginatedHistory = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage.value;
+  const end = start + itemsPerPage.value;
+  return filteredCareLogHistory.value.slice(start, end);
+});
+
+// 전체 페이지 수
+const totalPages = computed(() => {
+  return Math.ceil(filteredCareLogHistory.value.length / itemsPerPage.value);
+});
+
+// 페이지 변경
+const changePage = (page) => {
+  if (page < 1 || page > totalPages.value) return;
+  currentPage.value = page;
+};
+
+// 검색이나 필터 변경 시 첫 페이지로 초기화
+watch([searchQuery, selectedServiceType], () => {
+  currentPage.value = 1;
+});
+
 const handleCareLogDraft = async (formData) => {
   try {
     const success = await submitCareLogData(formData, true);
@@ -502,7 +529,7 @@ onMounted(async () => {
 
           <div class="history-list">
             <div 
-              v-for="item in filteredCareLogHistory" 
+              v-for="item in paginatedHistory" 
               :key="item.id" 
               class="care-log-row" 
               @click="openDetail(item)"
@@ -535,6 +562,35 @@ onMounted(async () => {
                 <span class="chevron">›</span>
               </div>
             </div>
+          </div>
+
+          <!-- 페이지네이션 컨트롤 -->
+          <div class="pagination-controls" v-if="totalPages > 0">
+            <button 
+              class="page-btn prev-btn" 
+              :disabled="currentPage === 1" 
+              @click="changePage(currentPage - 1)"
+            >
+              &lt;
+            </button>
+            
+            <button 
+              v-for="page in totalPages" 
+              :key="page" 
+              class="page-btn number-btn" 
+              :class="{ active: currentPage === page }"
+              @click="changePage(page)"
+            >
+              {{ page }}
+            </button>
+            
+            <button 
+              class="page-btn next-btn" 
+              :disabled="currentPage === totalPages" 
+              @click="changePage(currentPage + 1)"
+            >
+              &gt;
+            </button>
           </div>
         </div>
       </div>
@@ -798,7 +854,56 @@ onMounted(async () => {
 .row-col.note-info {
   color: #6b7280;
   font-size: 0.85rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
+
+
+
+/* 페이지네이션 스타일 */
+.pagination-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin-top: 24px;
+}
+
+.page-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  border: 1px solid #e5e7eb;
+  background: white;
+  border-radius: 6px;
+  cursor: pointer;
+  color: #4b5563;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+
+.page-btn:hover:not(:disabled) {
+  border-color: #16a34a;
+  color: #16a34a;
+  background: #f0fdf4;
+}
+
+.page-btn.active {
+  background: #16a34a;
+  border-color: #16a34a;
+  color: white;
+  font-weight: 600;
+}
+
+.page-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #f9fafb;
+}
+
 
 .note-preview {
   display: flex;
