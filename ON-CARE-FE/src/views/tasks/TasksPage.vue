@@ -1,11 +1,12 @@
 <script setup>
 import { ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 // (1) 컴포넌트 import (경로는 실제 파일 위치에 맞게 수정해주세요)
 import RequestModal from '@/components/tasks/tasksheader/RequestModal.vue'
 import TaskSummary from '@/components/tasks/tasksheader/TaskSummary.vue' 
 
 const route = useRoute()
+const router = useRouter()
 const isActive = (name) => route.name === name
 
 // 모달 상태 관리
@@ -13,6 +14,15 @@ const isModalOpen = ref(false)
 
 const handleCreate = () => {
   isModalOpen.value = true
+}
+
+const handleFilterFromSummary = (type) => {
+  if (route.query.filterType === type) {
+    // 이미 선택된 필터면 해제 (전체 목록으로)
+    router.push({ name: 'tasks-approval', query: {} })
+  } else {
+    router.push({ name: 'tasks-approval', query: { filterType: type, t: Date.now() } })
+  }
 }
 </script>
 
@@ -30,7 +40,7 @@ const handleCreate = () => {
       </button>
     </div>
 
-    <TaskSummary />
+    <TaskSummary @filter-change="handleFilterFromSummary" />
 
     <div class="tabs-box">
       <div class="inner-tabs">
