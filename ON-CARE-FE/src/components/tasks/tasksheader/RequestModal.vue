@@ -181,10 +181,20 @@
              <div 
                v-for="(emp, idx) in selectedApprovers" 
                :key="emp.id" 
-               class="approver-tag"
+               class="approver-item-row"
              >
-               {{ emp.name }}
-               <span class="remove-x" @click="removeApprover(idx)">✕</span>
+               <div class="seq-circle">{{ idx + 1 }}</div>
+               
+               <div class="approver-card-box">
+                  <div class="avatar-circle">{{ getInitial(emp.name) }}</div>
+                  <div class="approver-info-text">
+                     <div class="name-txt">{{ emp.name }}</div>
+                     <div class="dept-txt">{{ emp.position || '직급없음' }} · {{ emp.department || '부서없음' }}</div>
+                  </div>
+                  <span class="down-caret">▼</span>
+               </div>
+               
+               <button class="remove-btn-icon" @click="removeApprover(idx)">✕</button>
              </div>
           </div>
           <div v-else class="empty-approver-box">
@@ -375,11 +385,10 @@ const selectApprover = (emp) => {
             department: emp.departmentName || emp.department
         });
     }
-    // 검색어 초기화하지 않고 계속 추가할 수 있게 유지하거나, 초기화 할수도 있음. 
-    // 사용자 경험상 여러명 추가할 땐 유지하는게 좋지만, 
-    // 보통 선택 후 닫히거나 초기화됨. 여기선 초기화.
+    // 선택 후 드롭다운 닫기 및 검색어 초기화
     approverSearchQuery.value = '';
     searchResultList.value = [];
+    showDropdown.value = false;
 };
 
 const removeApprover = (index) => {
@@ -407,6 +416,9 @@ const handleSubmit = async () => {
     console.error('Create Payment Failed:', e);
     alert('결재 요청 등록 중 오류가 발생했습니다.');
   }
+};
+const getInitial = (name) => {
+  return name && name.length > 0 ? name[0] : '?';
 };
 </script>
 
@@ -521,12 +533,17 @@ const handleSubmit = async () => {
 .member-item { padding-left: 32px; border-bottom: 1px solid #f8fafc; }
 .empty-dept { padding: 8px 0 8px 32px; font-size: 12px; color: #cbd5e1; font-style: italic; }
 
-.approver-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
-.approver-tag {
-  background-color: #f0fdf4; border: 1px solid #bbf7d0; color: #166534;
-  padding: 6px 12px; border-radius: 20px; font-size: 14px; display: flex; align-items: center; gap: 6px;
-}
-.remove-x { cursor: pointer; color: #15803d; font-weight: bold; }
+.approver-list { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+.approver-item-row { display: flex; align-items: center; gap: 12px; padding: 12px; background: #fdfdfd; border: 1px solid #e2e8f0; border-radius: 8px; }
+.seq-circle { width: 32px; height: 32px; border-radius: 50%; background: #dcfce7; color: #166534; font-weight: 600; display: flex; justify-content: center; align-items: center; font-size: 14px; flex-shrink: 0; }
+.approver-card-box { flex: 1; display: flex; align-items: center; gap: 12px; border: 1px solid #4ade80; background: white; border-radius: 8px; padding: 10px 14px; }
+.avatar-circle { width: 36px; height: 36px; border-radius: 50%; background: #00c73c; color: white; font-weight: 600; display: flex; justify-content: center; align-items: center; font-size: 14px; flex-shrink: 0; }
+.approver-info-text { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.name-txt { font-weight: 600; font-size: 14px; color: #333; }
+.dept-txt { font-size: 12px; color: #666; }
+.down-caret { color: #94a3b8; font-size: 12px; }
+.remove-btn-icon { background: none; border: none; font-size: 18px; color: #ef4444; cursor: pointer; padding: 4px; }
+.remove-btn-icon:hover { color: #dc2626; }
 
 .empty-approver-box {
   background-color: #f8f9fa; border: 1px solid #e2e8f0; border-radius: 6px;

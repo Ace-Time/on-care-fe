@@ -25,6 +25,14 @@
             <span class="label">요청일:</span>
             <span class="value">{{ formatDate(item.createdAt) }}</span>
           </div>
+          <div class="info-row" v-if="item.startDate">
+            <span class="label">시작일:</span>
+            <span class="value">{{ formatDate(item.startDate) }}</span>
+          </div>
+          <div class="info-row" v-if="item.endDate">
+            <span class="label">종료일:</span>
+            <span class="value">{{ formatDate(item.endDate) }}</span>
+          </div>
           <div class="info-row">
             <span class="label">유형:</span>
             <span class="badge category">{{ item.categoryName }}</span>
@@ -194,11 +202,11 @@ const getStatusClass = (status) => {
 .s-rejected { background-color: #fee2e2; color: #dc2626; }
 
 /* 그리드 정보 */
-.info-grid { display: flex; flex-direction: column; gap: 12px; }
-.info-row { display: flex; align-items: center; }
-.info-row .label { width: 80px; color: #888; font-size: 0.9rem; }
-.info-row .value { font-weight: 500; color: #333; }
-.info-row .price { font-size: 1.1rem; font-weight: bold; }
+.info-grid { display: flex; flex-direction: column; gap: 16px; }
+.info-row { display: flex; align-items: center; padding: 2px 0; }
+.info-row .label { width: 100px; color: #666; font-size: 0.95rem; font-weight: 500; }
+.info-row .value { font-weight: 600; color: #333; font-size: 1rem; }
+.info-row .price { font-size: 1.1rem; font-weight: bold; color: #111; }
 
 /* 뱃지 */
 .badge { padding: 4px 8px; border-radius: 6px; font-size: 0.8rem; font-weight: 500; }
