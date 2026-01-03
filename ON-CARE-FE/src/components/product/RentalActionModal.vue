@@ -127,7 +127,7 @@ const handleDelete = async () => {
   try {
     // 삭제 API 호출 (REST 표준에 따라 ID를 경로에 포함)
     // 만약 백엔드가 쿼리 파라미터를 원하면: api.delete(`/rental/contract`, { params: { id: props.contract.id } })
-    await api.delete(`/rental/contract/${props.contract.id}`);
+    await api.delete(`/api/rental/contract/${props.contract.id}`);
     
     alert('삭제되었습니다.');
     emit('refresh');
@@ -140,21 +140,21 @@ const handleDelete = async () => {
 
 // 기존 로직들
 const extendContract = async () => {
-  await api.patch('/rental/contract', {
+  await api.patch('/api/rental/contract', {
     id: props.contract.id,
     expectedDate: form.expectedDate
   });
 };
 
 const changeStartDate = async () => {
-  await api.patch('/rental/contract', {
+  await api.patch('/api/rental/contract', {
     id: props.contract.id,
     wantedDate: form.wantedDate
   });
 };
 
 const terminateContract = async () => {
-  await api.patch('/rental/contract/termination', {
+  await api.patch('/api/rental/contract/termination', {
     id: props.contract.id,
     contractStatusCd: 3, 
     endDate: form.endDate
@@ -164,7 +164,7 @@ const terminateContract = async () => {
 const handleRestore = async () => {
   if (!confirm('정말 취소를 철회하시겠습니까?')) return;
   try {
-    await api.patch('/rental/contract', {
+    await api.patch('/api/rental/contract', {
       id: props.contract.id,
       contractStatusCd: 2 
     });

@@ -52,7 +52,7 @@ const pwd = ref('pwd123');
 
 const handleLogin = async() => {
   const response =
-    await api.post('/auth/login',
+    await api.post('/api/auth/login',
       {
         useremail: email.value,
         password: pwd.value

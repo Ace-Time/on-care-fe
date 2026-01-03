@@ -7,7 +7,7 @@ permissions:
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "practice/github-actions-aws" ]
 
 # 워크플로우 실행 작업 정의
 jobs:
@@ -29,6 +29,8 @@ jobs:
 
     - name: Build project
       run: npm run build
+      env:
+        VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
 
     - name: Install AWS CLI
       run: |
