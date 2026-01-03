@@ -12,7 +12,6 @@ on:
 # 워크플로우 실행 작업 정의
 jobs:
   deployment:
-  deploy:
     runs-on: ubuntu-latest
 
     steps:
