@@ -6,7 +6,7 @@ export const getMemo = async ({ matchingId, date } = {}) => {
     ...(date != null && String(date).trim() !== '' ? { date: String(date).trim() } : {}),
   };
 
-  const res = await api.get('/schedule/memo', { params });
+  const res = await api.get('/api/schedule/memo', { params });
   return res.data;
 };
 
@@ -17,6 +17,6 @@ export const upsertMemo = async ({ matchingId, memoDate, content } = {}) => {
     content: content ?? '',
   };
 
-  const res = await api.put('/schedule/memo', payload);
+  const res = await api.put('/api/schedule/memo', payload);
   return res.data;
 };
