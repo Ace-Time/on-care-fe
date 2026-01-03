@@ -16,8 +16,8 @@ jobs:
     # 모든 run 단계에 대해 기본 실행 경로를 on-care-fe로 설정
     defaults:
       run:
-        working-directory: ./on-care-fe
-        
+        working-directory: on-care-fe
+
     steps:
     - name: Checkout repository
       uses: actions/checkout@v2
