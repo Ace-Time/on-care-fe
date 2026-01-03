@@ -55,7 +55,7 @@ jobs:
         cp package.json deploy/
         cp server.js deploy/ 
         cp Procfile deploy/Procfile
-        cd deploy && zip -r deploy.zip .
+        cd deploy && zip -r ../deploy.zip .
 
     - name: Beanstalk Deploy
       uses: einaregilsson/beanstalk-deploy@v22
@@ -66,7 +66,7 @@ jobs:
         environment_name: Front-a-env
         version_label: github-action-${{ github.sha }}
         region: ap-northeast-2
-        deployment_package: deploy/deploy.zip
+        deployment_package: ON-CARE-FE/deploy.zip
 
         
     - name: Beanstalk Deploy
@@ -78,4 +78,4 @@ jobs:
         environment_name: Front-b-env
         version_label: github-action-${{ github.sha }}
         region: ap-northeast-2
-        deployment_package: deploy/deploy.zip
+        deployment_package: ON-CARE-FE/deploy.zip
