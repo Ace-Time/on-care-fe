@@ -1,55 +1,148 @@
 <template>
-    <div>
-      <h2>고객 관리</h2>
+  <div class="customer-manage-page">
+    <h2 class="page-title">고객 관리</h2>
+
+    <div class="page-layout">
+      <!-- 좌측: 수급자 검색 리스트 -->
+      <div class="left-panel">
+        <CustomerSearchList @select="handleSelectBeneficiary" />
+      </div>
+
+      <!-- 우측: 선택된 수급자 정보 + 프로세스 -->
+      <div class="right-panel" v-if="selectedBeneficiary">
+        <!-- 수급자 정보 -->
+        <div class="info-section">
+          <RecipientInformation 
+            :beneficiaryId="selectedBeneficiary.beneficiaryId"
+            @updated="handleBeneficiaryUpdated"
+          />
+        </div>
+
+        <!-- 고객 관리 프로세스 -->
+        <div class="process-section">
+          <CustomerManageProcess 
+            :beneficiaryId="selectedBeneficiary.beneficiaryId"
+            :potentialCustomerId="selectedBeneficiary.potentialCustomerId"
+            @refresh="refreshData"
+          />
+        </div>
+      </div>
+
+      <!-- 우측: 수급자 미선택 시 -->
+      <div class="right-panel empty" v-else>
+        <div class="empty-content">
+          <div class="empty-icon">👤</div>
+          <p>좌측에서 수급자를 선택하면</p>
+          <p>상세 정보와 고객 관리를 진행할 수 있습니다.</p>
+        </div>
+      </div>
     </div>
-
-    <div class="management-page">
-
-    <CustomerSearchBy2Criteria />
-
-    <CustomerInfoCard />
-
   </div>
-  </template>
+</template>
   
 <script setup>
-  import CustomerSearchBy2Criteria from '@/components/inquiry/Customer/CustomerSearchByTwoCriteria.vue';
-  import CustomerInfoCard from '@/components/inquiry/Customer/CustomerInfoCard.vue';
+import { ref } from 'vue';
+import CustomerSearchList from '@/components/inquiry/Customer/CustomerSearchList.vue';
+import RecipientInformation from '@/components/recipient/main/RecipientInformation.vue';
+import CustomerManageProcess from '@/components/inquiry/Customer/Process/CustomerManageProcess.vue';
+
+// 선택된 수급자
+const selectedBeneficiary = ref(null);
+
+// 수급자 선택 핸들러
+const handleSelectBeneficiary = (beneficiary) => {
+  selectedBeneficiary.value = beneficiary;
+};
+
+// 수급자 정보 업데이트 핸들러
+const handleBeneficiaryUpdated = () => {
+  // 필요시 추가 작업
+};
+
+// 데이터 새로고침
+const refreshData = () => {
+  // 필요시 목록 새로고침
+};
 </script>
 
-  <style scoped>
-.management-page {
+<style scoped>
+.customer-manage-page {
   display: flex;
   flex-direction: column;
   gap: 24px;
-  width: 100%;
-  max-width: 1600px;
+  padding: 0 24px 24px;
+  max-width: 1800px;
   margin: 0 auto;
-  font-family: 'Arimo', 'ABeeZee', sans-serif;
-  color: #4A5565;
 }
 
-.top-nav-bar {
-  background: white;
-  border-bottom: 1px solid #E5E7EB;
-  padding: 0 24px;
+.page-title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 600;
+  color: #111827;
 }
 
-.nav-items {
+.page-layout {
   display: flex;
-  gap: 16px;
+  gap: 24px;
+  min-height: calc(100vh - 180px);
 }
 
-.nav-item {
-  padding: 15px 19px;
-  font-size: 16px;
-  cursor: pointer;
-  border-bottom: 2px solid transparent;
+.left-panel {
+  width: 400px;
+  flex-shrink: 0;
 }
 
-.nav-item.active {
-  color: #00A63E;
-  border-bottom: 2px solid #00A63E;
-  font-weight: 500;
+.right-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.right-panel.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: white;
+  border-radius: 12px;
+  border: 1px solid #E5E7EB;
+}
+
+.empty-content {
+  text-align: center;
+  color: #9CA3AF;
+}
+
+.empty-icon {
+  font-size: 64px;
+  margin-bottom: 16px;
+}
+
+.empty-content p {
+  margin: 4px 0;
+  font-size: 14px;
+}
+
+.info-section {
+  flex-shrink: 0;
+}
+
+.process-section {
+  flex: 1;
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+@media (max-width: 1200px) {
+  .page-layout {
+    flex-direction: column;
+  }
+  
+  .left-panel {
+    width: 100%;
+  }
 }
 </style>

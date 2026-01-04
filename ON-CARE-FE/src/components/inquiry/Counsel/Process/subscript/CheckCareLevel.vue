@@ -47,9 +47,12 @@
           <label class="input-label">장기 요양 등급 <span class="required">*</span></label>
           
           <div class="dropdown-wrapper" @click="toggleDropdown">
-            <div class="input-box dropdown" :class="{ 'active': isDropdownOpen }">
-              <span class="placeholder" :class="{ 'selected': form.selectedGrade }">
-                {{ form.selectedGrade || '등급을 선택하세요' }}
+            <div 
+              class="input-box dropdown" 
+              :class="{ 'active': isDropdownOpen, 'error': errors.level }"
+            >
+              <span class="placeholder" :class="{ 'selected': form.level }">
+                {{ form.level || '등급을 선택하세요' }}
               </span>
               <div class="arrow-down"></div>
             </div>
@@ -66,7 +69,8 @@
             </ul>
           </div>
           
-          <p class="helper-text">* 1등급이 가장 중증이며, 인지지원등급은 치매 환자 대상입니다</p>
+          <p v-if="errors.level" class="error-message">{{ errors.level }}</p>
+          <p v-else class="helper-text">* 1등급이 가장 중증이며, 인지지원등급은 치매 환자 대상입니다</p>
         </div>
 
         <div class="form-group">
@@ -74,10 +78,13 @@
           <input 
             type="text" 
             class="input-box" 
+            :class="{ 'error': errors.careLevelNumber }"
             placeholder="인정번호를 입력하세요" 
             v-model="form.careLevelNumber"
+            @blur="validateCareLevelNumber"
           />
-          <p class="helper-text">* 장기요양인정서에 기재된 인정번호를 입력하세요</p>
+          <p v-if="errors.careLevelNumber" class="error-message">{{ errors.careLevelNumber }}</p>
+          <p v-else class="helper-text">* 장기요양인정서에 기재된 인정번호를 입력하세요</p>
         </div>
 
         <div class="form-group">
@@ -85,12 +92,15 @@
           
           <div class="date-row">
             <div class="date-col">
-              <div class="input-box date-input-box">
+              <div 
+                class="input-box date-input-box"
+                :class="{ 'error': errors.careLevelStartDate }"
+              >
                 <input 
                   type="date" 
-                  v-model="form.startDate" 
+                  v-model="form.careLevelStartDate" 
                   class="real-date-input"
-                  required
+                  @blur="validateDates"
                 />
               </div>
               <span class="sub-label">시작일</span>
@@ -99,19 +109,22 @@
             <div class="tilde">~</div>
 
             <div class="date-col">
-              <div class="input-box date-input-box">
+              <div 
+                class="input-box date-input-box"
+                :class="{ 'error': errors.careLevelEndDate }"
+              >
                 <input 
                   type="date" 
-                  v-model="form.endDate" 
+                  v-model="form.careLevelEndDate" 
                   class="real-date-input"
-                  required
+                  @blur="validateDates"
                 />
               </div>
               <span class="sub-label">종료일</span>
             </div>
           </div>
 
-          <p v-if="dateError" class="error-text">{{ dateError }}</p>
+          <p v-if="dateError" class="error-message">{{ dateError }}</p>
           <p v-else class="helper-text">* 장기 요양 등급 인정 유효기간을 입력하세요 (일반적으로 1-2년)</p>
         </div>
 
@@ -180,31 +193,71 @@
 </template>
 
 <script setup>
-import { ref, reactive, watch, onMounted } from 'vue';
+import { ref, reactive, watch, onMounted, nextTick } from 'vue';
 
 const props = defineProps({
+  customer: {
+    type: Object,
+    default: null
+  },
   initialData: {
     type: Object,
     default: null
   }
 });
 
+const emit = defineEmits(['has-changes', 'validation-status']);
+
 const rootRef = ref(null);
 
+// 폼 데이터
 const form = reactive({
-  hasGrade: null,       // 'yes' | 'no'
-  selectedGrade: '',
-  careLevelNumber: '',  // 인정번호
-  startDate: '',
-  endDate: ''
+  hasGrade: null,              // 'yes' | 'no'
+  level: '',                   // 장기 요양 등급
+  careLevelNumber: '',         // 인정번호
+  careLevelStartDate: '',      // 시작일
+  careLevelEndDate: ''         // 종료일
+});
+
+// 초기 데이터 저장 (변경 감지용)
+const initialFormData = ref(null);
+
+// Validation 에러
+const errors = reactive({
+  level: '',
+  careLevelNumber: '',
+  careLevelStartDate: '',
+  careLevelEndDate: ''
 });
 
 const isDropdownOpen = ref(false);
 const dateError = ref('');
 const gradeOptions = ['1등급', '2등급', '3등급', '4등급', '5등급', '인지지원등급'];
 
+// 등급 보유/미보유 선택
 const selectOption = (value) => {
   form.hasGrade = value;
+  
+  // 등급 미보유 선택 시 필수 입력 필드 초기화
+  if (value === 'no') {
+    form.level = '';
+    form.careLevelNumber = '';
+    form.careLevelStartDate = '';
+    form.careLevelEndDate = '';
+    
+    // 에러 메시지도 초기화
+    errors.level = '';
+    errors.careLevelNumber = '';
+    errors.careLevelStartDate = '';
+    errors.careLevelEndDate = '';
+    dateError.value = '';
+  }
+  
+  // ✅ 초기 데이터도 함께 업데이트하여 변경으로 감지되지 않도록
+  nextTick(() => {
+    initialFormData.value = JSON.parse(JSON.stringify(form));
+    emit('has-changes', false);  // 변경 없음으로 명시
+  });
 };
 
 const toggleDropdown = () => {
@@ -212,72 +265,170 @@ const toggleDropdown = () => {
 };
 
 const selectGrade = (grade) => {
-  form.selectedGrade = grade;
+  form.level = grade;
   isDropdownOpen.value = false;
+  validateLevel();
+};
+
+// Validation 함수들
+const validateLevel = () => {
+  if (form.hasGrade === 'yes' && !form.level) {
+    errors.level = '장기 요양 등급을 선택해주세요.';
+    return false;
+  }
+  errors.level = '';
+  return true;
+};
+
+const validateCareLevelNumber = () => {
+  if (form.hasGrade === 'yes' && (!form.careLevelNumber || form.careLevelNumber.trim() === '')) {
+    errors.careLevelNumber = '인정번호를 입력해주세요.';
+    return false;
+  }
+  errors.careLevelNumber = '';
+  return true;
 };
 
 const validateDates = () => {
-  if (!form.startDate || !form.endDate) {
+  // 등급 미보유 시에는 검증하지 않음
+  if (form.hasGrade === 'no') {
     dateError.value = '';
-    return;
+    errors.careLevelStartDate = '';
+    errors.careLevelEndDate = '';
+    return true;
   }
 
-  const start = new Date(form.startDate);
-  const end = new Date(form.endDate);
+  // 등급 보유 시 날짜 필수
+  if (form.hasGrade === 'yes') {
+    if (!form.careLevelStartDate) {
+      errors.careLevelStartDate = '시작일을 선택해주세요.';
+      dateError.value = '시작일을 선택해주세요.';
+      return false;
+    }
+    
+    if (!form.careLevelEndDate) {
+      errors.careLevelEndDate = '종료일을 선택해주세요.';
+      dateError.value = '종료일을 선택해주세요.';
+      return false;
+    }
+  }
+
+  errors.careLevelStartDate = '';
+  errors.careLevelEndDate = '';
+
+  if (!form.careLevelStartDate || !form.careLevelEndDate) {
+    dateError.value = '';
+    return true;
+  }
+
+  const start = new Date(form.careLevelStartDate);
+  const end = new Date(form.careLevelEndDate);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
   if (start > end) {
     dateError.value = "종료일은 시작일보다 이후여야 합니다.";
-    return;
+    return false;
   }
   if (end < today) {
     dateError.value = "현재 기준으로 기간이 만료된 등급은 등록할 수 없습니다.";
-    return;
+    return false;
   }
   const maxDate = new Date(start);
   maxDate.setFullYear(start.getFullYear() + 2);
   if (end > maxDate) {
     dateError.value = "등급 인정 기간은 최대 2년을 초과할 수 없습니다.";
-    return;
+    return false;
   }
+  
   dateError.value = '';
+  return true;
 };
 
-watch(() => [form.startDate, form.endDate], validateDates);
+// 전체 Validation
+const validateForm = () => {
+  // 등급 보유/미보유 선택 안함
+  if (!form.hasGrade) {
+    return false;
+  }
+  
+  // 등급 미보유는 항상 유효
+  if (form.hasGrade === 'no') {
+    emit('validation-status', true);
+    return true;
+  }
+  
+  // 등급 보유 시 모든 필드 필수
+  const levelValid = validateLevel();
+  const numberValid = validateCareLevelNumber();
+  const datesValid = validateDates();
+  
+  const isValid = levelValid && numberValid && datesValid;
+  
+  // 부모에게 validation 상태 전달
+  emit('validation-status', isValid);
+  
+  return isValid;
+};
 
-onMounted(() => {
-  if (props.initialData) {
-    Object.assign(form, props.initialData);
+// 폼 데이터가 변경되었는지 확인
+const hasFormChanged = () => {
+  if (!initialFormData.value) return false;
+  
+  return JSON.stringify(form) !== JSON.stringify(initialFormData.value);
+};
+
+// 폼 데이터 변경 감지
+watch(() => ({ ...form }), () => {
+  const hasChanges = hasFormChanged();
+  emit('has-changes', hasChanges);
+  
+  // 변경이 있으면 validation 상태도 업데이트
+  if (hasChanges) {
+    validateForm();
+  }
+}, { deep: true });
+
+// 날짜 변경 시 자동 검증
+watch(() => [form.careLevelStartDate, form.careLevelEndDate], () => {
+  if (form.hasGrade === 'yes') {
+    validateDates();
   }
 });
 
+// 초기 데이터 로드
+onMounted(() => {
+  console.log('🎨 CheckCareLevel 마운트');
+  console.log('📦 받은 initialData:', props.initialData);
+  
+  if (props.initialData) {
+    console.log('✅ initialData로 폼 채우기');
+    Object.assign(form, props.initialData);
+  }
+  
+  // 초기 데이터 저장 (변경 감지 기준)
+  initialFormData.value = JSON.parse(JSON.stringify(form));
+  
+  // 초기 validation 상태 전달
+  validateForm();
+});
+
+// 폼 데이터 반환 (부모에서 접근)
 const getFormData = () => {
+  console.log('📤 getFormData 호출:', form);
   return { ...form };
 };
 
-const getHtmlWithState = () => {
-  if (!rootRef.value) return '';
-
-  const clone = rootRef.value.cloneNode(true);
-  const inputs = clone.querySelectorAll('input');
-  const originalInputs = rootRef.value.querySelectorAll('input');
-  
-  inputs.forEach((input, index) => {
-    if (originalInputs[index]) {
-       input.setAttribute('value', originalInputs[index].value);
-    }
-  });
-
-  const jsonState = JSON.stringify(form);
-  clone.setAttribute('data-restorable-state', jsonState);
-
-  return clone.outerHTML;
+// 저장 후 초기 데이터 업데이트 (변경 감지 리셋용)
+const resetChangeTracking = () => {
+  initialFormData.value = JSON.parse(JSON.stringify(form));
+  emit('has-changes', false);
 };
 
 defineExpose({
   getFormData,
-  getHtmlWithState
+  validateForm,
+  resetChangeTracking
 });
 </script>
 
@@ -384,8 +535,11 @@ defineExpose({
   outline: none; box-sizing: border-box; display: flex; align-items: center; justify-content: space-between;
 }
 .input-box:focus-within { border-color: #00A63E; box-shadow: 0 0 0 2px rgba(0, 166, 62, 0.1); }
+.input-box.error { border-color: #DC2626; }
+.input-box.error:focus-within { border-color: #DC2626; box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.1); }
 .placeholder { color: #9CA3AF; }
 .helper-text { color: #4B5563; font-size: 12px; margin: 0; line-height: 1.4; }
+.error-message { color: #DC2626; font-size: 12px; margin-top: 4px; }
 
 .dropdown-wrapper { position: relative; width: 100%; }
 .dropdown { cursor: pointer; }
@@ -406,14 +560,13 @@ defineExpose({
 .sub-label { color: #6B7280; font-size: 12px; }
 .date-input-box { position: relative; overflow: hidden; }
 .real-date-input { width: 100%; height: 100%; border: none; background: transparent; outline: none; font-family: inherit; font-size: 14px; color: #333; cursor: pointer; }
-.error-text { color: #E7000B; font-size: 12px; margin-top: 4px; font-weight: 500; }
 
 /* =========================================
    4. [NO] 주황색 안내 가이드 스타일
    ========================================= */
 .guide-container {
   width: 100%;
-  background: #FFF7ED; /* 연한 주황색 배경 */
+  background: #FFF7ED;
   border-radius: 12px;
   border: 1px solid #FFD6A7;
   padding: 24px;

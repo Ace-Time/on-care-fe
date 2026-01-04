@@ -44,11 +44,10 @@
       <div 
         v-else
         v-for="customer in filteredList" 
-        :key="customer.id" 
+        :key="`${customer.customerId}-${customer.customerType}`"
         class="list-item"
         :class="{ 
-          'active': selectedTarget.id === customer.id && 
-                    selectedTarget.type === customer.customerCategoryName 
+          'active': isCustomerSelected(customer)
         }"
         @click="selectCustomer(customer)"
       >
@@ -93,7 +92,7 @@ const selectedFilter = ref('전체 유형');
 const searchKeyword = ref(''); 
 const customerList = ref([]); 
 const isLoading = ref(false);
-const selectedTarget = ref({ id: null, type: null });
+const selectedCustomer = ref(null);
 
 const emit = defineEmits(['select-customer']); 
 
@@ -112,18 +111,25 @@ const handleSearch = async () => {
     isLoading.value = true;
     const response = await searchCustomers(searchKeyword.value);
     
+    console.log('🔍 검색 응답:', response.data);
+    
     customerList.value = response.data.map(item => ({
-      id: item.customerId,           
+      customerId: item.customerId,           
       name: item.name,               
       customerCategoryName: item.customerCategoryName ? item.customerCategoryName.trim() : '잠재고객',
       phone: item.phone,             
       lastDate: item.consultDate ? item.consultDate.toString().split('T')[0] : '-', 
       count: item.consultCount,
       customerType: item.customerType,
-      stages: item.stages || []
+      stages: item.stages || [],
+      guardianName: item.guardianName,
+      guardianPhone: item.guardianPhone
     }));
     
-    selectedTarget.value = { id: null, type: null };
+    console.log('✅ 매핑된 고객 목록:', customerList.value);
+    
+    // 검색 후 선택 초기화
+    selectedCustomer.value = null;
     emit('select-customer', null);
 
   } catch (error) {
@@ -141,16 +147,25 @@ const filteredList = computed(() => {
   return customerList.value.filter(c => c.customerCategoryName === selectedFilter.value);
 });
 
+// 고객이 선택되었는지 확인
+const isCustomerSelected = (customer) => {
+  if (!selectedCustomer.value) return false;
+  
+  return selectedCustomer.value.customerId === customer.customerId && 
+         selectedCustomer.value.customerType === customer.customerType;
+};
+
 const selectCustomer = (customer) => {
-  if (selectedTarget.value.id === customer.id && 
-      selectedTarget.value.type === customer.customerCategoryName) {
-    selectedTarget.value = { id: null, type: null };
+  console.log('🎯 고객 선택:', customer);
+  
+  // 이미 선택된 고객을 다시 클릭하면 선택 해제
+  if (isCustomerSelected(customer)) {
+    console.log('❌ 선택 해제');
+    selectedCustomer.value = null;
     emit('select-customer', null);
   } else {
-    selectedTarget.value = { 
-      id: customer.id, 
-      type: customer.customerCategoryName 
-    };
+    console.log('✅ 새로운 고객 선택');
+    selectedCustomer.value = customer;
     emit('select-customer', customer);
   }
 };
@@ -193,13 +208,13 @@ onMounted(() => {
 .search-controls {
   padding: 0 16px 12px 16px;
   display: flex;
-  gap: 8px; /* 요소 간 간격 */
+  gap: 8px;
   border-bottom: 1px solid #E5E7EB;
 }
 
 .search-input-box {
   position: relative;
-  flex: 1; /* 검색창이 남은 공간 차지 */
+  flex: 1;
 }
 
 .search-icon {
@@ -238,7 +253,6 @@ onMounted(() => {
 }
 .search-input::placeholder { color: rgba(46, 52, 64, 0.5); }
 
-/* 검색 버튼 스타일 */
 .search-btn {
   height: 40px;
   padding: 0 16px;
@@ -336,10 +350,8 @@ onMounted(() => {
 .badge.green { background: #DCFCE7; color: #008236; }
 .badge.red { background: #FEE2E2; color: #DC2626; }
 
-/* 정보 셀 (아이콘 + 텍스트) */
 .info-cell { display: flex; align-items: center; gap: 4px; color: #4A5565; flex: 1; }
 
-/* SVG 아이콘 스타일 */
 .icon-svg {
   width: 14px; height: 14px;
   color: #4A5565;

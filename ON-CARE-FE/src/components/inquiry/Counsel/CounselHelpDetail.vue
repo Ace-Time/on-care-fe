@@ -6,15 +6,33 @@
     
     <div class="detail-body">
       <div v-if="customer?.customerType === 'potential'">
-        <SubscriptProcess :customer="customer" />
+        <SubscriptProcess 
+        :customer="customer" />
       </div>
       <div v-if="counselDetail" class="selected-detail">
         <CounselDetailCard v-bind="counselDetail" />
       </div>
       
-      <MatchingHelpForm v-if="category === '가입상담'" />
-      <RentalInfoForm v-else-if="category === '렌탈상담'" />
-      <ComplainResolutionHelp v-else-if="category === '컴플레인'" />
+      <div v-else-if="category === '렌탈상담'" class="rental-product-area">
+        <ProductSearchBar
+          v-model:searchText="searchText"
+          v-model:selectedStatus="selectedCategoryCode"
+          :statusList="categoryOptions"
+          placeholder="용품명 또는 코드로 검색..."
+          :showInput="true"
+          @search="onSearch"
+        />
+
+        <ProductManageTable
+          :products="masterRows"
+          :is-last-batch="masterIsLast"
+          :categories="rawCategories"
+          :selected-id="selectedId"
+          @needMoreData="fetchMoreMaster"
+          @row-click="onRowClick"
+          @open-rental="openRental"
+        />
+      </div>
       
       
       
@@ -27,22 +45,128 @@
 </template>
 
 <script setup>
-import RentalInfoForm from '@/components/inquiry/Counsel/HelpDetail/RentalInfoForm.vue';
-import MatchingHelpForm from '@/components/inquiry/Counsel/HelpDetail/MatchingHelpForm.vue';
-import ComplainResolutionHelp from '@/components/inquiry/Counsel/HelpDetail/ComplainResolutionHelp.vue';
+import { ref, watch } from 'vue';
+import { getMasterDetail, getMasterCategoryCode, getProducts } from '@/api/product/productApi.js';
 import CounselDetailCard from '@/components/inquiry/Counsel/CounselDetailCard.vue';
 import SubscriptProcess from '@/components/inquiry/Counsel/Process/SubscriptProcess.vue';
-defineProps({
-  category: {
-    type: String,
-    default: ''
-  },
+// Product 관련 컴포넌트
+import ProductSearchBar from '@/components/product/ProductSearchBar.vue';
+import ProductManageTable from '@/components/product/ProductManageTable.vue';
+
+const props = defineProps({
+  category: { type: String, default: '' },
   counselDetail: { type: Object, default: null },
-  customer: {
-    type: Object,
-    default: null
+  customer: { type: Object, default: null },
+})
+
+/** -----------------------------
+ *  검색/필터 상태
+ * ------------------------------*/
+const searchText = ref('')
+const selectedCategoryCode = ref('C000') // '전체' 의미로 사용
+
+// raw categories(원본) / searchbar용 options(가공)
+const rawCategories = ref([])
+const categoryOptions = ref([{ id: 'C000', name: '전체' }])
+
+/** -----------------------------
+ *  테이블 데이터 (master-detail)
+ * ------------------------------*/
+const masterRows = ref([])
+const masterPage = ref(0)
+const masterIsLast = ref(false)
+const pageSize = 10
+
+const selectedId = ref(null)
+
+// category 목록 로딩 + searchbar options 세팅
+async function loadCategories() {
+  const list = await getMasterCategoryCode()
+  rawCategories.value = Array.isArray(list) ? list : []
+
+  // SearchBar는 {id, name}을 기대하므로 안전하게 매핑
+  categoryOptions.value = [
+    { id: 'C000', name: '전체' },
+    ...rawCategories.value.map((c) => ({
+      id: c.id ?? c.categoryCode ?? c.code ?? c.category_code,
+      name: c.name ?? c.categoryName ?? c.category_name,
+    })),
+  ].filter((x) => x.id != null)
+}
+
+async function fetchMaster(reset = false) {
+  if (reset) {
+    masterRows.value = []
+    masterIsLast.value = false
+    masterPage.value = 0
   }
-});
+
+  const codeOrName = searchText.value?.trim()
+  const categoryCode =
+    selectedCategoryCode.value && selectedCategoryCode.value !== 'C000'
+      ? selectedCategoryCode.value
+      : null
+
+  const data = await getMasterDetail({
+    page: masterPage.value,
+    size: pageSize,
+    codeOrName: codeOrName ? codeOrName : null,
+    categoryCode,
+  })
+
+  const content = data?.content ?? []
+  masterRows.value.push(...content)
+
+  masterIsLast.value = Boolean(data?.last)
+  masterPage.value = typeof data?.number === 'number' ? data.number : masterPage.value
+}
+
+async function fetchMoreMaster() {
+  if (masterIsLast.value) return
+  masterPage.value += 1
+  await fetchMaster(false)
+}
+
+// ✅ 엔터(검색) 시: reset 후 1페이지부터
+async function onSearch() {
+  await fetchMaster(true)
+}
+
+// ✅ 카테고리 변경 시도: 즉시 다시 조회(원하면 엔터로만 하게 바꿀 수도 있음)
+watch(selectedCategoryCode, async () => {
+  if (props.category === '렌탈상담') {
+    await fetchMaster(true)
+  }
+})
+
+function onRowClick(item) {
+  selectedId.value = item?.id ?? null
+}
+
+function openRental(item) {
+  // 여기서 계약 모달(예: RentalRegisterModal) 열면 됨
+  // emit('open-rental', item) 같은 식으로 상위로 올리거나,
+  // CounselHelpDetail 내부에서 modal state로 처리
+}
+
+/** -----------------------------
+ *  렌탈상담 진입 시 초기 로드
+ * ------------------------------*/
+watch(
+  () => props.category,
+  async (v) => {
+    if (v === '렌탈상담') {
+      // 초기 상태
+      searchText.value = ''
+      selectedCategoryCode.value = 'C000'
+      selectedId.value = null
+
+      await loadCategories()
+      await fetchMaster(true)
+    }
+  },
+  { immediate: true }
+)
 </script>
 
 <style scoped>
