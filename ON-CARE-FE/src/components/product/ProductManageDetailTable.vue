@@ -15,6 +15,7 @@
             <tr>
               <th>관리코드</th>
               <th>구매일</th>
+              <th>수급자</th>
               <th>상태</th>
               <th>렌탈비용</th>
               <th>수입 현황</th>
@@ -37,6 +38,7 @@
                 <span class="badge code-badge">{{ row.id }}</span>
               </td>
               <td>{{ row.boughtDate }}</td>
+              <td>{{ row.beneficiaryName === null ? '-' : row.beneficiaryName }}</td>
               <td>
                 <span
                   class="badge"

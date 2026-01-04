@@ -16,6 +16,7 @@
             <th>계약담당자</th>
             <th>희망 시작일</th>
             <th>시작일</th>
+            <th>계약 예정 종료일</th>
             <th>종료일</th>
             <th>상태</th>
             <th>월 렌트비</th>
@@ -40,6 +41,7 @@
             <td>{{ item.employee }}</td>
             <td>{{ item.wantedDate }}</td>
             <td>{{ item.startDate }}</td>
+            <td>{{ item.expectedEndDate|| '-' }}</td>
             <td>{{ item.endDate || '-' }}</td>
             <td>
               <span
@@ -231,9 +233,8 @@ const openManageModal = (item) => {
 };
 
 const handleRefresh = () => {
-  // 목록 새로고침 (부모 함수 재사용)
-  // emit('refresh')를 부모에게 보내거나, 여기서 직접 fetchApiBatch(0) 호출
-  fetchApiBatch(apiPage.value); 
+  handleSearch();
+  // fetchApiBatch(apiPage.value); 
 };
 </script>
 

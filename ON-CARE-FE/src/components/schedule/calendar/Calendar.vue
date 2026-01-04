@@ -526,14 +526,16 @@ watch(
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 16px;
+  height: 16px;
   border-radius: 999px;
 }
 
 .today-number {
-  background: #22c55e;
-  color: #ffffff;
+  background: #ffffff;        
+  color: #16a34a;             
+  border: 1px solid #22c55e;  
+  border-radius: 999px;       
 }
 
 .today-label {
