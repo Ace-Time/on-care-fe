@@ -61,6 +61,7 @@ const theme = computed(() => colorMap[props.color] || colorMap.green);
   border-radius: 16px;
   padding: 24px;
   height: 100%;
+  box-sizing: border-box; /* 패딩이 높이에 포함되도록 설정하여 넘침 방지 */
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
   display: flex; flex-direction: column; position: relative;
   transition: box-shadow 0.3s ease;
@@ -86,10 +87,38 @@ const theme = computed(() => colorMap[props.color] || colorMap.green);
 
 /* 본문 */
 .widget-body {
-  display: flex; justify-content: space-between; align-items: flex-end; flex-grow: 1;
+  display: flex; 
+  justify-content: space-between; 
+  align-items: flex-end; 
+  flex-grow: 1; 
+  gap: 12px;
 }
-.value { font-size: 1.8rem; font-weight: 700; margin: 0 0 4px 0; color: #111827; }
+.info-area {
+  flex: 1;
+  min-width: 0; 
+  overflow: hidden;
+  display: flex;          
+  flex-direction: column; 
+  justify-content: flex-end; /* 내용물도 하단 정렬 */
+}
+.value {
+  font-size: 1.8rem; 
+  font-weight: 700;
+  margin: 0 0 4px 0;
+  color: #111827;
+  word-break: break-all;
+  line-height: 1.2;
+}
 .change-text { font-size: 0.9rem; font-weight: 600; color: #10B981; margin: 0; }
 .sub-text { font-size: 0.85rem; color: #3B82F6; margin: 0; }
-.icon-box { width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; }
+.icon-box {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  flex-shrink: 0; 
+}
 </style>

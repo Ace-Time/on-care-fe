@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed } from 'vue';
 import { Icon } from '@iconify/vue';
+import MonthPickerModal from '@/components/schedule/calendar/MonthPickerModal.vue'; // [추가] 모달 임포트
 
 const props = defineProps({
   schedules: { type: Array, default: () => [] }
@@ -8,6 +9,33 @@ const props = defineProps({
 
 // --- 날짜 상태 ---
 const currentDate = ref(new Date());
+
+// [추가] MonthPicker 관련 상태
+const isPickerOpen = ref(false);
+const pickerYear = ref(currentDate.value.getFullYear());
+const pickerMonth = ref(currentDate.value.getMonth() + 1);
+
+// 연도 옵션 생성 (현재 연도 기준 앞뒤 5년)
+const yearOptions = computed(() => {
+  const currentY = new Date().getFullYear();
+  const years = [];
+  for (let i = currentY - 5; i <= currentY + 5; i++) {
+    years.push(i);
+  }
+  return years;
+});
+
+const openMonthPicker = () => {
+  pickerYear.value = currentYear.value;
+  pickerMonth.value = currentMonth.value + 1;
+  isPickerOpen.value = true;
+};
+
+const handlePickerApply = () => {
+  // 모달에서 선택된 값 반영
+  currentDate.value = new Date(pickerYear.value, pickerMonth.value - 1, 1);
+  isPickerOpen.value = false;
+};
 
 // --- 날짜 계산 헬퍼 함수 ---
 const getDateString = (date) => {
@@ -19,22 +47,7 @@ const currentYear = computed(() => currentDate.value.getFullYear());
 const currentMonth = computed(() => currentDate.value.getMonth());
 const monthNames = ["1월", "2월", "3월", "4월", "5월", "6월", "7월", "8월", "9월", "10월", "11월", "12월"];
 
-// 날짜 선택기(input month)와 연동하기 위한 Computed 속성
-// currentDate(Date객체) <-> input(String "YYYY-MM") 변환 담당
-const datePickerValue = computed({
-  get() {
-    const year = currentDate.value.getFullYear();
-    const month = String(currentDate.value.getMonth() + 1).padStart(2, '0');
-    return `${year}-${month}`;
-  },
-  set(val) {
-    // 사용자가 월을 변경하면 currentDate 업데이트 (해당 월 1일로)
-    if (val) {
-      const [y, m] = val.split('-');
-      currentDate.value = new Date(y, m - 1, 1);
-    }
-  }
-});
+// (기존 datePickerValue 제거됨 - 모달로 대체)
 
 // 오늘 날짜로 이동하는 함수
 const goToToday = () => {
@@ -158,14 +171,12 @@ const nextMonth = () => currentDate.value = new Date(currentYear.value, currentM
           <svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
         </button>
 
-        <div class="title-area">
-          <div class="date-picker-wrapper">
-            <input type="month" v-model="datePickerValue" class="hidden-date-input" />
-            <button type="button" class="btn-calendar-icon" title="날짜 선택">
-              <Icon icon="line-md:calendar" width="20" height="20" />
-            </button>
-            <span class="current-date-text">{{ currentYear }}년 {{ monthNames[currentMonth] }}</span>
+        <!-- [수정] 모달 트리거 영역 -->
+        <div class="title-area clickable" @click="openMonthPicker">
+          <div class="btn-calendar-icon" title="날짜 선택">
+            <Icon icon="line-md:calendar" width="20" height="20" />
           </div>
+          <span class="current-date-text">{{ currentYear }}년 {{ monthNames[currentMonth] }}</span>
         </div>
 
         <button @click="nextMonth" class="nav-btn">
@@ -252,6 +263,18 @@ const nextMonth = () => currentDate.value = new Date(currentYear.value, currentM
 
       </div>
     </div>
+
+    <!-- [추가] 월 선택 모달 -->
+    <Teleport to="body">
+      <MonthPickerModal
+        v-if="isPickerOpen"
+        v-model:year-value="pickerYear"
+        v-model:month-value="pickerMonth"
+        :year-options="yearOptions"
+        @close="isPickerOpen = false"
+        @apply="handlePickerApply"
+      />
+    </Teleport>
   </div>
 </template>
 
@@ -317,6 +340,16 @@ const nextMonth = () => currentDate.value = new Date(currentYear.value, currentM
   color: #166534;
 }
 
+.title-area.clickable {
+  cursor: pointer;
+  border-radius: 8px;
+  padding: 4px 8px;
+  transition: background-color 0.2s;
+}
+.title-area.clickable:hover {
+  background-color: #f3f4f6;
+}
+
 /* 현재 날짜 텍스트 */
 .current-date-text {
   font-size: 20px;
@@ -324,40 +357,13 @@ const nextMonth = () => currentDate.value = new Date(currentYear.value, currentM
   color: #166534;
 }
 
-/* 날짜 선택기 래퍼 (아이콘 위에 투명 input 겹치기) */
-.date-picker-wrapper {
-  position: relative;
+/* 달력 아이콘 버튼 영역 */
+.btn-calendar-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px; /* 아이콘과 텍스트 사이 간격 */
-  cursor: pointer;
-}
-
-/* 투명한 날짜 input (클릭 영역 확보용) */
-.hidden-date-input {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  opacity: 0; /* 투명하게 숨김 */
-  cursor: pointer;
-  z-index: 10;
-}
-
-/* 달력 아이콘 버튼 */
-.btn-calendar-icon {
-  background: none;
-  border: none;
   font-size: 20px;
-  cursor: pointer;
-  padding: 0;
-  line-height: 1;
-  transition: transform 0.2s;
-}
-.btn-calendar-icon:hover {
-  transform: scale(1.1);
+  color: #166534;
 }
 
 /* 범례 */

@@ -55,4 +55,19 @@ const emit = defineEmits(['openModal']);
 .custom-btn:hover {
   background-color: #059669;
 }
+
+/* [추가] 모바일 반응형 */
+@media (max-width: 640px) {
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 16px;
+  }
+  
+  .custom-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
 </style>

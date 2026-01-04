@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, nextTick } from 'vue'; // nextTick 추가
+import { ref, onMounted } from 'vue';
 import draggable from 'vuedraggable';
 
 import DashboardHeader from '@/components/dashboard/dashboardHeader/DashboardHeader.vue';
@@ -192,6 +192,8 @@ const handleToggleSize = (id) => {
     if (!widget.defaultLayoutClass) widget.defaultLayoutClass = widget.layoutClass;
     widget.layoutClass = 'span-4';
   }
+
+  // ApexCharts의 redrawOnParentResize가 자동으로 처리함
 };
 
 // 동기화
@@ -444,15 +446,44 @@ onMounted(async () => {
 /* 스타일은 기존과 동일 */
 .dashboard-container { background-color: #f8f9fa; min-height: 100vh; padding-bottom: 50px; }
 .dashboard-content { padding: 24px; max-width: 100%; margin: 0 auto; }
-.dashboard-grid { display: grid; grid-template-columns: repeat(4, 1fr); row-gap: 54px; column-gap: 12px; }
+/* [수정] row-gap 조정 및 grid-auto-rows 추가로 높이 고정 (차트 무한 늘어짐 방지) */
+.dashboard-grid { 
+  display: grid; 
+  grid-template-columns: repeat(4, 1fr); 
+  grid-auto-rows: 420px; /* 위젯 높이 고정 */
+  row-gap: 24px; 
+  column-gap: 24px; 
+}
+
 .span-1 { grid-column: span 1; }
 .span-2 { grid-column: span 2; }
 .span-4 { grid-column: span 4; }
-.transition-all { transition: all 0.3s ease; }
-.widget-wrapper { height: 100%; cursor: grab; }
+
+/* [수정] width/height 애니메이션 제거. transform(드래그)만 애니메이션 */
+.transition-all { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+
+.widget-wrapper { height: 100%; cursor: grab; min-width: 0; overflow: hidden; }
 .widget-wrapper:active { cursor: grabbing; }
 .loading-area { text-align: center; padding: 50px; color: #666; }
 
-@media (max-width: 1200px) { .dashboard-grid { grid-template-columns: repeat(2, 1fr); } .span-4 { grid-column: span 2; } }
-@media (max-width: 768px) { .dashboard-grid { grid-template-columns: 1fr; } .span-1, .span-2, .span-4 { grid-column: span 1; } }
+/* 태블릿 (1200px 이하) - 2열 구조 */
+@media (max-width: 1200px) {
+  .dashboard-grid { 
+    grid-template-columns: repeat(2, 1fr); 
+    row-gap: 24px;
+    /* 높이는 유지하거나 필요 시 조정 */
+  } 
+  .span-4 { grid-column: span 2; } 
+}
+
+/* 모바일 (768px 이하) - 1열 구조 */
+@media (max-width: 768px) {
+  .dashboard-content { padding: 16px; }
+  .dashboard-grid { 
+    grid-template-columns: 1fr; 
+    row-gap: 24px;
+    grid-auto-rows: auto; /* 모바일에서는 내용에 맞게 (차트가 작아질 수 있음) */
+  } 
+  .span-1, .span-2, .span-4 { grid-column: span 1; } 
+}
 </style>

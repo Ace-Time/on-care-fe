@@ -56,15 +56,22 @@ watch(() => props.isOpen, (newVal) => {
   }
 });
 
+// 날짜 문자열(YYYY-MM-DD)을 생성하는 헬퍼 함수
+const getLocalTodayString = () => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 // 날짜 유효성 검사 함수
 const validateDates = () => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0); // 시간 정보 제거 (날짜만 비교)
+  const todayStr = getLocalTodayString();
 
-  // 1. 발급일이 미래인지 체크
+  // 1. 발급일이 미래인지 체크 (문자열 비교)
   if (form.value.issueDate) {
-    const issue = new Date(form.value.issueDate);
-    if (issue > today) {
+    if (form.value.issueDate > todayStr) {
       dateError.value = "발급일은 미래일 수 없습니다.";
       return false;
     }
@@ -72,9 +79,7 @@ const validateDates = () => {
 
   // 2. 만료일이 발급일보다 이전인지 체크
   if (form.value.issueDate && form.value.expireDate) {
-    const issue = new Date(form.value.issueDate);
-    const expire = new Date(form.value.expireDate);
-    if (issue > expire) {
+    if (form.value.issueDate > form.value.expireDate) {
       dateError.value = "만료일은 발급일보다 이후여야 합니다.";
       return false;
     }
@@ -148,7 +153,7 @@ const handleSubmit = () => {
                 type="date"
                 class="input"
                 :class="{ 'input-error': dateError }"
-                :max="new Date().toISOString().split('T')[0]"
+                :max="getLocalTodayString()"
               />
             </div>
             <div>

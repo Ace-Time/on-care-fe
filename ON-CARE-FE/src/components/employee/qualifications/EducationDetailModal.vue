@@ -61,15 +61,8 @@ onUnmounted(() => {
             <span class="label">관련 자격증</span>
             <span class="value text-blue">{{ data.relatedCertName }}</span>
           </div>
-          <div class="info-item">
-             <span class="label">상태</span>
-             <span v-if="data.status === 0" class="badge-green">이수 완료</span>
-             <span v-else-if="data.status === 1" class="badge-red">미이수</span>
-             <span v-else class="badge-gray">{{ data.status }}</span>
-          </div>
+
         </div>
-
-
       </div>
 
       <div class="modal-footer">

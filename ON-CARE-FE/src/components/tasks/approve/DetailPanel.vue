@@ -79,7 +79,7 @@
       </div>
     </div>
 
-    <div class="detail-footer">
+    <div class="detail-footer" v-if="canApprove">
       <button class="btn btn-approve" @click="$emit('approve', item.id)">✔ 승인</button>
       <button class="btn btn-reject" @click="$emit('reject', item.id)">✖ 반려</button>
     </div>
@@ -87,7 +87,10 @@
 </template>
 
 <script setup>
-import { onMounted, onUnmounted } from 'vue';
+import { onMounted, onUnmounted, computed } from 'vue'; // computed 추가
+import { useUserStore } from '@/stores/user'; // userStore 추가
+
+const userStore = useUserStore(); // 스토어 초기화
 
 // 부모로부터 받을 데이터 정의
 const props = defineProps({
@@ -101,6 +104,33 @@ const props = defineProps({
 // 부모에게 보낼 이벤트 정의
 const emit = defineEmits(['close', 'approve', 'reject']);
 
+// [추가] 결재 권한 확인 (내가 결재할 차례인지)
+// 올린 사람(기안자)이나 단순 조회자는 버튼이 안 보여야 함
+const canApprove = computed(() => {
+  // 1. 전체 결재 상태가 대기중인지 확인
+  const status = props.item.status; 
+  const isPending = ['대기중', 'PENDING', 'WAITING', '0'].includes(String(status).toUpperCase());
+  if (!isPending) return false;
+
+  const myId = String(userStore.userId);
+
+  // 2. 결재선 리스트에서 순서대로 확인하여 현재 결재 차례인 사람을 찾음
+  if (props.item.approverList && Array.isArray(props.item.approverList)) {
+     // 첫 번째로 '대기중' 상태인 결재자를 찾음 (순차 결재 가정)
+     const currentTurn = props.item.approverList.find(a => {
+       const s = String(a.stepStatus || '').toUpperCase();
+       return ['대기중', 'PENDING', 'WAITING', '0'].includes(s);
+     });
+
+     // 그 사람이 나인지 확인
+     if (currentTurn && String(currentTurn.approverId) === myId) {
+       return true;
+     }
+  }
+
+  return false;
+});
+
 const formatDate = (dateString) => {
   if (!dateString) return '-';
   return dateString.split('T')[0];
@@ -111,10 +141,8 @@ const handleKeydown = (e) => {
   if (e.key === 'Escape') {
     emit('close');
   } else if (e.key === 'Enter') {
-    // 대기중 상태일 때만 Enter로 승인 동작 수행
-    // (부모에서 confirm 창을 띄우므로 바로 emit 해도 안전)
-    const status = props.item.status?.toUpperCase();
-    if (['대기중', 'PENDING', 'WAITING'].includes(status)) {
+    // [수정] 권한이 있을 때만 단축키 동작
+    if (canApprove.value) {
        emit('approve', props.item.id);
     }
   }

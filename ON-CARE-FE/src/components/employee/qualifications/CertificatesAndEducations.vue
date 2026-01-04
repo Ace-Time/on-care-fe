@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue';
 // API 함수 import
-import { registerCertificate, registerEducation, getCertificates, updateCertificateStatus } from '@/api/employee/employeeApi';
+import { registerCertificate, registerEducation, getCertificates, updateCertificateStatus, getEducations } from '@/api/employee/employeeApi';
 import { useUserStore } from '@/stores/user'; // 유저 스토어 import
 
 // 모달들 import
@@ -37,48 +37,74 @@ const isAdmin = computed(() => {
 const localCertificates = ref([]);
 const isLoading = ref(false);
 
-const syncPropCertificates = () => {
-  localCertificates.value = Array.isArray(props.certificates) ? [...props.certificates] : [];
+// [Helper] 자격증 리스트에 보수교육 정보를 병합하는 함수
+const enrichCertificatesWithEducation = async (certs) => {
+  if (!Array.isArray(certs)) return [];
+
+  return await Promise.all(
+    certs.map(async (cert) => {
+      try {
+        const certId = cert.certificateId || cert.id;
+        // ID가 없으면 교육 조회가 불가능하므로 빈 배열
+        if (!certId) return { ...cert, educations: [] };
+        
+        const educations = await getEducations(certId);
+        return {
+          ...cert,
+          educations: Array.isArray(educations) ? educations : []
+        };
+      } catch (err) {
+        console.warn(`자격증(ID:${cert.id}) 보수교육 조회 실패:`, err);
+        return { ...cert, educations: [] };
+      }
+    })
+  );
 };
 
-watch(() => props.certificates, syncPropCertificates, { immediate: true });
-
-const fetchCertificates = async () => {
-  if (!props.employeeId) {
-    syncPropCertificates();
+// Props가 변경될 때 (부모가 refresh 후) 실행되는 함수
+const syncAndFetchEducations = async () => {
+  // props.certificates가 비어있으면 초기화
+  if (!props.certificates) {
+    localCertificates.value = [];
     return;
   }
+
+  // 로딩 상태 없이 조용히 업데이트하거나, 필요하면 로딩 표시
+  // 여기서는 데이터 정합성을 위해 fetch 수행
+  isLoading.value = true;
+  try {
+    const enriched = await enrichCertificatesWithEducation(props.certificates);
+    localCertificates.value = enriched;
+  } catch (error) {
+    console.error('보수교육 데이터 동기화 실패:', error);
+    // 실패 시 기본 리스트라도 유지
+    localCertificates.value = [...props.certificates];
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+// Watcher: props.certificates가 바뀌면 보수교육 정보 다시 가져옴
+watch(() => props.certificates, () => {
+  syncAndFetchEducations();
+}, { deep: true, immediate: true });
+
+// 직접 API로 자격증 목록부터 다시 조회하는 함수 (수동 리프레시 등)
+const fetchCertificates = async () => {
+  if (!props.employeeId) return;
 
   isLoading.value = true;
   try {
     // 1. 자격증 목록 조회
     const certs = await getCertificates(props.employeeId);
     
-    // 2. 각 자격증별 보수교육 목록 조회 (병렬 처리)
-    const certsWithEducations = await Promise.all(
-      certs.map(async (cert) => {
-        try {
-          const certId = cert.certificateId || cert.id;
-          // 보수교육 리스트 조회 API 호출 (getEducations는 employeeApi.js에 이미 정의됨)
-          // API: GET /api/care-workers/certificates/{certId}/educations
-          const { getEducations } = await import('@/api/employee/employeeApi');
-          const educations = await getEducations(certId);
-          
-          return {
-            ...cert,
-            educations: Array.isArray(educations) ? educations : []
-          };
-        } catch (err) {
-          console.warn(`자격증(ID:${cert.id}) 보수교육 조회 실패:`, err);
-          return { ...cert, educations: [] };
-        }
-      })
-    );
+    // 2. 각 자격증별 보수교육 목록 조회 및 병합
+    const enriched = await enrichCertificatesWithEducation(certs);
 
-    localCertificates.value = Array.isArray(certsWithEducations) ? certsWithEducations : [];
+    localCertificates.value = enriched;
   } catch (error) {
     console.error('자격증 목록 조회 실패:', error);
-    syncPropCertificates();
+    // 에러 시 기존 상태 유지 혹은 초기화 (여기서는 유지)
   } finally {
     isLoading.value = false;
   }
@@ -86,12 +112,15 @@ const fetchCertificates = async () => {
 
 watch(() => props.employeeId, (newId, oldId) => {
   if (newId && newId !== oldId) {
+    // ID가 바뀌면 전체 다시 조회
     fetchCertificates();
   }
 });
 
+// onMounted는 watcher(immediate)와 겹칠 수 있으나,
+// employeeId가 있고 props.certificates가 비어있을 경우를 대비해 유지
 onMounted(() => {
-  if (props.employeeId) {
+  if (props.employeeId && (!props.certificates || props.certificates.length === 0)) {
     fetchCertificates();
   }
 });

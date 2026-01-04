@@ -78,9 +78,7 @@ const statusInfo = computed(() => getStatusInfo(props.data?.status));
             <h4 class="banner-title">{{ certificateInfo.name }}</h4>
             <p class="banner-subtitle">자격증 번호: {{ certificateInfo.number }}</p>
           </div>
-          <div class="status-chip" :class="statusInfo.className">
-            {{ statusInfo.label }}
-          </div>
+
         </div>
 
         <div class="info-grid">
@@ -96,10 +94,7 @@ const statusInfo = computed(() => getStatusInfo(props.data?.status));
             <span class="label">만료일</span>
             <span class="value">{{ certificateInfo.expireDate || '-' }}</span>
           </div>
-          <div class="info-item">
-            <span class="label">상태 코드</span>
-            <span class="value">{{ statusInfo.rawText }}</span>
-          </div>
+
         </div>
 
 

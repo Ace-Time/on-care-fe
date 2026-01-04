@@ -42,7 +42,6 @@
           @read="handleRead" 
           @mark-read="handleMarkRead"
           @click-item="handleItemClick"
-          @view-all="goToAllNotifications" 
         />
       </div>
   
@@ -62,11 +61,12 @@
   import { computed, ref, onMounted, onUnmounted } from 'vue'
   import { useRouter, useRoute, RouterLink } from 'vue-router'
   import { useUserStore } from '@/stores/user'
+  import { useNotificationStore } from '@/stores/notification'
 
   // 알림 컴포넌트 임포트
   import NotificationBell from '@/components/common/NotificationBell.vue'
   import NotificationList from '@/components/common/NotificationList.vue'
-  import { getNotifications, getUnreadCount, deleteNotification, markAsRead, getSubscriptionUrl, markAllAsRead } from '@/api/alarm/alarmApi'
+  import { markAsRead } from '@/api/alarm/alarmApi'
   
   // 공통 로고
   import logoIcon from '@/assets/img/common/oncareIcon.png'
@@ -88,56 +88,29 @@
   const router = useRouter()
   const route = useRoute()
   const userStore = useUserStore()
+  const notificationStore = useNotificationStore()
 
-  // --- [추가] 알림 관련 로직 ---
+  // --- [수정] 알림 관련 로직 (스토어 연동) ---
   const isNotificationOpen = ref(false)
-  const notifications = ref([]) // 알림 데이터 목록
-  const unreadCountVal = ref(0) // 읽지 않은 개수 (API 연동)
-  const eventSource = ref(null) // SSE 연결 객체
-
-  // 읽지 않은 개수 (배지용)
-  const unreadCount = computed(() => unreadCountVal.value)
+  const notifications = computed(() => notificationStore.notifications)
+  const unreadCount = computed(() => notificationStore.unreadCount)
 
 // 토글 함수
 const toggleNotification = async () => {
-  if (isNotificationOpen.value) {
-      // 닫을 때: 별도의 읽음 처리 작업을 하지 않음 (클릭 시에만 읽음 처리)
-      isNotificationOpen.value = false;
-  } else {
-      // 열 때: 알림 목록 및 개수 최신화
-      await fetchNotifications();
-      isNotificationOpen.value = true;
-  }
+    // 단순히 열고 닫는 상태만 관리
+    isNotificationOpen.value = !isNotificationOpen.value;
 }
 
-// 1. 알림 목록 조회
-const fetchNotifications = async () => {
-    try {
-        const response = await getNotifications(userStore.userId);
-        // 전체 목록을 받아옴 (이미 읽음/안읽음 상태가 포함됨)
-        notifications.value = response || [];
-        
-        // 읽지 않은 개수 별도 조회 (또는 목록에서 계산)
-        const count = await getUnreadCount(userStore.userId);
-        unreadCountVal.value = count;
-        
-    } catch (error) {
-        console.error("알림 로딩 실패:", error);
-    }
-};
-
-// 2. 알림 삭제 처리 (X 버튼 - 읽음 처리만 하고 데이터는 유지)
 // 2. 알림 삭제 처리 (X 버튼 - 읽음 처리만 하고 데이터는 유지)
 const handleRead = async (alarm) => {
     try {
-        // 읽지 않은 상태일 때만 API 호출 및 카운트 감소
+        // 읽지 않은 상태일 때만 API 호출
         if (alarm.status === 'SENT') {
             await markAsRead(alarm.alarmId);
-            if (unreadCountVal.value > 0) unreadCountVal.value--;
         }
 
         // [수정] 상태와 상관없이 리스트에서 즉시 제거 (사용자 요청)
-        notifications.value = notifications.value.filter(n => n.alarmId !== alarm.alarmId);
+        notificationStore.removeNotification(alarm.alarmId);
         
     } catch (e) {
         console.error("알림 삭제 처리 실패:", e);
@@ -149,11 +122,7 @@ const handleMarkRead = async (alarm) => {
     try {
         if (alarm.status === 'SENT') {
             await markAsRead(alarm.alarmId);
-            if (unreadCountVal.value > 0) unreadCountVal.value--;
-            
-            // 상태 업데이트 (리스트 유지)
-            const target = notifications.value.find(n => n.alarmId === alarm.alarmId);
-            if (target) target.status = 'READ';
+            notificationStore.markAsReadInStore(alarm.alarmId);
         }
     } catch (e) {
         console.error("읽음 처리 실패:", e);
@@ -166,10 +135,7 @@ const handleItemClick = async (alarm) => {
     if (alarm.status === 'SENT') {
         try {
             await markAsRead(alarm.alarmId);
-            
-            // 로컬 상태 변경 (리스트에서 삭제하지 않음)
-            alarm.status = 'READ';
-            if (unreadCountVal.value > 0) unreadCountVal.value--;
+            notificationStore.markAsReadInStore(alarm.alarmId);
         } catch (e) {
             console.error("읽음 처리 실패:", e);
         }
@@ -177,8 +143,7 @@ const handleItemClick = async (alarm) => {
 
     // 2) 링크 이동
     if (alarm.linkUrl) {
-        // 링크가 http로 시작하면 외부 링크, 아니면 내부 라우터
-         if (alarm.linkUrl.startsWith('http')) {
+        if (alarm.linkUrl.startsWith('http')) {
             window.open(alarm.linkUrl, '_blank');
         } else {
             router.push(alarm.linkUrl);
@@ -187,57 +152,6 @@ const handleItemClick = async (alarm) => {
         isNotificationOpen.value = false;
     }
 }
-
-
-// 초기 데이터 로드 및 SSE 연결
-onMounted(async () => {
-  if (userStore.userId) {
-    try {
-      // 1. 초기 데이터 병렬 조회
-      const [notiData, countData] = await Promise.all([
-        getNotifications(userStore.userId),
-        getUnreadCount(userStore.userId)
-      ])
-      
-      notifications.value = notiData || []
-      unreadCountVal.value = countData || 0
-      
-      // 2. SSE 연결 (실시간 알림)
-      const url = getSubscriptionUrl(userStore.userId)
-      // 주의: 개발 환경 프록시가 /api 요청을 백엔드로 넘겨줘야 함
-      eventSource.value = new EventSource(url)
-      
-      eventSource.value.addEventListener('notification', (event) => {
-        try {
-          const newAlarm = JSON.parse(event.data)
-          console.log("새 알림 도착:", newAlarm)
-          
-          // 리스트 맨 앞에 추가
-          notifications.value.unshift(newAlarm)
-          
-          // 읽지 않은 개수 증가
-          unreadCountVal.value++
-        } catch (e) {
-          console.error('SSE parsing error:', e)
-        }
-      })
-      
-      eventSource.value.onerror = (err) => {
-        console.error('SSE connection error:', err)
-        eventSource.value.close()
-      }
-      
-    } catch (err) {
-      console.error('알림 초기화 실패:', err)
-    }
-  }
-})
-
-onUnmounted(() => {
-  if (eventSource.value) {
-    eventSource.value.close()
-  }
-})
   
   // 역할별 메뉴 정의
   const MENU_CONFIG = {
