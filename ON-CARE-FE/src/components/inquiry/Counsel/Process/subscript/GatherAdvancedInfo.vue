@@ -476,23 +476,11 @@ const addSchedule = () => {
     beneficiaryScheduleEndTime: '',
     serviceType: ''
   });
-  
-  // ✅ 초기 데이터도 함께 업데이트하여 변경으로 감지되지 않도록
-  nextTick(() => {
-    initialFormData.value = JSON.parse(JSON.stringify(form));
-    emit('has-changes', false);  // 변경 없음으로 명시
-  });
 };
 
 // 일정 삭제
 const removeSchedule = (index) => {
   form.beneficiarySchedules.splice(index, 1);
-  
-  // ✅ 초기 데이터도 함께 업데이트
-  nextTick(() => {
-    initialFormData.value = JSON.parse(JSON.stringify(form));
-    emit('has-changes', false);
-  });
 };
 
 // 폼 데이터가 변경되었는지 확인

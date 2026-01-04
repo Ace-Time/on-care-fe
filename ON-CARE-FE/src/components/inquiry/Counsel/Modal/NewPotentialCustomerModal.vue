@@ -58,7 +58,7 @@
 
 <script setup>
 import { ref, reactive, watch } from 'vue';
-import { registPotentialCustomerApi } from '@/api/inquiry/counselApi';
+import { registPotentialCustomerApi, checkDuplicateCustomerApi } from '@/api/inquiry/counselApi';
 import { useToast } from '@/lib/toast';
 
 const props = defineProps({
@@ -118,6 +118,23 @@ const validateForm = () => {
   return nameValid && phoneValid;
 };
 
+// 중복 회원 체크
+const checkDuplicateCustomer = async () => {
+  try {
+    const response = await checkDuplicateCustomerApi({
+      name: form.name.trim(),
+      phone: form.phone.trim().replace(/-/g, '')
+    });
+    
+    // response.data.exists === true 면 중복
+    return response.data.exists;
+  } catch (error) {
+    console.error('중복 체크 실패:', error);
+    // API 오류 시 일단 진행 허용 (백엔드에서 다시 체크)
+    return false;
+  }
+};
+
 // 제출
 const handleSubmit = async () => {
   if (!validateForm()) {
@@ -128,6 +145,16 @@ const handleSubmit = async () => {
   isSaving.value = true;
 
   try {
+    // 1. 중복 회원 체크
+    const isDuplicate = await checkDuplicateCustomer();
+    
+    if (isDuplicate) {
+      toast.error('이미 존재하는 회원입니다.');
+      isSaving.value = false;
+      return;
+    }
+
+    // 2. 중복 아니면 등록 진행
     const response = await registPotentialCustomerApi({
       name: form.name.trim(),
       phone: form.phone.trim()
@@ -146,7 +173,15 @@ const handleSubmit = async () => {
 
   } catch (error) {
     console.error('❌ 잠재고객 등록 실패:', error);
-    toast.error(error.response?.data?.message || '등록에 실패했습니다.');
+    
+    // 백엔드에서 중복 체크한 경우 에러 메시지 표시
+    const errorMessage = error.response?.data?.message || '등록에 실패했습니다.';
+    
+    if (errorMessage.includes('존재') || errorMessage.includes('duplicate') || errorMessage.includes('중복')) {
+      toast.error('이미 존재하는 회원입니다.');
+    } else {
+      toast.error(errorMessage);
+    }
   } finally {
     isSaving.value = false;
   }
@@ -273,25 +308,6 @@ watch(() => props.isOpen, (isOpen) => {
 
 .form-input.error:focus {
   box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
-}
-
-.form-textarea {
-  width: 100%;
-  padding: 10px 14px;
-  border: 1px solid #D1D5DB;
-  border-radius: 8px;
-  font-size: 14px;
-  color: #111827;
-  outline: none;
-  transition: all 0.2s;
-  resize: vertical;
-  box-sizing: border-box;
-  font-family: inherit;
-}
-
-.form-textarea:focus {
-  border-color: #00A63E;
-  box-shadow: 0 0 0 3px rgba(0, 166, 62, 0.1);
 }
 
 .error-message {

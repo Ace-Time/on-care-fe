@@ -167,3 +167,16 @@ export const registGeneralCounselApi = (data, customerId, customerType) => {
     params: { customerType }
   });
 };
+
+/**
+ * 고객 중복 체크 API (전화번호 기준)
+ * @param {Object} data - { phone: string }
+ * @returns {Promise} - { exists: boolean, type?: 'potential' | 'beneficiary' }
+ * 
+ * 중복 조건:
+ * - 전화번호가 같으면 중복
+ * - type으로 어떤 테이블에서 중복인지 확인 가능
+ */
+export const checkDuplicateCustomerApi = (data) => {
+  return axios.post('/api/counsel/check-duplicate', data);
+};
