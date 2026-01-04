@@ -564,7 +564,6 @@ const loadMatchTags = async () => {
     } else {
       matchTags.value = response.data;
     }
-    console.log('✅ 매칭 태그 로드:', matchTags.value);
   } catch (error) {
     console.error('❌ 매칭 태그 로드 실패:', error);
     matchTags.value = ['말벗', '산책', '음악', '영화', '게임', '서예', '요리'];
@@ -581,7 +580,6 @@ const loadRiskFactors = async () => {
     } else {
       riskFactors.value = response.data;
     }
-    console.log('위험요소 로드:', riskFactors.value);
   } catch (error) {
     console.error('위험요소 로드 실패:', error);
     riskFactors.value = ['뇌졸증', '치매', '거동불편', '당뇨', '고혈압', '공격성', '몽유병', '낙상위험', '욕창위험'];
@@ -590,8 +588,6 @@ const loadRiskFactors = async () => {
 
 // 초기 데이터 로드
 onMounted(async () => {
-  console.log('RegistSubscription 마운트');
-  console.log('받은 initialData:', props.initialData);
   
   // API 데이터 로드
   await loadMatchTags();
@@ -599,7 +595,6 @@ onMounted(async () => {
   
   // initialData가 있으면 폼에 채우기
   if (props.initialData) {
-    console.log('initialData로 폼 채우기');
     Object.assign(form, props.initialData);
     
     // ✅ 기존 스케줄에 serviceType 필드가 없으면 추가
@@ -641,7 +636,6 @@ onMounted(async () => {
 
 // 폼 데이터 반환 (부모에서 접근)
 const getFormData = () => {
-  console.log('getFormData 호출:', form);
   return { ...form };
 };
 
@@ -653,11 +647,9 @@ const resetChangeTracking = () => {
 
 // 계약 완료 처리
 const completeContract = async () => {
-  console.log('🚀 계약 완료 처리 시작');
   
   // Validation 체크
   if (!validateForm()) {
-    console.error('❌ Validation 실패');
     return {
       success: false,
       message: '필수 입력 항목을 확인해주세요.'
@@ -711,12 +703,10 @@ const completeContract = async () => {
       금액부담: props.initialData?.금액부담 || form.금액부담 || 'N'
     };
     
-    console.log('📤 전송 데이터:', requestData);
     
     // API 호출
     const response = await registNewBeneficiaryApi(requestData);
     
-    console.log('✅ 계약 완료 성공:', response.data);
     
     // 부모 컴포넌트로 성공 이벤트 전달
     emit('contract-complete', {

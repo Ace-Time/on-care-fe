@@ -253,10 +253,9 @@ const selectOption = (value) => {
     dateError.value = '';
   }
   
-  // ✅ 초기 데이터도 함께 업데이트하여 변경으로 감지되지 않도록
+  // validation 상태 업데이트
   nextTick(() => {
-    initialFormData.value = JSON.parse(JSON.stringify(form));
-    emit('has-changes', false);  // 변경 없음으로 명시
+    validateForm();
   });
 };
 
@@ -349,10 +348,11 @@ const validateDates = () => {
 const validateForm = () => {
   // 등급 보유/미보유 선택 안함
   if (!form.hasGrade) {
+    emit('validation-status', false);
     return false;
   }
   
-  // 등급 미보유는 항상 유효
+  // 등급 미보유는 항상 유효 (hasGrade만 선택되면 OK)
   if (form.hasGrade === 'no') {
     emit('validation-status', true);
     return true;
@@ -383,10 +383,8 @@ watch(() => ({ ...form }), () => {
   const hasChanges = hasFormChanged();
   emit('has-changes', hasChanges);
   
-  // 변경이 있으면 validation 상태도 업데이트
-  if (hasChanges) {
-    validateForm();
-  }
+  // validation 상태 업데이트
+  validateForm();
 }, { deep: true });
 
 // 날짜 변경 시 자동 검증
@@ -398,11 +396,8 @@ watch(() => [form.careLevelStartDate, form.careLevelEndDate], () => {
 
 // 초기 데이터 로드
 onMounted(() => {
-  console.log('🎨 CheckCareLevel 마운트');
-  console.log('📦 받은 initialData:', props.initialData);
-  
   if (props.initialData) {
-    console.log('✅ initialData로 폼 채우기');
+    // hasGrade 포함 모든 데이터 복원
     Object.assign(form, props.initialData);
   }
   
@@ -415,7 +410,6 @@ onMounted(() => {
 
 // 폼 데이터 반환 (부모에서 접근)
 const getFormData = () => {
-  console.log('📤 getFormData 호출:', form);
   return { ...form };
 };
 

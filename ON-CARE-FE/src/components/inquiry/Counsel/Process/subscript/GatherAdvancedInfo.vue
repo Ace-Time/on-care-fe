@@ -476,23 +476,11 @@ const addSchedule = () => {
     beneficiaryScheduleEndTime: '',
     serviceType: ''
   });
-  
-  // ✅ 초기 데이터도 함께 업데이트하여 변경으로 감지되지 않도록
-  nextTick(() => {
-    initialFormData.value = JSON.parse(JSON.stringify(form));
-    emit('has-changes', false);  // 변경 없음으로 명시
-  });
 };
 
 // 일정 삭제
 const removeSchedule = (index) => {
   form.beneficiarySchedules.splice(index, 1);
-  
-  // ✅ 초기 데이터도 함께 업데이트
-  nextTick(() => {
-    initialFormData.value = JSON.parse(JSON.stringify(form));
-    emit('has-changes', false);
-  });
 };
 
 // 폼 데이터가 변경되었는지 확인
@@ -524,9 +512,7 @@ const loadMatchTags = async () => {
     } else {
       matchTags.value = response.data;
     }
-    console.log('✅ 매칭 태그 로드:', matchTags.value);
   } catch (error) {
-    console.error('❌ 매칭 태그 로드 실패:', error);
     // 에러 시 기본값 사용
     matchTags.value = ['말벗', '산책', '음악', '영화', '게임', '서예', '요리'];
   }
@@ -543,7 +529,6 @@ const loadRiskFactors = async () => {
     } else {
       riskFactors.value = response.data;
     }
-    console.log('✅ 위험요소 로드:', riskFactors.value);
   } catch (error) {
     console.error('❌ 위험요소 로드 실패:', error);
     // 에러 시 기본값 사용
@@ -553,9 +538,6 @@ const loadRiskFactors = async () => {
 
 // 초기 데이터 로드
 onMounted(async () => {
-  console.log('🎨 GatherAdvancedInfo 마운트');
-  console.log('📦 받은 initialData:', props.initialData);
-  console.log('👤 받은 customer:', props.customer);
   
   // API 데이터 로드
   await loadMatchTags();
@@ -563,7 +545,6 @@ onMounted(async () => {
   
   // initialData가 있으면 폼에 채우기 (3단계 저장 데이터)
   if (props.initialData) {
-    console.log('✅ initialData로 폼 채우기');
     Object.assign(form, props.initialData);
   }
   
@@ -593,7 +574,6 @@ onMounted(async () => {
 
 // 폼 데이터 반환 (부모에서 접근)
 const getFormData = () => {
-  console.log('📤 getFormData 호출:', form);
   return { ...form };
 };
 
