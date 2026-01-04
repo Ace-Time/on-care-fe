@@ -1,25 +1,23 @@
 <template>
   <section class="matching-panel">
-    <!-- 제목 + 인원수 -->
     <header class="panel-header">
       <h2 class="panel-title">수급자</h2>
-      <span class="count-badge">{{ recipients.length }}명</span>
+      <span class="count-badge">{{ total }}명</span>
     </header>
 
-    <!-- 검색 -->
     <div class="search-bar">
       <img :src="searchIcon" class="search-icon" />
       <input v-model="search" type="text" placeholder="수급자 검색..." />
     </div>
 
-    <!-- 리스트 스크롤 영역 -->
     <div class="table-scroll">
       <table class="list-table">
         <tbody>
           <tr
             v-for="item in pagedList"
-            :key="item.id"
+            :key="item.beneficiaryId ?? item.id"
             class="list-row"
+            :class="{ selected: selectedBeneficiaryId === (item.beneficiaryId ?? item.id) }"
             @click="handleSelect(item)"
           >
             <td class="name">{{ item.name }}</td>
@@ -28,77 +26,140 @@
                 {{ item.gender }}
               </span>
             </td>
-            <td><span class="grade">{{ item.grade }}</span></td>
-            <td class="dash">–</td>
+            <td><span class="grade">{{ item.riskLevel }}</span></td>
             <td>
-              <span
-                v-if="item.assigned"
-                class="assigned-badge"
-              >
-                배정
-              </span>
-              <span v-else class="dash">–</span>
+              <span v-if="item.assigned" class="assigned-badge">배정</span>
             </td>
+          </tr>
+
+          <tr v-if="!pagedList.length && !loading">
+            <td colspan="4" class="dash">표시할 수급자가 없습니다.</td>
+          </tr>
+
+          <tr v-if="loading">
+            <td colspan="4" class="dash">불러오는 중...</td>
           </tr>
         </tbody>
       </table>
     </div>
 
-    <!-- 페이지네이션 -->
     <div class="pagination">
       <button @click="prevPage" :disabled="page === 1">〈</button>
       <span>{{ page }} / {{ totalPages }}</span>
-      <button @click="nextPage" :disabled="page === totalPages">〉</button>
+      <button @click="nextPage" :disabled="page >= totalPages">〉</button>
     </div>
   </section>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
-import searchIcon from '@/assets/img/common/search.png'
-import { recipientMockData } from '@/mock/schedule/matchingRecipientMock.js'
-
-const emit = defineEmits(['select-recipient'])
-
-const search = ref('')
-const page = ref(1)
-const pageSize = 10
-
-const recipients = computed(() => {
-  const q = search.value.toLowerCase().trim()
-  return q
-    ? recipientMockData.filter(r =>
-        [r.name, r.gender, r.grade].some(f =>
-          String(f).toLowerCase().includes(q)
-        )
-      )
-    : recipientMockData
-})
-
-const totalPages = computed(() => Math.ceil(recipients.value.length / pageSize))
-
-const pagedList = computed(() =>
-  recipients.value.slice((page.value - 1) * pageSize, page.value * pageSize)
-)
-
-const prevPage = () => {
-  if (page.value > 1) page.value--
-}
-const nextPage = () => {
-  if (page.value < totalPages.value) page.value++
-}
-
-// ✅ 행 클릭 시 상위로 선택된 수급자 emit
-const handleSelect = item => {
-  emit('select-recipient', item)
-}
-
-const badgeClass = gender => ({
-  badge: true,
-  male: gender === '남자',
-  female: gender === '여자',
-})
-</script>
+  import { ref, computed, onMounted, watch } from 'vue'
+  import searchIcon from '@/assets/img/common/search.png'
+  import { getBeneficiaryList } from '@/api/schedule/matching.js'
+  import { useMatchingSelectionStore } from '@/stores/matchingSelection'
+  
+  const props = defineProps({
+    refreshKey: { type: Number, default: 0 },
+  })
+  
+  const emit = defineEmits(['select-recipient'])
+  const store = useMatchingSelectionStore()
+  
+  const search = ref('')
+  const page = ref(1)
+  const pageSize = 8
+  
+  const recipientsRaw = ref([])
+  const selectedBeneficiaryId = ref(null)
+  
+  const total = ref(0)
+  const loading = ref(false)
+  
+  const getId = (item) => item?.beneficiaryId ?? item?.id ?? null
+  
+  const fetchList = async () => {
+    loading.value = true
+    try {
+      const { data } = await getBeneficiaryList({
+        page: page.value - 1,
+        size: pageSize,
+        keyword: search.value?.trim() || null,
+      })
+  
+      const content = Array.isArray(data?.content) ? data.content : []
+      recipientsRaw.value = content
+      total.value = Number.isFinite(data?.total) ? data.total : 0
+  
+      const storeId = store.recipientId
+      if (storeId) {
+        const found = content.find((r) => getId(r) === storeId)
+        if (found) {
+          selectedBeneficiaryId.value = storeId
+          store.syncRecipient(found)
+          emit('select-recipient', found)
+        }
+      }
+    } catch (e) {
+      recipientsRaw.value = []
+      total.value = 0
+      console.error(e)
+    } finally {
+      loading.value = false
+    }
+  }
+  
+  onMounted(fetchList)
+  
+  watch(search, async () => {
+    page.value = 1
+    await fetchList()
+  })
+  
+  watch(page, async () => {
+    await fetchList()
+  })
+  
+  watch(
+    () => props.refreshKey,
+    async () => {
+      await fetchList()
+    }
+  )
+  
+  watch(
+    () => store.recipientId,
+    (id) => {
+      selectedBeneficiaryId.value = id
+    },
+    { immediate: true }
+  )
+  
+  const pagedList = computed(() => recipientsRaw.value)
+  
+  const totalPages = computed(() => {
+    const tp = Math.ceil((total.value || 0) / pageSize)
+    return Math.max(1, tp)
+  })
+  
+  const prevPage = () => {
+    if (page.value > 1) page.value--
+  }
+  
+  const nextPage = () => {
+    if (page.value < totalPages.value) page.value++
+  }
+  
+  const handleSelect = (item) => {
+    const beneficiaryId = getId(item)
+    selectedBeneficiaryId.value = beneficiaryId
+    emit('select-recipient', item)
+  }
+  
+  const badgeClass = (gender) => ({
+    badge: true,
+    male: gender === '남자',
+    female: gender === '여자',
+  })
+  </script>
 
 <style scoped>
 .matching-panel {
@@ -112,7 +173,6 @@ const badgeClass = gender => ({
   height: 480px;
 }
 
-/* 제목 */
 .panel-header {
   display: flex;
   justify-content: space-between;
@@ -134,7 +194,6 @@ const badgeClass = gender => ({
   color: #9333ea;
 }
 
-/* 검색바 */
 .search-bar {
   display: flex;
   align-items: center;
@@ -160,20 +219,11 @@ const badgeClass = gender => ({
   outline: none;
 }
 
-/* 리스트 스크롤 영역 */
 .table-scroll {
   flex: 1;
-  overflow-y: auto;
-  padding-right: 4px;
-  max-height: 320px;
-}
-
-.table-scroll::-webkit-scrollbar {
-  width: 6px;
-}
-.table-scroll::-webkit-scrollbar-thumb {
-  background: #d1d5db;
-  border-radius: 8px;
+  overflow: visible;
+  padding-right: 0;
+  max-height: none;
 }
 
 .list-table {
@@ -181,13 +231,23 @@ const badgeClass = gender => ({
   border-collapse: collapse;
 }
 
-/* 행 스타일 */
 .list-row {
   cursor: pointer;
   transition: background-color 0.15s ease;
 }
 .list-row:hover {
   background: #f9fafb;
+}
+
+.list-row.selected {
+  background: #ecfdf5;
+}
+.list-row.selected:hover {
+  background: #d1fae5;
+}
+.list-row.selected td {
+  font-weight: 600;
+  color: #065f46;
 }
 
 .list-table td {
@@ -202,9 +262,9 @@ const badgeClass = gender => ({
 
 .dash {
   color: #9ca3af;
+  text-align: center;
 }
 
-/* 성별 뱃지 */
 .badge {
   padding: 3px 8px;
   border-radius: 999px;
@@ -222,7 +282,6 @@ const badgeClass = gender => ({
   color: #ec4899;
 }
 
-/* 등급 */
 .grade {
   padding: 3px 10px;
   background: #f3e8ff;
@@ -231,7 +290,6 @@ const badgeClass = gender => ({
   font-size: 12px;
 }
 
-/* 배정 */
 .assigned-badge {
   background: #dcfce7;
   color: #15803d;
@@ -240,7 +298,6 @@ const badgeClass = gender => ({
   font-size: 12px;
 }
 
-/* 페이지네이션 */
 .pagination {
   display: flex;
   justify-content: center;

@@ -19,12 +19,14 @@ export const getConfirmedScheduleRangeCounts = async ({
     ...(searchField != null && String(searchField).trim() !== '' ? { searchField: String(searchField).trim() } : {}),
   };
 
-  const res = await api.get('/confirmed-calendar/range-counts', { params });
+  const res = await api.get('/api/confirmed-calendar/range-counts', { params });
   return res.data;
 };
 
 export const getConfirmedScheduleDayList = async ({
   date,
+  page = 0,
+  size = 5,
   beneficiaryId,
   careWorkerId,
   serviceTypeId,
@@ -33,6 +35,8 @@ export const getConfirmedScheduleDayList = async ({
 } = {}) => {
   const params = {
     date,
+    page,
+    size,
     ...(beneficiaryId != null ? { beneficiaryId } : {}),
     ...(careWorkerId != null ? { careWorkerId } : {}),
     ...(serviceTypeId != null ? { serviceTypeId } : {}),
@@ -40,14 +44,14 @@ export const getConfirmedScheduleDayList = async ({
     ...(searchField != null && String(searchField).trim() !== '' ? { searchField: String(searchField).trim() } : {}),
   };
 
-  const res = await api.get('/confirmed-calendar/day-list', { params });
+  const res = await api.get('/api/confirmed-calendar/day-list', { params });
   return res.data;
 };
 
 export const getConfirmedScheduleDetail = async ({ vsId } = {}) => {
     if (!vsId) throw new Error('vsId is required');
   
-    const res = await api.get('/confirmed-calendar/detail', {
+    const res = await api.get('/api/confirmed-calendar/detail', {
       params: { vsId },
     });
   
@@ -59,7 +63,7 @@ export const updateConfirmedVisitScheduleTime = async ({ vsId, startDt, endDt })
   if (!vsId) throw new Error('vsId is required');
 
   const res = await api.put(
-    `/confirmed-calendar/visit-schedules/${vsId}/time`,
+    `/api/confirmed-calendar/visit-schedules/${vsId}/time`,
     { startDt, endDt }
   );
 
@@ -70,5 +74,5 @@ export const updateConfirmedVisitScheduleTime = async ({ vsId, startDt, endDt })
 export const deleteConfirmedVisitSchedule = async ({ vsId }) => {
   if (!vsId) throw new Error('vsId is required');
 
-  await api.delete(`/confirmed-calendar/visit-schedules/${vsId}`);
+  await api.delete(`/api/confirmed-calendar/visit-schedules/${vsId}`);
 };

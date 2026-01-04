@@ -10,13 +10,13 @@ export const getProductMaster = async({page, size, codeOrName, categoryCode }) =
         ...(categoryCode != null ? {categoryCode} : {})
     }
 
-    const res = await api.get('/product/master',{params});
+    const res = await api.get('/api/product/master',{params});
     return res.data;
 };
 
 
 export const getMasterCategoryCode = async() => {
-    const res = await api.get('/product/master-category');
+    const res = await api.get('/api/product/master-category');
     return res.data;
 };
 
@@ -65,6 +65,6 @@ export const updateMaster = async({
         ...(explanation != null ? {explanation} : {})
     }
 
-    const res = await api.patch('product/master',params)
+    const res = await api.patch('/api/product/master',params)
     return res.data;
 }

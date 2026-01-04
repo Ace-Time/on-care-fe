@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch } from 'vue';
+import { ref, watch, computed, onMounted, onUnmounted } from 'vue';
 
 const props = defineProps({
   isOpen: Boolean,
@@ -8,23 +8,47 @@ const props = defineProps({
 
 const emit = defineEmits(['close', 'submit']);
 
+// 키보드 이벤트 핸들러
+const handleKeydown = (e) => {
+  if (!props.isOpen) return;
+
+  if (e.key === 'Escape') {
+    emit('close');
+  } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+    // Ctrl+Enter 또는 Cmd+Enter로 제출
+    handleSubmit();
+  }
+};
+
+onMounted(() => {
+  window.addEventListener('keydown', handleKeydown);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeydown);
+});
+
 const initialForm = {
   targetCertIndex: null,
   eduName: '',
   institution: '',
   eduDate: '',
   nextEduDate: '',
-  isOverdue: false,
-  status: 0
+  isOverdue: false
 };
 
 const form = ref({ ...initialForm });
+
+// 오늘 날짜를 'YYYY-MM-DD' 형식으로 구하기
+const today = computed(() => {
+  return new Date().toISOString().split('T')[0];
+});
 
 // 모달이 열릴 때 초기화
 watch(() => props.isOpen, (newVal) => {
   if (newVal) {
     form.value = { ...initialForm };
-    
+
     // 자격증이 하나뿐이고, 그 자격증에 ID가 있다면 자동 선택
     if (props.certificates.length === 1) {
       const cert = props.certificates[0];
@@ -57,16 +81,22 @@ const handleSubmit = () => {
     alert('교육을 등록할 자격증을 선택해주세요.');
     return;
   }
-  
+
   // 필수 정보 확인
   if (!form.value.eduName || !form.value.institution || !form.value.eduDate) {
     alert('필수 정보를 입력해주세요.');
     return;
   }
 
+  // 날짜 검증 - 이수일이 미래인지 체크
+  if (form.value.eduDate > today.value) {
+    alert('보수교육 이수일은 미래일 수 없습니다.');
+    return;
+  }
+
   // 선택된 자격증에서 진짜 ID 추출
   const selectedCert = props.certificates[form.value.targetCertIndex];
-  
+
   const realId = selectedCert.certificateId || selectedCert.id;
 
   // ID가 없으면 중단 (DB 저장 불가)
@@ -78,10 +108,10 @@ const handleSubmit = () => {
 
   // 전송 (ID와 폼 데이터)
   const { targetCertIndex, ...payload } = form.value;
-  
-  emit('submit', { 
-    targetCertId: realId, 
-    ...payload 
+
+  emit('submit', {
+    targetCertId: realId,
+    ...payload
   });
 };
 </script>
@@ -128,21 +158,16 @@ const handleSubmit = () => {
           <div class="grid-2">
             <div>
               <label class="block-label">이수일 <span class="text-red">*</span></label>
-              <input v-model="form.eduDate" type="date" class="input" />
+              <input
+                v-model="form.eduDate"
+                type="date"
+                class="input"
+                :max="today"
+              />
             </div>
             <div>
               <label class="block-label">다음 교육 예정일</label>
               <input v-model="form.nextEduDate" type="date" class="input" />
-            </div>
-          </div>
-           <div class="grid-2">
-            <div>
-              <label class="block-label">상태</label>
-              <select v-model="form.status" class="input">
-                <option :value="0">이수 완료</option>
-                <option :value="1">미이수</option>
-                <option :value="2">예정</option>
-              </select>
             </div>
           </div>
         </form>
@@ -157,19 +182,145 @@ const handleSubmit = () => {
 </template>
 
 <style scoped>
-.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 50; }
-.modal-box { background: white; width: 450px; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.1); display: flex; flex-direction: column; max-height: 90vh; }
-.modal-header { padding: 16px 20px; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center; }
-.modal-header h3 { font-size: 18px; font-weight: 700; color: #111; margin: 0; }
-.close-btn { background: none; border: none; cursor: pointer; color: #9ca3af; }
-.modal-body { padding: 20px; overflow-y: auto; flex: 1; }
-.modal-footer { padding: 16px 20px; border-top: 1px solid #f0f0f0; display: flex; justify-content: flex-end; gap: 8px; background: #fff; }
-.space-y-4 > * + * { margin-top: 16px; }
-.block-label { display: block; font-size: 14px; color: #374151; margin-bottom: 4px; font-weight: 500; }
-.text-red { color: #ef4444; }
-.input { width: 100%; padding: 8px 12px; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 14px; outline: none; transition: all 0.2s; box-sizing: border-box; background-color: white; }
-.input:focus { border-color: #22c55e; ring: 2px solid #dcfce7; }
-.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-.btn-cancel { padding: 8px 16px; background-color: #f3f4f6; color: #374151; border-radius: 8px; border: none; cursor: pointer; }
-.btn-submit { padding: 8px 16px; background: linear-gradient(to right, #22c55e, #10b981); color: white; border-radius: 8px; border: none; cursor: pointer; font-weight: 600; }
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  transition: opacity 0.3s ease;
+}
+.modal-box {
+  background: white;
+  width: 550px;
+  border-radius: 24px;
+  overflow: hidden;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
+  animation: modal-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes modal-pop {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+.modal-header {
+  padding: 24px 32px;
+  border-bottom: 1px solid #f3f4f6;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.modal-header h3 {
+  font-size: 20px;
+  font-weight: 700;
+  color: #111827;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+.close-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #9ca3af;
+  border-radius: 50%;
+  padding: 8px;
+  transition: background 0.2s, color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.close-btn:hover {
+  background: #f3f4f6;
+  color: #4b5563;
+}
+.modal-body {
+  padding: 32px;
+  overflow-y: auto;
+  flex: 1;
+}
+.modal-footer {
+  padding: 24px 32px;
+  border-top: 1px solid #f3f4f6;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  background: #f9fafb;
+}
+.space-y-4 > * + * {
+  margin-top: 24px;
+}
+.block-label {
+  display: block;
+  font-size: 15px;
+  color: #374151;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+.text-red {
+  color: #ef4444;
+  margin-left: 2px;
+}
+.input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  font-size: 15px;
+  outline: none;
+  transition: all 0.2s;
+  box-sizing: border-box;
+  background-color: #f9fafb;
+}
+.input:focus {
+  background-color: white;
+  border-color: #22c55e;
+  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.1);
+}
+.input::placeholder {
+  color: #9ca3af;
+}
+.grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+.btn-cancel {
+  padding: 12px 24px;
+  background-color: white;
+  color: #4b5563;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-cancel:hover {
+  background-color: #f9fafb;
+  border-color: #d1d5db;
+}
+.btn-submit {
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  color: white;
+  border-radius: 12px;
+  border: none;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 6px -1px rgba(34, 197, 94, 0.2);
+  transition: all 0.2s;
+}
+.btn-submit:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 8px -1px rgba(34, 197, 94, 0.3);
+}
+.btn-submit:active {
+  transform: translateY(0);
+}
 </style>

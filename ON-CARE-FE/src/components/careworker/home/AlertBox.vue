@@ -1,17 +1,43 @@
 <script setup>
-import { alertData } from '@/mock/careworker/homeData';
+import { ref, onMounted } from 'vue';
+import { getUrgentNotifications } from '@/api/careworker';
+import { Icon } from '@iconify/vue';
+
+const notifications = ref([]);
+const loading = ref(true);
+
+onMounted(async () => {
+  try {
+    const response = await getUrgentNotifications();
+    notifications.value = response.data || [];
+  } catch (error) {
+    // 에러 처리
+  } finally {
+    loading.value = false;
+  }
+});
 </script>
 
 <template>
   <section class="alert-section">
-    <h2 class="section-title">🔔 알림</h2>
-    <div class="alert-content">
-      <div>
-        <p class="alert-title">{{ alertData.title }}</p>
-        <p class="alert-desc">
-          {{ alertData.desc }} <span class="highlight">{{ alertData.highlight }}</span><br>
-          {{ alertData.subDesc }}
-        </p>
+    <h2 class="section-title"><Icon icon="line-md:bell-twotone-loop" class="title-icon" /> 알림</h2>
+    <div v-if="loading" class="alert-content">
+      <p class="alert-desc">알림을 불러오는 중...</p>
+    </div>
+    <div v-else-if="notifications.length === 0" class="alert-content info">
+      <p class="alert-desc">현재 긴급 알림이 없습니다.</p>
+    </div>
+    <div v-else>
+      <div v-for="notification in notifications" :key="notification.id" class="alert-content">
+        <div>
+          <p class="alert-title">{{ notification.title }}</p>
+          <p class="alert-desc">
+            {{ notification.message }}
+            <span v-if="notification.dueDate" class="highlight">
+              기한: {{ notification.dueDate }}
+            </span>
+          </p>
+        </div>
       </div>
     </div>
   </section>
@@ -32,6 +58,13 @@ import { alertData } from '@/mock/careworker/homeData';
   font-weight: 800;
   color: #991b1b; /* 짙은 붉은색 타이틀 */
   margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.title-icon {
+  font-size: 1.25rem;
 }
 
 .alert-content {

@@ -30,13 +30,13 @@ const formattedTimeForKor =  () => {
   return formatted;
 }
 
-const API_BASE_URL = (import.meta.env?.VITE_API_BASE_URL || 'http://localhost:8081').replace(/\/$/, '');
+
 
 // ------------------------------------------------------------
 // 전역에서 쓸 Axios 인스턴스 1개 생성
 // ------------------------------------------------------------
 const api = axios.create({
-  baseURL: 'http://localhost:5000',          
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000',           
   // baseURL: 'http://localhost:8081',          
   withCredentials: true,    // ✅ 브라우저가 HttpOnly 쿠키(리프레시 토큰)를 자동으로 전송하도록 허용
   timeout: 15000,           // 네트워크 요청 타임아웃(ms). 필요에 따라 조정 가능.
@@ -55,10 +55,10 @@ const api = axios.create({
 let refreshPromise = null;                 // ✔ 진행 중인 리프레시 요청이 없으면 null
 let isRefreshing = false;                  // ✔ (선택) 디버깅용 플래그
 const EXCLUDED_URLS = [                    // ✔ 인터셉터 제외 대상 URL들
-  '/auth/refresh',                         //    리프레시 호출 경로
-  '/auth/login',                        //  로그인 요청(환경에 맞게 추가/수정)
+  '/api/auth/refresh',                         //    리프레시 호출 경로
+  '/api/auth/login',                        //  로그인 요청(환경에 맞게 추가/수정)
 ];
-const refreshUrl = '/auth/refresh';
+const refreshUrl = '/api/auth/refresh';
 
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -72,7 +72,7 @@ api.interceptors.request.use((config) => {
   const token = user.token;                 
   const tokenType = user.tokenType;
 
-  console.log(`[${formattedTimeForKor()}] 백엔드 요청:`,`[${config.method}]`,`${api.defaults.baseURL + config.url}`,config);
+  // console.log(`[${formattedTimeForKor()}] 백엔드 요청:`,`[${config.method}]`,`${api.defaults.baseURL + config.url}`,config);
   if (token) {
     config.headers = config.headers || {}; 
     config.headers.Authorization = `${tokenType} ${token}`; // "Authorization: Bearer <JWT>" 형태로 삽입.
