@@ -554,6 +554,42 @@ const getServiceTypeId = (serviceTypeName) => {
   return mapping[serviceTypeName] || null;
 };
 
+// 일정 시간대 겹침 검사 함수
+const hasTimeConflict = (date, startTime, endTime, excludeScheduleId = null) => {
+  // 같은 날짜의 일정들 필터링
+  const sameDateSchedules = schedules.value.filter(schedule => {
+    // 수정 모드일 때 현재 수정중인 일정은 제외
+    if (excludeScheduleId && (schedule.scheduleId || schedule.id) === excludeScheduleId) {
+      return false;
+    }
+    return schedule.date === date;
+  });
+
+  // 시간대 겹침 확인
+  for (const schedule of sameDateSchedules) {
+    const existingStart = schedule.startTime;
+    const existingEnd = schedule.endTime;
+    const newStart = startTime;
+    const newEnd = endTime;
+
+    // 시간대가 겹치는 경우:
+    // 1. 새 일정의 시작이 기존 일정 중간에 있거나
+    // 2. 새 일정의 종료가 기존 일정 중간에 있거나
+    // 3. 새 일정이 기존 일정을 완전히 포함하거나
+    // 4. 기존 일정이 새 일정을 완전히 포함하는 경우
+    if (
+      (newStart >= existingStart && newStart < existingEnd) || // 시작시간이 기존 일정 중간
+      (newEnd > existingStart && newEnd <= existingEnd) ||     // 종료시간이 기존 일정 중간
+      (newStart <= existingStart && newEnd >= existingEnd) ||  // 새 일정이 기존 일정 포함
+      (newStart >= existingStart && newEnd <= existingEnd)     // 기존 일정이 새 일정 포함
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+};
+
 const saveSchedule = async () => {
   try {
     if (!newSchedule.value.date || !newSchedule.value.startTime || !newSchedule.value.endTime) {
@@ -563,6 +599,13 @@ const saveSchedule = async () => {
 
     if (newSchedule.value.startTime >= newSchedule.value.endTime) {
       alert('종료 시간은 시작 시간보다 늦어야 합니다.');
+      return;
+    }
+
+    // 일정 시간대 겹침 검사 (수정 모드일 때는 현재 일정 제외)
+    const excludeId = isEditMode.value ? editingScheduleId.value : null;
+    if (hasTimeConflict(newSchedule.value.date, newSchedule.value.startTime, newSchedule.value.endTime, excludeId)) {
+      alert('이미 등록된 일정이 있습니다.');
       return;
     }
 
