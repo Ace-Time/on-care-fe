@@ -1,5 +1,6 @@
 <script setup>
 import { ref, watch, onMounted, onUnmounted } from 'vue';
+import { getCertificateTypes } from '@/api/employee/employeeApi';
 
 const props = defineProps({
   isOpen: Boolean
@@ -21,21 +22,35 @@ const handleKeydown = (e) => {
 
 onMounted(() => {
   window.addEventListener('keydown', handleKeydown);
+  fetchCertTypes(); // 자격증 종류 조회
 });
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown);
 });
 
-// 자격증 종류 마스터 데이터 (실제 프로젝트에서는 API로 받아오거나 상수로 관리)
-const certificateOptions = [
-  { id: 1, name: '요양보호사 1급' },
-  { id: 2, name: '요양보호사 2급' },
-  { id: 3, name: '사회복지사 1급' },
-  { id: 4, name: '사회복지사 2급' },
-  { id: 5, name: '간호조무사' },
-  { id: 6, name: '물리치료사' }
-];
+// 자격증 종류 상태
+const certificateOptions = ref([]);
+
+// 자격증 종류 조회 함수
+const fetchCertTypes = async () => {
+  try {
+    const data = await getCertificateTypes();
+    console.log('Fetched Cert Types:', data); // 디버깅용 로그
+
+    if (Array.isArray(data) && data.length > 0) {
+      certificateOptions.value = data.map(item => ({
+        ...item,
+        name: item.name || item.certificateName || item.codeName || '이름 없음' 
+      }));
+    } else {
+      certificateOptions.value = [];
+    }
+  } catch (error) {
+    console.error('Failed to fetch certificate types:', error);
+    certificateOptions.value = [];
+  }
+};
 
 // API 스펙에 맞춘 초기 데이터 정의
 const initialForm = { 
