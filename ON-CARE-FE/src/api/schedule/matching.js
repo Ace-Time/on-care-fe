@@ -7,10 +7,15 @@ import api from '@/lib/api'
  */
 
 // 수급자 목록 조회
-export const getBeneficiaryList = ({ page = 0, size = 8, keyword = '' } = {}) =>
-  api.get('/api/matching/beneficiaries/list', {
-    params: { page, size, keyword }
-})
+export const getBeneficiaryList = ({ page = 0, size = 8, keyword = '', assigned } = {}) => {
+  const params = {
+    page,
+    size,
+    ...(keyword && String(keyword).trim() ? { keyword: String(keyword).trim() } : {}),
+    ...(assigned === 'Y' || assigned === 'N' ? { assigned } : {}),
+  }
+  return api.get('/api/matching/beneficiaries/list', { params })
+}
 
 // 수급자 상세 조회
 export const getBeneficiaryDetail = (beneficiaryId) =>

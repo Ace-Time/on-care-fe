@@ -2,7 +2,37 @@
   <section class="matching-panel">
     <header class="panel-header">
       <h2 class="panel-title">수급자</h2>
-      <span class="count-badge">{{ total }}명</span>
+
+      <div class="header-right">
+        <div class="filter-tabs" role="tablist" aria-label="수급자 필터">
+          <button
+            type="button"
+            class="tab"
+            :class="{ active: filterMode === 'all' }"
+            @click="setFilter('all')"
+          >
+            전체
+          </button>
+          <button
+            type="button"
+            class="tab"
+            :class="{ active: filterMode === 'assigned' }"
+            @click="setFilter('assigned')"
+          >
+            배정
+          </button>
+          <button
+            type="button"
+            class="tab"
+            :class="{ active: filterMode === 'unassigned' }"
+            @click="setFilter('unassigned')"
+          >
+            미배정
+          </button>
+        </div>
+
+        <span class="count-badge">{{ total }}명</span>
+      </div>
     </header>
 
     <div class="search-bar">
@@ -68,6 +98,8 @@
   const page = ref(1)
   const pageSize = 8
   
+  const filterMode = ref('all')
+  
   const recipientsRaw = ref([])
   const selectedBeneficiaryId = ref(null)
   
@@ -76,13 +108,20 @@
   
   const getId = (item) => item?.beneficiaryId ?? item?.id ?? null
   
+  const assignedParam = computed(() => {
+    if (filterMode.value === 'assigned') return 'Y'
+    if (filterMode.value === 'unassigned') return 'N'
+    return undefined
+  })
+  
   const fetchList = async () => {
     loading.value = true
     try {
       const { data } = await getBeneficiaryList({
         page: page.value - 1,
         size: pageSize,
-        keyword: search.value?.trim() || null,
+        keyword: search.value,
+        assigned: assignedParam.value,
       })
   
       const content = Array.isArray(data?.content) ? data.content : []
@@ -105,6 +144,13 @@
     } finally {
       loading.value = false
     }
+  }
+  
+  const setFilter = async (mode) => {
+    if (filterMode.value === mode) return
+    filterMode.value = mode
+    page.value = 1
+    await fetchList()
   }
   
   onMounted(fetchList)
@@ -159,7 +205,7 @@
     male: gender === '남자',
     female: gender === '여자',
   })
-  </script>
+</script>
 
 <style scoped>
 .matching-panel {
@@ -178,6 +224,7 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 10px;
+  gap: 12px;
 }
 
 .panel-title {
@@ -186,12 +233,48 @@
   color: #1a5928;
 }
 
-.count-badge {
-  padding: 4px 10px;
-  background: #f3e8ff;
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.filter-tabs {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px;
+  border-radius: 999px;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  gap: 4px;
+}
+
+.tab {
+  border: none;
+  background: transparent;
+  padding: 6px 10px;
   border-radius: 999px;
   font-size: 13px;
+  color: #475569;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.tab.active {
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+  border: 1px solid #e5e7eb;
+}
+
+.count-badge {
+  padding: 6px 12px;
+  background: #f3e8ff;
+  border-radius: 999px;
+  font-size: 14px;
   color: #9333ea;
+  white-space: nowrap;
 }
 
 .search-bar {
