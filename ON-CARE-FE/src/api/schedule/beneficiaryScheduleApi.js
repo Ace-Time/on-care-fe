@@ -52,20 +52,20 @@ const buildUpdatePayload = ({
 // 생성
 export const createBeneficiarySchedule = async (params) => {
   const payload = buildCreatePayload(params)
-  const res = await api.post('/beneficiary-schedules', payload)
+  const res = await api.post('/api/beneficiary-schedules', payload)
   return res.data
 }
 
 // 수정
 export const updateBeneficiarySchedule = async (id, params) => {
   const payload = buildUpdatePayload(params)
-  const res = await api.put(`/beneficiary-schedules/${toNum(id)}`, payload)
+  const res = await api.put(`/api/beneficiary-schedules/${toNum(id)}`, payload)
   return res.data
 }
 
 // 삭제
 export const deleteBeneficiarySchedule = async (id, effectiveDate) => {
-  const res = await api.delete(`/beneficiary-schedules/${toNum(id)}`, {
+  const res = await api.delete(`/api/beneficiary-schedules/${toNum(id)}`, {
     params: { effectiveDate: toDate(effectiveDate) },
   })
   return res.data

@@ -19,7 +19,7 @@ export const getScheduleRangeCounts = async ({
     ...(searchField != null && String(searchField).trim() !== '' ? { searchField: String(searchField).trim() } : {}),
   };
 
-  const res = await api.get('/schedule/range-counts', { params });
+  const res = await api.get('/api/schedule/range-counts', { params });
   return res.data;
 };
 
@@ -44,7 +44,7 @@ export const getScheduleDayList = async ({
     ...(searchField != null && String(searchField).trim() !== '' ? { searchField: String(searchField).trim() } : {}),
   };
 
-  const res = await api.get('/schedule/day', { params });
+  const res = await api.get('/api/schedule/day', { params });
   return res.data;
 };
 
@@ -61,6 +61,6 @@ export const getScheduleDetail = async ({
     ...(startTime != null && String(startTime).trim() !== '' ? { startTime: String(startTime).trim() } : {}),
   };
 
-  const res = await api.get('/schedule/detail', { params });
+  const res = await api.get('/api/schedule/detail', { params });
   return res.data;
 };

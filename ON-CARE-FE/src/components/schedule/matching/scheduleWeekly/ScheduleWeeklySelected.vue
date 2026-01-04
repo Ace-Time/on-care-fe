@@ -207,7 +207,7 @@ const eventsByDay = computed(() => {
   const map = {}
   days.forEach((d) => (map[d] = []))
 
-  ;[...recipientEvents.value].forEach((ev) => {
+  ;[...recipientEvents.value, ...caregiverEvents.value].forEach((ev) => {
     if (map[ev.day]) map[ev.day].push(ev)
   })
 
