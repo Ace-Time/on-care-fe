@@ -119,6 +119,7 @@ const endDate = ref('');
 
 
 onMounted(async() => {
+  startDate.value = getTodayString();
   fetchApiBatch(0);
 })
 

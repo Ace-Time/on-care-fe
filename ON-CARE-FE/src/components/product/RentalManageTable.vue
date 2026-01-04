@@ -14,6 +14,7 @@
           <tr>
             <th>수급자</th>
             <th>계약담당자</th>
+            <th>제품명</th>
             <th>희망 시작일</th>
             <th>시작일</th>
             <th>계약 예정 종료일</th>
@@ -39,6 +40,7 @@
           >
             <td>{{ item.beneficiary }}</td>
             <td>{{ item.employee }}</td>
+            <td>{{ item.productName }}</td>
             <td>{{ item.wantedDate }}</td>
             <td>{{ item.startDate }}</td>
             <td>{{ item.expectedEndDate|| '-' }}</td>

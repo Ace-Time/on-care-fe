@@ -60,7 +60,7 @@ export const updateRentalContract = async({
     }
     console.log("params::",params)
 
-    const res = await api.patch('/rental/contract', params);
+    const res = await api.patch('/api/rental/contract', params);
     return res.data;
 }
 
@@ -76,6 +76,6 @@ export const terminateRentalContract = async({
     }
     console.log("params::",params)
 
-    const res = await api.patch('/rental/contract/termination', params);
+    const res = await api.patch('/api/rental/contract/termination', params);
     return res.data;
 }

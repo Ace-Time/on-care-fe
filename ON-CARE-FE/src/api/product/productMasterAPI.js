@@ -29,17 +29,21 @@ export const registMaster = async({
     explanation
 }) => {
 
-    const params ={
-        id,
-        name,
-        categoryCd,
-        amount,
-        ...(rentalAmount != null ? {rentalAmount} : {}),
-        ...(explanation != null ? {explanation} : {})
-    }
+    try{
+        const params ={
+            id,
+            name,
+            categoryCd,
+            amount,
+            ...(rentalAmount != null ? {rentalAmount} : {}),
+            ...(explanation != null ? {explanation} : {})
+        }
 
-    const res = await api.post('/api/product/master',params)
-    return res.data;
+        const res = await api.post('/api/product/master',params)
+        return res.data;
+    } catch(e) {
+        return e.response;
+    }
 }
 
 
