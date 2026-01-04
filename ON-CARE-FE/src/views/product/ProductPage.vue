@@ -52,7 +52,7 @@ const tabs = [
   },
   {
     key: 'inout',
-    label: '입출고 예정',
+    label: '입출고 현황',
     routeName: 'product-inout-plan',
   },
 ]

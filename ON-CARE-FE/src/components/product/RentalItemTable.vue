@@ -66,7 +66,7 @@
 
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue';
-import { getRentalItems, getRentalStatus } from '@/api/product/rentalAPI';
+import { getRentalItems, getRentalStatus , updateRentalContract } from '@/api/product/rentalAPI';
 
 const props = defineProps({
   contractId: {
