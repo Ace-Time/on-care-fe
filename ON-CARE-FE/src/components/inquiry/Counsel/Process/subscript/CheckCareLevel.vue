@@ -398,11 +398,8 @@ watch(() => [form.careLevelStartDate, form.careLevelEndDate], () => {
 
 // 초기 데이터 로드
 onMounted(() => {
-  console.log('🎨 CheckCareLevel 마운트');
-  console.log('📦 받은 initialData:', props.initialData);
   
   if (props.initialData) {
-    console.log('✅ initialData로 폼 채우기');
     Object.assign(form, props.initialData);
   }
   
@@ -415,7 +412,6 @@ onMounted(() => {
 
 // 폼 데이터 반환 (부모에서 접근)
 const getFormData = () => {
-  console.log('📤 getFormData 호출:', form);
   return { ...form };
 };
 

@@ -250,20 +250,16 @@ const getInitialDataForStage = (stage) => {
 // 변경 사항 감지 핸들러
 const handleHasChanges = (hasChanges) => {
   hasUnsavedChanges.value = hasChanges;
-  console.log('📝 변경 사항:', hasChanges);
 };
 
 // Validation 상태 핸들러
 const handleValidationStatus = (isValid) => {
   isCurrentStageValid.value = isValid;
-  console.log('✅ Validation 상태:', isValid);
 };
 
 // 단계 선택
 const selectStage = async (stage) => {
   if (stage <= 4) {
-    console.log(`🎯 단계 ${stage} 선택`);
-    console.log(`📦 현재 stageDataMap[${stage}]:`, stageDataMap.value[stage]);
     
     currentStage.value = stage;
     currentComponent.value = stageComponents[stage];
@@ -274,7 +270,6 @@ const selectStage = async (stage) => {
     dataLoadKey.value++;
     
     await nextTick();
-    console.log(`✅ 단계 ${stage} 컴포넌트 렌더링 완료`);
   }
 };
 
@@ -393,7 +388,6 @@ const cancelProcess = () => {
 
 // 계약 완료
 const completeSubscription = async () => {
-  console.log('계약 완료 프로세스 시작');
   
   // Validation 체크
   if (currentStageRef.value?.validateForm && !currentStageRef.value.validateForm()) {
@@ -476,23 +470,17 @@ const loadStageData = async () => {
   }
 
   try {
-    console.log('🔍 데이터 로드 시작 - customerId:', props.customer.customerId);
     
     if (props.customer.stages && Array.isArray(props.customer.stages)) {
-      console.log('✅ customer.stages 발견:', props.customer.stages);
       await loadFromStagesArray(props.customer.stages);
       return;
     }
     
-    console.log('📡 API 호출 시작...');
     const response = await getStageDataApi(props.customer.customerId);
-    console.log('📡 API 응답:', response.data);
 
     if (response.data && Array.isArray(response.data.stages)) {
-      console.log('✅ response.data.stages 발견:', response.data.stages);
       await loadFromStagesArray(response.data.stages);
     } else if (response.data && response.data.stageData) {
-      console.log('✅ response.data.stageData 발견:', response.data.stageData);
       await loadFromStageDataObject(response.data.stageData);
     } else {
       console.warn('⚠️ 알 수 없는 응답 구조:', response.data);
@@ -500,14 +488,12 @@ const loadStageData = async () => {
     }
     
   } catch (error) {
-    console.error('❌ 단계 데이터 불러오기 실패:', error);
     await selectStage(1);
   }
 };
 
 // stages 배열에서 데이터 로드
 const loadFromStagesArray = async (stages) => {
-  console.log('🔄 stages 배열 처리 시작');
   
   const loadedData = {};
   const completed = [];
@@ -515,41 +501,33 @@ const loadFromStagesArray = async (stages) => {
   stages.forEach(stageItem => {
     const stageNum = stageItem.stage;
     
-    console.log(`  📌 단계 ${stageNum}:`, stageItem);
     
     if (stageItem.stageData) {
       loadedData[stageNum] = stageItem.stageData;
-      console.log(`  ✅ 단계 ${stageNum} 데이터 로드:`, stageItem.stageData);
     }
     
     if (stageItem.processStatus === 'F') {
       completed.push(stageNum);
-      console.log(`  ✅ 단계 ${stageNum} 완료 처리`);
     }
   });
   
   stageDataMap.value = loadedData;
   completedStages.value = completed;
   
-  console.log('✅ 최종 stageDataMap:', stageDataMap.value);
-  console.log('✅ 완료된 단계들:', completedStages.value);
   
   await nextTick();
   
   if (completedStages.value.length > 0) {
     const lastCompleted = Math.max(...completedStages.value);
     const nextStage = Math.min(lastCompleted + 1, 4);
-    console.log(`🎯 단계 ${nextStage}로 이동 (마지막 완료: ${lastCompleted})`);
     await selectStage(nextStage);
   } else {
-    console.log('🎯 단계 1로 이동 (완료된 단계 없음)');
     await selectStage(1);
   }
 };
 
 // stageData 객체에서 데이터 로드
 const loadFromStageDataObject = async (stageData) => {
-  console.log('🔄 stageData 객체 처리 시작');
   
   const loadedData = {};
   const completed = [];
@@ -558,30 +536,25 @@ const loadFromStageDataObject = async (stageData) => {
     const stageNum = parseInt(stage);
     const data = stageData[stage];
     
-    console.log(`  📌 단계 ${stageNum}:`, data);
     
     if (data && data.stageData) {
       loadedData[stageNum] = data.stageData;
-      console.log(`  ✅ 단계 ${stageNum} 데이터 로드`);
     }
     
     if (data && data.processStatus === 'F') {
       completed.push(stageNum);
-      console.log(`  ✅ 단계 ${stageNum} 완료 처리`);
     }
   });
   
   stageDataMap.value = loadedData;
   completedStages.value = completed;
   
-  console.log('✅ 최종 stageDataMap:', stageDataMap.value);
   
   await nextTick();
   
   if (completedStages.value.length > 0) {
     const lastCompleted = Math.max(...completedStages.value);
     const nextStage = Math.min(lastCompleted + 1, 4);
-    console.log(`🎯 단계 ${nextStage}로 이동`);
     await selectStage(nextStage);
   } else {
     await selectStage(1);
@@ -590,8 +563,6 @@ const loadFromStageDataObject = async (stageData) => {
 
 // 마운트 시 데이터 로드
 onMounted(async () => {
-  console.log('🚀 SubscriptProcess 마운트');
-  console.log('📦 받은 customer:', props.customer);
   
   await loadStageData();
   
@@ -602,9 +573,6 @@ onMounted(async () => {
 
 // customer 변경 시 데이터 다시 로드
 watch(() => props.customer, async (newCustomer, oldCustomer) => {
-  console.log('👀 customer 변경 감지');
-  console.log('  이전:', oldCustomer?.customerId);
-  console.log('  현재:', newCustomer?.customerId);
   
   if (newCustomer && newCustomer.customerId) {
     currentStage.value = 1;

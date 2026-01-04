@@ -216,12 +216,8 @@ watch(() => ({ ...form }), () => {
 
 // 초기 데이터 로드
 onMounted(() => {
-  console.log('🎨 NewPotentialRegist 마운트');
-  console.log('📦 받은 initialData:', props.initialData);
-  console.log('👤 받은 customer:', props.customer);
   
   if (props.initialData) {
-    console.log('✅ initialData로 폼 채우기');
     
     const data = { ...props.initialData };
     if (data.birthdate && typeof data.birthdate === 'string') {
@@ -230,7 +226,6 @@ onMounted(() => {
     
     Object.assign(form, data);
   } else if (props.customer) {
-    console.log('✅ customer 정보로 일부 필드 채우기');
     form.name = props.customer.name || '';
     form.phone = props.customer.phone || '';
   }
@@ -244,7 +239,6 @@ onMounted(() => {
 
 // 폼 데이터 반환 (부모에서 접근)
 const getFormData = () => {
-  console.log('📤 getFormData 호출:', form);
   return { ...form };
 };
 

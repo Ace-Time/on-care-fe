@@ -107,7 +107,6 @@ const filteredList = computed(() => {
 // 고객 변경 감지: 데이터 리셋 후 첫 페이지 로드
 watch(() => props.selectedCustomer, async (newCustomer) => {
   if (newCustomer && newCustomer.customerId) {
-    console.log('🔍 고객 변경 감지:', newCustomer);
     resetPagination(); // 상태 초기화
     await fetchCounselList(newCustomer.customerId);
     selectedCounselId.value = null;

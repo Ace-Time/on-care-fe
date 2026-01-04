@@ -111,8 +111,7 @@ const handleSearch = async () => {
     isLoading.value = true;
     const response = await searchCustomers(searchKeyword.value);
     
-    console.log('🔍 검색 응답:', response.data);
-    
+    // API 응답 데이터 매핑
     customerList.value = response.data.map(item => ({
       customerId: item.customerId,           
       name: item.name,               
@@ -126,7 +125,6 @@ const handleSearch = async () => {
       guardianPhone: item.guardianPhone
     }));
     
-    console.log('✅ 매핑된 고객 목록:', customerList.value);
     
     // 검색 후 선택 초기화
     selectedCustomer.value = null;
@@ -156,15 +154,12 @@ const isCustomerSelected = (customer) => {
 };
 
 const selectCustomer = (customer) => {
-  console.log('🎯 고객 선택:', customer);
   
   // 이미 선택된 고객을 다시 클릭하면 선택 해제
   if (isCustomerSelected(customer)) {
-    console.log('❌ 선택 해제');
     selectedCustomer.value = null;
     emit('select-customer', null);
   } else {
-    console.log('✅ 새로운 고객 선택');
     selectedCustomer.value = customer;
     emit('select-customer', customer);
   }
