@@ -16,12 +16,12 @@
         <div class="doc-preview-card">
           <div class="doc-icon">📄</div>
 
-          <!-- ✅ 모달 제목: originalFileName -->
+          <!-- 모달 제목: originalFileName -->
           <div class="doc-title">
             {{ doc.originalFileName || '-' }}
           </div>
 
-          <!-- ✅ 파일형식 · 파일크기 -->
+          <!-- 파일형식 · 파일크기 -->
           <div class="doc-sub">
             {{ mimeLabel }} · {{ doc.fileSize || '-' }}
           </div>
@@ -73,7 +73,7 @@ const props = defineProps({
   beneficiaryId: { type: [Number, String], required: true },
   formId: { type: [Number, String], default: null },
 
-  // ✅ 목록에서 받은 FormListItem(메타 표시용)
+  // 목록에서 받은 FormListItem(메타 표시용)
   document: { type: Object, default: null }
 })
 
@@ -89,8 +89,12 @@ const close = () => {
 const doc = computed(() => props.document)
 
 const mimeLabel = computed(() => {
-  const mime = doc.value?.mimeType || ''
-  return mime ? mime : 'application/pdf'
+  const mime = (doc.value?.mimeType || '').toLowerCase().trim()
+  if (!mime) return '-'
+  // 대표적인 것만 사람이 보기 좋게
+  if (mime === 'application/pdf') return 'PDF'
+  // 그 외는 그대로 노출
+  return mime
 })
 
 // 모달 열릴 때마다 에러 초기화
@@ -101,7 +105,7 @@ watch(
   }
 )
 
-// ✅ 미리보기: 새 탭 열기 (inline)
+// 미리보기: 새 탭 열기 (inline)
 //const onPreview = () => {
 //  if (!props.beneficiaryId || !props.formId) return
 //  // 백엔드가 Content-Disposition inline으로 내려주므로 새 탭에서 바로 보기 좋음
@@ -136,7 +140,7 @@ const onPreview = async () => {
 
 
 
-// ✅ 다운로드: blob 받아서 저장
+// 다운로드: blob 받아서 저장
 const onDownload = async () => {
   if (!props.beneficiaryId || !props.formId) return
   busy.value = true
