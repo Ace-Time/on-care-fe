@@ -14,14 +14,14 @@
       </button>
     </div>
 
-    <!-- ✅ 서비스 내역 -->
+    <!-- 서비스 내역 -->
     <ServiceView
       v-if="activeSubTab === 'service'"
       :key="`service-${beneficiaryId}`"
       :beneficiary-id="beneficiaryId"
     />
 
-    <!-- ✅ 렌탈 용품 -->
+    <!-- 렌탈 용품 -->
     <RentalView
       v-else
       :key="`rental-${beneficiaryId}`"
@@ -41,7 +41,7 @@ const props = defineProps({
 
 const subTabs = [
   { key: 'service', label: '서비스 내역' },
-  { key: 'rental', label: '렌탈 용품' }
+  { key: 'rental', label: '렌탈 계약 용품' }
 ]
 const activeSubTab = ref('service')
 
