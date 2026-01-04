@@ -193,7 +193,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, watch, onMounted } from 'vue';
+import { ref, reactive, watch, onMounted, nextTick } from 'vue';
 
 const props = defineProps({
   customer: {
@@ -252,6 +252,12 @@ const selectOption = (value) => {
     errors.careLevelEndDate = '';
     dateError.value = '';
   }
+  
+  // ✅ 초기 데이터도 함께 업데이트하여 변경으로 감지되지 않도록
+  nextTick(() => {
+    initialFormData.value = JSON.parse(JSON.stringify(form));
+    emit('has-changes', false);  // 변경 없음으로 명시
+  });
 };
 
 const toggleDropdown = () => {

@@ -184,7 +184,7 @@
               :key="index"
               class="schedule-item"
             >
-              <select v-model="schedule.beneficiaryScheduleDay" class="schedule-select">
+              <select v-model="schedule.beneficiaryScheduleDay" class="schedule-select day">
                 <option value="">요일 선택</option>
                 <option value="월">월요일</option>
                 <option value="화">화요일</option>
@@ -193,6 +193,12 @@
                 <option value="금">금요일</option>
                 <option value="토">토요일</option>
                 <option value="일">일요일</option>
+              </select>
+              <select v-model="schedule.serviceType" class="schedule-select service">
+                <option value="">서비스 선택</option>
+                <option value="1">방문요양 (33,000원)</option>
+                <option value="2">방문간호 (50,000원)</option>
+                <option value="3">방문목욕 (76,000원)</option>
               </select>
               <input 
                 type="time" 
@@ -294,8 +300,8 @@
 </template>
 
 <script setup>
-import { defineComponent, h, reactive, ref, onMounted, watch } from 'vue';
-import { getMatchTagsApi, getRiskFactorsApi } from '@/api/inquiry/counselApi';
+import { defineComponent, h, reactive, ref, onMounted, watch, nextTick } from 'vue';
+import { getMatchTagsApi, getRiskFactorsApi } from '@/api/inquiry/counselApi.js';
 
 const props = defineProps({
   customer: {
@@ -467,13 +473,26 @@ const addSchedule = () => {
   form.beneficiarySchedules.push({
     beneficiaryScheduleDay: '',
     beneficiaryScheduleStartTime: '',
-    beneficiaryScheduleEndTime: ''
+    beneficiaryScheduleEndTime: '',
+    serviceType: ''
+  });
+  
+  // ✅ 초기 데이터도 함께 업데이트하여 변경으로 감지되지 않도록
+  nextTick(() => {
+    initialFormData.value = JSON.parse(JSON.stringify(form));
+    emit('has-changes', false);  // 변경 없음으로 명시
   });
 };
 
 // 일정 삭제
 const removeSchedule = (index) => {
   form.beneficiarySchedules.splice(index, 1);
+  
+  // ✅ 초기 데이터도 함께 업데이트
+  nextTick(() => {
+    initialFormData.value = JSON.parse(JSON.stringify(form));
+    emit('has-changes', false);
+  });
 };
 
 // 폼 데이터가 변경되었는지 확인
@@ -560,7 +579,8 @@ onMounted(async () => {
     form.beneficiarySchedules = [{
       beneficiaryScheduleDay: '',
       beneficiaryScheduleStartTime: '',
-      beneficiaryScheduleEndTime: ''
+      beneficiaryScheduleEndTime: '',
+      serviceType: ''
     }];
   }
   
@@ -863,8 +883,14 @@ defineExpose({
   outline: none;
 }
 
-.schedule-select {
+.schedule-select.day {
   flex: 1;
+  min-width: 100px;
+}
+
+.schedule-select.service {
+  flex: 1.5;
+  min-width: 180px;
 }
 
 .schedule-time {

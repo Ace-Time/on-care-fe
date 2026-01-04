@@ -96,3 +96,74 @@ export const getMatchTagsApi = () => {
 export const getRiskFactorsApi = () => {
   return api.get('/api/beneficiaries/meta/risk-factors');
 };
+
+/**
+ * 신규 수급자 등록 (4단계 계약 완료)
+ * POST /api/counsel/regist/newBeneficiary
+ * @param {Object} data - RegistNewBeneficiary DTO 형식의 데이터
+ * @returns {Promise} - { success: boolean, message: string, beneficiaryId: number }
+ */
+export const registNewBeneficiaryApi = (data) => {
+  return api.post('/api/counsel/regist/newBeneficiary', data);
+};
+
+/**
+ * 수급자 특이사항 조회
+ * GET /api/counsel/beneficiaries/{beneficiaryId}/significants?category=카테고리명
+ */
+export const getBeneficiarySignificantsApi = (beneficiaryId, category) => {
+  const params = category ? { category } : {};
+  return api.get(`/api/counsel/beneficiaries/${beneficiaryId}/significants`, { params });
+};
+
+/**
+ * 모든 특이사항 마스터 조회
+ * GET /api/counsel/significants/master
+ */
+export const getAllSignificantsApi = () => {
+  return api.get('/api/counsel/significants/master');
+};
+
+/**
+ * 수급자 특이사항 추가
+ * POST /api/counsel/beneficiaries/{beneficiaryId}/significants
+ */
+export const addBeneficiarySignificantApi = (beneficiaryId, significantId) => {
+  return api.post(`/api/counsel/beneficiaries/${beneficiaryId}/significants`, {
+    significantId
+  });
+};
+
+/**
+ * 수급자 특이사항 삭제
+ * DELETE /api/counsel/beneficiaries/{beneficiaryId}/significants/{significantId}
+ */
+export const deleteBeneficiarySignificantApi = (beneficiaryId, significantId) => {
+  return api.delete(`/api/counsel/beneficiaries/${beneficiaryId}/significants/${significantId}`);
+};
+
+/**
+ * 잠재고객 등록
+ * POST /api/counsel/potentialCustomer
+ */
+export const registPotentialCustomerApi = (data) => {
+  return api.post('/api/counsel/potentialCustomer', data);
+};
+
+/**
+ * 신규 고객 통합상담 등록
+ * POST /api/counsel/general
+ */
+export const registNewGeneralCounselApi = (data) => {
+  return api.post('/api/counsel/general', data);
+};
+
+/**
+ * 기존 고객 통합상담 등록
+ * POST /api/counsel/{customerId}/general?customerType=potential
+ */
+export const registGeneralCounselApi = (data, customerId, customerType) => {
+  return api.post(`/api/counsel/${customerId}/general`, data, {
+    params: { customerType }
+  });
+};

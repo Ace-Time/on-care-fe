@@ -177,6 +177,39 @@
           <span v-if="errors.careLevelEndDate" class="error-message">{{ errors.careLevelEndDate }}</span>
         </div>
 
+        <div class="input-group">
+          <label class="label">계약 시작일 <span class="required">*</span></label>
+          <div class="input-with-icon">
+            <input 
+              type="date" 
+              class="input-field" 
+              :class="{ 'error': errors.contractStartDate }"
+              v-model="form.contractStartDate"
+              @blur="validateContractDates"
+            />
+            <svg class="icon-svg" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+          </div>
+          <span v-if="errors.contractStartDate" class="error-message">{{ errors.contractStartDate }}</span>
+        </div>
+        <div class="input-group">
+          <label class="label">계약 만료일 <span class="required">*</span></label>
+          <div class="input-with-icon">
+            <input 
+              type="date" 
+              class="input-field" 
+              :class="{ 'error': errors.contractEndDate }"
+              v-model="form.contractEndDate"
+              @blur="validateContractDates"
+            />
+            <svg class="icon-svg" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+          </div>
+          <span v-if="errors.contractEndDate" class="error-message">{{ errors.contractEndDate }}</span>
+        </div>
+
         <div class="input-group full-width">
           <label class="label">태그 (3단계에서 선택한 매칭 태그)</label>
           <div class="chip-group">
@@ -215,7 +248,7 @@
               :key="index"
               class="schedule-item"
             >
-              <select v-model="schedule.beneficiaryScheduleDay" class="schedule-select">
+              <select v-model="schedule.beneficiaryScheduleDay" class="schedule-select day">
                 <option value="">요일 선택</option>
                 <option value="월">월요일</option>
                 <option value="화">화요일</option>
@@ -224,6 +257,12 @@
                 <option value="금">금요일</option>
                 <option value="토">토요일</option>
                 <option value="일">일요일</option>
+              </select>
+              <select v-model="schedule.serviceType" class="schedule-select service">
+                <option value="">서비스 선택</option>
+                <option value="1">방문요양 (33,000원)</option>
+                <option value="2">방문간호 (50,000원)</option>
+                <option value="3">방문목욕 (76,000원)</option>
               </select>
               <input 
                 type="time" 
@@ -256,7 +295,7 @@
 
 <script setup>
 import { ref, reactive, onMounted, watch } from 'vue';
-import { getMatchTagsApi, getRiskFactorsApi } from '@/api/inquiry/counselApi';
+import { getMatchTagsApi, getRiskFactorsApi, registNewBeneficiaryApi } from '@/api/inquiry/counselApi.js';
 
 const props = defineProps({
   customer: {
@@ -269,7 +308,7 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(['has-changes', 'validation-status']);
+const emit = defineEmits(['has-changes', 'validation-status', 'contract-complete']);
 
 // API에서 불러올 데이터
 const matchTags = ref([]);
@@ -292,6 +331,10 @@ const form = reactive({
   careLevelNumber: '',
   careLevelStartDate: '',
   careLevelEndDate: '',
+
+  // 계약 정보
+  contractStartDate: '',
+  contractEndDate: '',
   
   // 3단계에서 바인딩
   selectedMatchTags: [],
@@ -312,7 +355,9 @@ const errors = reactive({
   level: '',
   careLevelNumber: '',
   careLevelStartDate: '',
-  careLevelEndDate: ''
+  careLevelEndDate: '',
+  contractStartDate: '',
+  contractEndDate: '' 
 });
 
 // Validation 함수들
@@ -411,6 +456,31 @@ const validateDates = () => {
   return true;
 };
 
+const validateContractDates = () => {
+  if (!form.contractStartDate) {
+    errors.contractStartDate = '계약 시작일을 선택해주세요.';
+    return false;
+  }
+  
+  if (!form.contractEndDate) {
+    errors.contractEndDate = '계약 만료일을 선택해주세요.';
+    return false;
+  }
+  
+  errors.contractStartDate = '';
+  errors.contractEndDate = '';
+  
+  const start = new Date(form.contractStartDate);
+  const end = new Date(form.contractEndDate);
+  
+  if (start > end) {
+    errors.contractEndDate = '계약 만료일은 시작일보다 이후여야 합니다.';
+    return false;
+  }
+  
+  return true;
+};
+
 // 전체 Validation
 const validateForm = () => {
   const nameValid = validateName();
@@ -421,9 +491,10 @@ const validateForm = () => {
   const levelValid = validateLevel();
   const numberValid = validateCareLevelNumber();
   const datesValid = validateDates();
+  const contractDatesValid = validateContractDates();
   
   const isValid = nameValid && birthdateValid && phoneValid && genderValid && 
-                  addressValid && levelValid && numberValid && datesValid;
+                  addressValid && levelValid && numberValid && datesValid && contractDatesValid;
   
   emit('validation-status', isValid);
   
@@ -455,7 +526,8 @@ const addSchedule = () => {
   form.beneficiarySchedules.push({
     beneficiaryScheduleDay: '',
     beneficiaryScheduleStartTime: '',
-    beneficiaryScheduleEndTime: ''
+    beneficiaryScheduleEndTime: '',
+    serviceType: ''  // 서비스 타입 추가
   });
 };
 
@@ -509,17 +581,17 @@ const loadRiskFactors = async () => {
     } else {
       riskFactors.value = response.data;
     }
-    console.log('✅ 위험요소 로드:', riskFactors.value);
+    console.log('위험요소 로드:', riskFactors.value);
   } catch (error) {
-    console.error('❌ 위험요소 로드 실패:', error);
+    console.error('위험요소 로드 실패:', error);
     riskFactors.value = ['뇌졸증', '치매', '거동불편', '당뇨', '고혈압', '공격성', '몽유병', '낙상위험', '욕창위험'];
   }
 };
 
 // 초기 데이터 로드
 onMounted(async () => {
-  console.log('🎨 RegistSubscription 마운트');
-  console.log('📦 받은 initialData:', props.initialData);
+  console.log('RegistSubscription 마운트');
+  console.log('받은 initialData:', props.initialData);
   
   // API 데이터 로드
   await loadMatchTags();
@@ -527,8 +599,27 @@ onMounted(async () => {
   
   // initialData가 있으면 폼에 채우기
   if (props.initialData) {
-    console.log('✅ initialData로 폼 채우기');
+    console.log('initialData로 폼 채우기');
     Object.assign(form, props.initialData);
+    
+    // ✅ 기존 스케줄에 serviceType 필드가 없으면 추가
+    if (form.beneficiarySchedules && form.beneficiarySchedules.length > 0) {
+      form.beneficiarySchedules = form.beneficiarySchedules.map(schedule => ({
+        beneficiaryScheduleDay: schedule.beneficiaryScheduleDay || '',
+        beneficiaryScheduleStartTime: schedule.beneficiaryScheduleStartTime || '',
+        beneficiaryScheduleEndTime: schedule.beneficiaryScheduleEndTime || '',
+        serviceType: schedule.serviceType || ''  // 없으면 빈 문자열
+      }));
+    }
+  }
+  // 계약 기본값
+  if (!form.contractStartDate) {
+    form.contractStartDate = new Date().toISOString().split('T')[0];
+  }
+  if (!form.contractEndDate) {
+    const oneYearLater = new Date();
+    oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
+    form.contractEndDate = oneYearLater.toISOString().split('T')[0];
   }
   
   // 일정이 없으면 기본 1개 추가
@@ -536,7 +627,8 @@ onMounted(async () => {
     form.beneficiarySchedules = [{
       beneficiaryScheduleDay: '',
       beneficiaryScheduleStartTime: '',
-      beneficiaryScheduleEndTime: ''
+      beneficiaryScheduleEndTime: '',
+      serviceType: ''
     }];
   }
   
@@ -549,7 +641,7 @@ onMounted(async () => {
 
 // 폼 데이터 반환 (부모에서 접근)
 const getFormData = () => {
-  console.log('📤 getFormData 호출:', form);
+  console.log('getFormData 호출:', form);
   return { ...form };
 };
 
@@ -559,10 +651,109 @@ const resetChangeTracking = () => {
   emit('has-changes', false);
 };
 
+// 계약 완료 처리
+const completeContract = async () => {
+  console.log('🚀 계약 완료 처리 시작');
+  
+  // Validation 체크
+  if (!validateForm()) {
+    console.error('❌ Validation 실패');
+    return {
+      success: false,
+      message: '필수 입력 항목을 확인해주세요.'
+    };
+  }
+  
+  try {
+    // RegistNewBeneficiary DTO 형식으로 데이터 변환
+    const requestData = {
+      // 기본 정보
+      name: form.name,
+      gender: form.gender,
+      birthdate: form.birthdate,
+      address: form.address,
+      phone: form.phone,
+      potentialCustomerId: props.customer?.customerId || null,
+      
+      // 보호자 정보
+      guardianName: form.guardianName || null,
+      guardianRelation: form.guardianRelation || null,
+      guardianPhone: form.guardianPhone || null,
+      
+      // 요양등급 정보
+      level: form.level,
+      careLevelNumber: form.careLevelNumber,
+      careLevelStartDate: form.careLevelStartDate,
+      careLevelEndDate: form.careLevelEndDate,
+      
+      // 계약 정보
+      contractStartDate: form.contractStartDate,
+      contractEndDate: form.contractEndDate,
+      
+      // 태그/위험요소
+      selectedMatchTags: form.selectedMatchTags || [],
+      selectedRisks: form.selectedRisks || [],
+      
+      // 스케줄
+      beneficiarySchedules: form.beneficiarySchedules || [],
+      
+      // 특이사항 (initialData에 3단계 데이터가 포함되어 있음)
+      렌탈금액민감: props.initialData?.렌탈금액민감 || form.렌탈금액민감 || 'N',
+      보호자결정의존: props.initialData?.보호자결정의존 || form.보호자결정의존 || 'N',
+      보편상품신뢰: props.initialData?.보편상품신뢰 || form.보편상품신뢰 || 'N',
+      거동불편: props.initialData?.거동불편 || form.거동불편 || 'N',
+      목욕불편: props.initialData?.목욕불편 || form.목욕불편 || 'N',
+      문자소통형: props.initialData?.문자소통형 || form.문자소통형 || 'N',
+      정기연락중시형: props.initialData?.정기연락중시형 || form.정기연락중시형 || 'N',
+      요양보호사고정선호: props.initialData?.요양보호사고정선호 || form.요양보호사고정선호 || 'N',
+      성격민감도높음: props.initialData?.성격민감도높음 || form.성격민감도높음 || 'N',
+      금액민감도높음: props.initialData?.금액민감도높음 || form.금액민감도높음 || 'N',
+      금액부담: props.initialData?.금액부담 || form.금액부담 || 'N'
+    };
+    
+    console.log('📤 전송 데이터:', requestData);
+    
+    // API 호출
+    const response = await registNewBeneficiaryApi(requestData);
+    
+    console.log('✅ 계약 완료 성공:', response.data);
+    
+    // 부모 컴포넌트로 성공 이벤트 전달
+    emit('contract-complete', {
+      success: true,
+      message: response.data.message,
+      beneficiaryId: response.data.beneficiaryId
+    });
+    
+    return {
+      success: true,
+      message: response.data.message,
+      beneficiaryId: response.data.beneficiaryId
+    };
+    
+  } catch (error) {
+    console.error('❌ 계약 완료 실패:', error);
+    
+    const errorMessage = error.response?.data?.message || '계약 완료 처리 중 오류가 발생했습니다.';
+    
+    // 부모 컴포넌트로 실패 이벤트 전달
+    emit('contract-complete', {
+      success: false,
+      message: errorMessage
+    });
+    
+    return {
+      success: false,
+      message: errorMessage
+    };
+  }
+};
+
 defineExpose({
   getFormData,
   validateForm,
-  resetChangeTracking
+  resetChangeTracking,
+  completeContract  // ✅ 추가
 });
 </script>
 
@@ -770,8 +961,14 @@ defineExpose({
   outline: none;
 }
 
-.schedule-select {
+.schedule-select.day {
   flex: 1;
+  min-width: 100px;
+}
+
+.schedule-select.service {
+  flex: 1.5;
+  min-width: 180px;
 }
 
 .schedule-time {

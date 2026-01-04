@@ -393,38 +393,48 @@ const cancelProcess = () => {
 
 // 계약 완료
 const completeSubscription = async () => {
+  console.log('계약 완료 프로세스 시작');
+  
   // Validation 체크
-  if (currentStageRef.value.validateForm && !currentStageRef.value.validateForm()) {
+  if (currentStageRef.value?.validateForm && !currentStageRef.value.validateForm()) {
     toast.error('필수 항목을 입력해주세요.');
     return;
   }
   
-  const saved = await saveCurrentStage();
-  if (!saved) return;
-  
-  if (!completedStages.value.includes(currentStage.value)) {
-    completedStages.value.push(currentStage.value);
-  }
-  
   try {
-    const formData = currentStageRef.value.getFormData();
+    isSaving.value = true;
     
-    await saveStageDataApi(
-      props.customer.customerId,
-      currentStage.value,
-      {
-        stage: currentStage.value,
-        potentialCustomerId: props.customer.customerId,
-        stageData: formData,
-        processStatus: 'F'
+    // 4단계 저장
+    const saved = await saveCurrentStage();
+    if (!saved) {
+      isSaving.value = false;
+      return;
+    }
+    
+    if (!completedStages.value.includes(currentStage.value)) {
+      completedStages.value.push(currentStage.value);
+    }
+    
+    // RegistSubscription 컴포넌트의 completeContract 메서드 호출
+    if (currentStageRef.value?.completeContract) {
+      const result = await currentStageRef.value.completeContract();
+      
+      if (result.success) {
+        toast.success(`계약이 완료되었습니다! (수급자 ID: ${result.beneficiaryId})`, { duration: 5000 });
+        emit('complete', result);
+      } else {
+        toast.error(result.message || '계약 완료에 실패했습니다.');
       }
-    );
+    } else {
+      console.warn('completeContract 메서드를 찾을 수 없습니다.');
+      toast.error('계약 완료 기능을 사용할 수 없습니다.');
+    }
     
-    toast.success('계약이 완료되었습니다!', { duration: 5000 });
-    emit('complete');
   } catch (error) {
     console.error('계약 완료 실패:', error);
-    toast.error('계약 완료에 실패했습니다.');
+    toast.error(error.response?.data?.message || '계약 완료에 실패했습니다.');
+  } finally {
+    isSaving.value = false;
   }
 };
 
