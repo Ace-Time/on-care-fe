@@ -119,6 +119,7 @@ const fetchEmployees = async () => {
       address: emp.address || '-',
       emergencyContact: emp.emergencyContact || '-',
       career: emp.career || '1년 미만',
+      beneficiaryCount: emp.beneficiaryCount || emp.matchingCount || 0, // [추가] 수급자 매칭 수
       birth: emp.birth || '', // ★ 생년월일 초기 매핑 추가
       
       workHistory: emp.careers || [],       

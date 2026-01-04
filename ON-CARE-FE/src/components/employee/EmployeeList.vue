@@ -41,7 +41,7 @@ onMounted(() => {
 const itemsPerPage = 8;
 
 const filteredEmployees = computed(() => {
-  return props.employees.filter(emp => {
+  const result = props.employees.filter(emp => {
     const matchesSearch = emp.name.includes(searchTerm.value) || emp.phone.includes(searchTerm.value);
     const matchesRole = !filterRole.value || emp.role === filterRole.value;
     const matchesStatus = !filterStatus.value || emp.status === filterStatus.value;
@@ -54,14 +54,23 @@ const filteredEmployees = computed(() => {
 
     // [추가] 서비스 유형 필터링
     const matchesService = !filterServiceType.value || (emp.specialties && emp.specialties.some(s => {
-      // s가 문자열이면 바로 비교, 객체면 id나 name 비교 (API 필터가 id로 올 경우 name으로 매핑 필요할 수도 있음)
-      // 현재 필터 옵션은 id, name 객체임. Dropdown value를 무엇으로 할지에 따라 다름.
-      // 보통 화면 표시는 한글 이름이므로 이름 매칭이 안전함.
       const sName = (typeof s === 'string') ? s : (s.name || '');
       return sName === filterServiceType.value;
     }));
     
     return matchesSearch && matchesRole && matchesStatus && matchesCert && matchesService;
+  });
+
+  // [수정] 정렬: 담당 수급자가 있는(수급자 수 많은) 직원 우선 -> 이름순
+  return result.sort((a, b) => {
+    const countA = a.beneficiaryCount || 0;
+    const countB = b.beneficiaryCount || 0;
+    
+    // 1. 수급자 수 내림차순
+    if (countA !== countB) return countB - countA;
+    
+    // 2. 이름 오름차순
+    return a.name.localeCompare(b.name);
   });
 });
 
