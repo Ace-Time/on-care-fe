@@ -1,0 +1,66 @@
+import api from '@/lib/api';
+
+export const getScheduleRangeCounts = async ({
+  start,
+  end,
+  beneficiaryId,
+  careWorkerId,
+  serviceTypeId,
+  keyword,
+  searchField,
+} = {}) => {
+  const params = {
+    start,
+    end,
+    ...(beneficiaryId != null ? { beneficiaryId } : {}),
+    ...(careWorkerId != null ? { careWorkerId } : {}),
+    ...(serviceTypeId != null ? { serviceTypeId } : {}),
+    ...(keyword != null && String(keyword).trim() !== '' ? { keyword: String(keyword).trim() } : {}),
+    ...(searchField != null && String(searchField).trim() !== '' ? { searchField: String(searchField).trim() } : {}),
+  };
+
+  const res = await api.get('/api/schedule/range-counts', { params });
+  return res.data;
+};
+
+export const getScheduleDayList = async ({
+  date,
+  beneficiaryId,
+  careWorkerId,
+  serviceTypeId,
+  keyword,
+  searchField,
+  page = 0,
+  size = 5,
+} = {}) => {
+  const params = {
+    date,
+    page,
+    size,
+    ...(beneficiaryId != null ? { beneficiaryId } : {}),
+    ...(careWorkerId != null ? { careWorkerId } : {}),
+    ...(serviceTypeId != null ? { serviceTypeId } : {}),
+    ...(keyword != null && String(keyword).trim() !== '' ? { keyword: String(keyword).trim() } : {}),
+    ...(searchField != null && String(searchField).trim() !== '' ? { searchField: String(searchField).trim() } : {}),
+  };
+
+  const res = await api.get('/api/schedule/day', { params });
+  return res.data;
+};
+
+export const getScheduleDetail = async ({
+  matchingId,
+  date,
+  serviceTypeId,
+  startTime,
+} = {}) => {
+  const params = {
+    matchingId,
+    date,
+    ...(serviceTypeId != null ? { serviceTypeId } : {}),
+    ...(startTime != null && String(startTime).trim() !== '' ? { startTime: String(startTime).trim() } : {}),
+  };
+
+  const res = await api.get('/api/schedule/detail', { params });
+  return res.data;
+};

@@ -13,46 +13,31 @@ export const useUserStore = defineStore(
     const roles         = ref([]);
     const profile       = ref('');
     const token         = ref('');
+    const tokenType     = ref('');
     const isLoggedIn    = ref(false); 
-    const nickname      = ref('');
-    const weight        = ref(0.0);
-    const height        = ref(0.0);
-    const bodyMetric    = ref(0);
     const birth         = ref('');
     const gender        = ref('');
     const phone         = ref('');
+    const jobName       = ref('');
+    
     
     // ----- Actions -----
     function logIn(
       {
-        userName,
-        userEmail,
-        profilePath,
-        authorities,
-        userId: uid,
-        nickname: nick,
-        weight: in_weight,
-        height: in_height,
-        bodyMetric: body_metric,
-        gender: gen,
-        birth: bir,
-        phone: ph,
+        username,
+        sub,
+        auth,
+        id,
+        jobname : job
       }
     ) {
       // console.log('asd',in_weight)
-      name.value       = userName
-      email.value      = userEmail
-      profile.value    = profilePath
-      roles.value      = authorities
-      userId.value     = uid
-      nickname.value   = nick
+      name.value       = username
+      email.value      = sub
+      roles.value      = auth
+      userId.value     = id
       isLoggedIn.value = true
-      weight.value     = in_weight
-      height.value     = in_height
-      bodyMetric.value = body_metric
-      birth.value      = bir
-      gender.value     = gen === 'M' ? '남자' : '여자'
-      phone.value      = ph
+      jobName.value    = job
     }
 
     function logOut() {
@@ -61,37 +46,48 @@ export const useUserStore = defineStore(
       profile.value    = ''
       roles.value      = []
       token.value      = ''
+      tokenType.value  = ''
       userId.value     = 0
-      nickname.value   = ''
       isLoggedIn.value = false
-      weight.value     = 0
-      height.value     = 0
-      bodyMetric.value = 0
       birth.value      = ''
       gender.value     = ''
       phone.value      = ''
+      jobName.value    = ''
       sessionStorage.removeItem('aiDietPlan')
       sessionStorage.removeItem('aiExercisePlan')
     }
 
-    function setToken(jwtToken) {
-      token.value = jwtToken 
+    function setToken(jwtToken,token_type) {
+      token.value = jwtToken ;
+      tokenType.value = token_type;
     }
 
     function changeProfile(newProfile) {
       profile.value = newProfile
     }
 
+    function hasAllAuthorities(authorities) {
+      return authorities.every(permission =>
+        roles.value.includes(permission)
+      )
+    }
+
+    function hasSomeAuthorities(authorities) {
+      return authorities.some(permission =>
+        roles.value.includes(permission)
+      )
+    }
+
     // ✅ roles 배열에서 대표 역할 하나만 뽑아서 헤더에서 쓰기 좋게 만든 computed
-    const mainRole = computed(() => {
-      const r = roles.value && roles.value.length > 0 ? roles.value[0] : null
-      if (!r) return null
-      // 백엔드에서 'ROLE_MANAGER' 이런 식으로 온다면 접두사 제거
-      if (typeof r === 'string' && r.startsWith('ROLE_')) {
-        return r.replace('ROLE_', '')
-      }
-      return r
-    })
+    // const mainRole = computed(() => {
+    //   const r = roles.value && roles.value.length > 0 ? roles.value[0] : null
+    //   if (!r) return null
+    //   // 백엔드에서 'ROLE_MANAGER' 이런 식으로 온다면 접두사 제거
+    //   if (typeof r === 'string' && r.startsWith('ROLE_')) {
+    //     return r.replace('ROLE_', '')
+    //   }
+    //   return r
+    // })
 
     // ----- 반환 -----
     return {
@@ -101,45 +97,43 @@ export const useUserStore = defineStore(
       roles,
       profile,
       token,
+      tokenType,
       isLoggedIn,
       userId,
-      nickname,
-      weight,
-      height,
-      bodyMetric,
       gender,
       birth,
       phone,
+      jobName,
 
       // ✅ 대표 역할 (MANAGER / SALES / MATERIAL / CAREGIVER 등)
-      mainRole,
+      // mainRole,
 
       // actions
       logIn,
       logOut,
       changeProfile,
       setToken,
+      hasAllAuthorities,
+      hasSomeAuthorities,
     }
   },
   {
     persist: {
       enabled: true, //storage 저장유무
-      storage: sessionStorage,
+      storage: localStorage,
       paths: [
         'name',
         'email',
         'roles',
         'profile',
-        'bodyMetric',
         'gender',
         'phone',
         'birth',
         'token',
+        'tokenType',
         'isLoggedIn',
         'userId',
-        'nickname',
-        'weight',
-        'height',
+        'jobName'
       ],
     },
   }

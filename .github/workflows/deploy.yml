@@ -1,0 +1,84 @@
+name: AWS Deploy
+
+# GitHub 저장소 읽기 및 PR 쓰기 권한을 설정
+permissions:
+  contents: read
+  pull-requests: write
+
+on:
+  push:
+    branches: [ "main" ]
+
+# 워크플로우 실행 작업 정의
+jobs:
+  deployment:
+    runs-on: ubuntu-latest
+    # 모든 run 단계에 대해 기본 실행 경로를 ON-CARE-FE로 설정
+    defaults:
+      run:
+        working-directory: ./ON-CARE-FE
+        
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v2
+      with:
+        node-version: '20'
+
+    - name: Install dependencies
+      run: npm install
+
+    - name: Build project
+      run: npm run build
+      env:
+        VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
+
+    - name: Install AWS CLI
+      run: |
+        curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+        unzip awscliv2.zip
+        sudo ./aws/install --update
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ap-northeast-2
+
+    - name: Generate deployment package
+      run: |
+        mkdir -p deploy
+        cp -r dist deploy/  # dist 디렉토리를 포함
+        cp package.json deploy/
+        cp server.js deploy/ 
+        cp Procfile deploy/Procfile
+        cd deploy && zip -r ../deploy.zip .
+
+    - name: Beanstalk Deploy
+      uses: einaregilsson/beanstalk-deploy@v22
+      with:
+        aws_access_key: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws_secret_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        application_name: front-a
+        environment_name: Front-a-env
+        version_label: github-action-${{ github.sha }}
+        region: ap-northeast-2
+        deployment_package: ON-CARE-FE/deploy.zip
+        use_existing_version_if_available: true 
+
+        
+    - name: Beanstalk Deploy
+      uses: einaregilsson/beanstalk-deploy@v22
+      with:
+        aws_access_key: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws_secret_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        application_name: front-a
+        environment_name: Front-b-env
+        version_label: github-action-${{ github.sha }}
+        region: ap-northeast-2
+        deployment_package: ON-CARE-FE/deploy.zip
+        # 이 옵션을 넣어야 이미 생성된 버전을 다시 사용 가능
+        use_existing_version_if_available: true
