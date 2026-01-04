@@ -148,7 +148,14 @@ export const needsAssessment = {
           textLabel: { '상처간호': '부위', '기타': '내용' }
         },
         { code: 'bedsore_stage', label: '욕창 단계', type: 'radio', choices: ['없음', '1단계', '2단계', '3단계', '4단계'] },
-        { code: 'bedsore_site', label: '욕창 부위', type: 'checkbox', choices: ['머리', '등', '어깨', '팔꿈치', '엉덩이', '뒤꿈치', '기타'], hasTextWhen: ['기타'] },
+        {
+          code: 'bedsore_site',
+          label: '욕창 부위',
+          type: 'checkbox',
+          choices: ['머리', '등', '어깨', '팔꿈치', '엉덩이', '뒤꿈치', '기타'],
+          hasTextWhen: ['기타'],
+          showWhen: { bedsore_stage: ['1단계', '2단계', '3단계', '4단계'] }
+        },
         { code: 'bedsore_prevention', label: '욕창 방지 도구', type: 'text', isOptional: true },
         { code: 'pain_cancer_site', label: '통증 - 암 발생 부위', type: 'checkbox', choices: ['없음', '폐', '위', '대장', '간', '전립선', '유방', '담낭 및 기타담도', '기타'], hasTextWhen: ['기타'] },
         { code: 'pain_general_site', label: '일반 통증 부위', type: 'checkbox', choices: ['없음', '머리', '상지', '하지', '허리', '등', '복부', '기타'], hasTextWhen: ['기타'] }

@@ -1,6 +1,7 @@
 <script setup>
 import { ref, watch, onMounted, onUnmounted } from 'vue';
 import { getBeneficiaryDetail } from '@/api/careworker';
+import { Icon } from '@iconify/vue';
 
 const props = defineProps({
   isOpen: Boolean,
@@ -23,7 +24,6 @@ const error = ref(null);
 // 수급자 상세 정보 로드
 const loadBeneficiaryDetail = async () => {
   if (!props.beneficiaryId) {
-    console.warn('beneficiaryId가 없습니다.');
     return;
   }
 
@@ -31,27 +31,12 @@ const loadBeneficiaryDetail = async () => {
   error.value = null;
 
   try {
-    console.log('수급자 상세 정보 요청 - beneficiaryId:', props.beneficiaryId);
     const response = await getBeneficiaryDetail(props.beneficiaryId);
-    console.log('수급자 상세 정보 응답:', response);
-    console.log('응답 구조:', {
-      response,
-      responseData: response?.data,
-      responseDataData: response?.data?.data,
-    });
 
     // API 응답 구조에 따라 데이터 추출 (여러 패턴 대응)
     const data = response?.data?.data || response?.data || response;
-    console.log('추출된 beneficiary 데이터:', data);
     beneficiary.value = data;
   } catch (err) {
-    console.error('수급자 상세 정보 로드 실패:', err);
-    console.error('에러 상세:', {
-      message: err.message,
-      response: err.response,
-      status: err.response?.status,
-      data: err.response?.data
-    });
     error.value = `수급자 정보를 불러오는데 실패했습니다. (${err.message})`;
   } finally {
     loading.value = false;
@@ -90,9 +75,9 @@ onUnmounted(() => {
     <div class="modal-container">
       <!-- 헤더 -->
       <div class="modal-header">
-        <h3 class="modal-title">👤 수급자 상세 정보</h3>
+        <h3 class="modal-title"><Icon icon="line-md:account" class="title-icon" /> 수급자 상세 정보</h3>
         <button class="close-btn" @click="onClose">
-          <span class="close-icon">&times;</span>
+          <Icon icon="line-md:close" class="close-icon" />
         </button>
       </div>
 
@@ -100,13 +85,13 @@ onUnmounted(() => {
       <div class="modal-body">
         <!-- 로딩 중 -->
         <div v-if="loading" class="loading-state">
-          <span class="loading-spinner">⏳</span>
+          <Icon icon="line-md:loading-twotone-loop" class="loading-spinner" />
           <p>수급자 정보를 불러오는 중...</p>
         </div>
 
         <!-- 에러 -->
         <div v-else-if="error" class="error-state">
-          <span class="error-icon">⚠️</span>
+          <Icon icon="line-md:alert" class="error-icon" />
           <p>{{ error }}</p>
         </div>
 
@@ -182,7 +167,7 @@ onUnmounted(() => {
 
           <!-- 위험요인 -->
           <div v-if="beneficiary.riskFactors && beneficiary.riskFactors.length > 0" class="info-section">
-            <h4 class="section-title">⚠️ 위험요인</h4>
+            <h4 class="section-title"><Icon icon="line-md:alert" /> 위험요인</h4>
             <div class="tags-container">
               <span v-for="(risk, index) in beneficiary.riskFactors" :key="index" class="tag tag-warning">
                 {{ risk }}
@@ -192,7 +177,7 @@ onUnmounted(() => {
 
           <!-- 특이사항 -->
           <div v-if="beneficiary.significants && beneficiary.significants.length > 0" class="info-section">
-            <h4 class="section-title">📌 특이사항</h4>
+            <h4 class="section-title"><Icon icon="line-md:alert-circle" /> 특이사항</h4>
             <div class="tags-container">
               <span v-for="(item, index) in beneficiary.significants" :key="index" class="tag tag-info">
                 {{ item }}
@@ -202,7 +187,7 @@ onUnmounted(() => {
 
           <!-- 태그 -->
           <div v-if="beneficiary.tags && beneficiary.tags.length > 0" class="info-section">
-            <h4 class="section-title">🏷️ 태그</h4>
+            <h4 class="section-title"><Icon icon="line-md:hash" /> 태그</h4>
             <div class="tags-container">
               <span v-for="(tag, index) in beneficiary.tags" :key="index" class="tag tag-default">
                 {{ tag }}
@@ -279,6 +264,9 @@ onUnmounted(() => {
   font-weight: 700;
   color: #1e40af;
   margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .close-btn {

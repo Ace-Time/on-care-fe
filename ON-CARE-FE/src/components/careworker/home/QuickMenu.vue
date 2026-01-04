@@ -1,26 +1,27 @@
 <script setup>
+import { Icon } from '@iconify/vue';
 </script>
 
 <template>
   <div class="bottom-nav">
     <div class="nav-container">
       <router-link to="/care-home" class="nav-item" active-class="active">
-        <span class="nav-icon">🏠</span>
+        <Icon icon="line-md:home-md" class="nav-icon" />
         <span class="nav-text">홈</span>
       </router-link>
 
       <router-link to="/care-schedule" class="nav-item" active-class="active">
-        <span class="nav-icon">📅</span>
+        <Icon icon="line-md:calendar" class="nav-icon" />
         <span class="nav-text">근무 일정</span>
       </router-link>
       
       <router-link to="/care-log" class="nav-item" active-class="active">
-        <span class="nav-icon">📝</span>
+        <Icon icon="line-md:clipboard-list" class="nav-icon" />
         <span class="nav-text">활동일지</span>
       </router-link>
 
       <router-link to="/care-recipient" class="nav-item" active-class="active">
-        <span class="nav-icon">👥</span>
+        <Icon icon="line-md:account-group" class="nav-icon" />
         <span class="nav-text">수급자 관리</span>
       </router-link>
     </div>

@@ -1,15 +1,16 @@
 <script setup>
-import { onMounted, ref, computed } from "vue";
+import { onMounted, ref, computed, watch } from "vue";
 import VisitCounselForm from "@/components/careworker/activity/VisitCounselForm.vue";
 import { createCounselingLog, getCounselingLogList, updateCounselingLog, deleteCounselingLog, getCounselingLogDetail } from '@/api/careworker/counselingLogApi';
 import { useUserStore } from '@/stores/user';
+import { Icon } from '@iconify/vue';
 
 const userStore = useUserStore();
 
 const mainTab = ref("write");
 const mainTabs = [
-      { key: "write", label: "작성하기", icon: "✏️" },
-      { key: "history", label: "작성 내역", icon: "📑" },
+      { key: "write", label: "작성하기", icon: "line-md:edit" },
+      { key: "history", label: "작성 내역", icon: "line-md:document-list" },
     ];
 
 const counselHistory = ref([]);
@@ -32,6 +33,30 @@ const filteredCounselHistory = computed(() => {
   }
   
   return result;
+});
+
+// 페이지네이션
+const currentPage = ref(1);
+const itemsPerPage = ref(15);
+
+const paginatedHistory = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage.value;
+  const end = start + itemsPerPage.value;
+  return filteredCounselHistory.value.slice(start, end);
+});
+
+const totalPages = computed(() => {
+  return Math.ceil(filteredCounselHistory.value.length / itemsPerPage.value);
+});
+
+const changePage = (page) => {
+  if (page < 1 || page > totalPages.value) return;
+  currentPage.value = page;
+};
+
+// 필터 변경 시 페이지 초기화
+watch([selectedCounselType, searchQuery], () => {
+  currentPage.value = 1;
 });
 
 // 매핑 데이터 (API 코드 <-> UI 텍스트 변환용)
@@ -91,7 +116,6 @@ const loadCounselingHistory = async () => {
       };
     });
   } catch (error) {
-    console.error('❌ 방문상담 목록 불러오기 실패:', error);
     counselHistory.value = [];
   } finally {
     loading.value = false;
@@ -136,7 +160,6 @@ const openDetail = async (item) => {
 
     showDetailModal.value = true;
   } catch (error) {
-    console.error('❌ 상세 정보 조회 실패:', error);
     if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
       alert('서버 응답 시간이 초과되었습니다.\n데이터 중복 문제로 인해 처리가 지연되고 있을 수 있습니다.');
     } else if (error.response?.status === 500) {
@@ -176,7 +199,6 @@ const handleSubmit = async (formData, isDraft = false) => {
     mainTab.value = 'history';
     await loadCounselingHistory();
   } catch (error) {
-    console.error('제출 오류:', error);
     if (error.response?.status === 500) {
       alert('서버 내부 오류가 발생했습니다. (데이터 중복 가능성)\n관리자에게 문의해 주세요.');
     } else {
@@ -382,7 +404,6 @@ const saveSignature = async () => {
     await loadCounselingHistory();
 
   } catch (error) {
-    console.error("서명 저장 실패:", error);
     alert("서명 저장 중 오류가 발생했습니다.");
   }
 };
@@ -403,7 +424,7 @@ onMounted(() => {
           :class="{ active: mainTab === tab.key }"
           @click="mainTab = tab.key"
         >
-          <span class="tab-icon">{{ tab.icon }}</span>
+          <Icon :icon="tab.icon" class="tab-icon" />
           <span>{{ tab.label }}</span>
         </button>
       </div>
@@ -437,7 +458,7 @@ onMounted(() => {
 
         <div class="history-list">
           <div 
-            v-for="item in filteredCounselHistory" 
+            v-for="item in paginatedHistory" 
             :key="item.id" 
             class="counsel-row"
             @click="openDetail(item)"
@@ -464,9 +485,38 @@ onMounted(() => {
             </div>
 
             <div class="row-col action-col">
-              <span class="chevron">›</span>
+              <Icon icon="line-md:chevron-right" class="chevron" />
             </div>
           </div>
+        </div>
+
+        <!-- 페이지네이션 컨트롤 -->
+        <div class="pagination-controls" v-if="totalPages > 0">
+          <button 
+            class="page-btn prev-btn" 
+            :disabled="currentPage === 1" 
+            @click="changePage(currentPage - 1)"
+          >
+            <Icon icon="line-md:chevron-left" />
+          </button>
+          
+          <button 
+            v-for="page in totalPages" 
+            :key="page" 
+            class="page-btn number-btn" 
+            :class="{ active: currentPage === page }"
+            @click="changePage(page)"
+          >
+            {{ page }}
+          </button>
+          
+          <button 
+            class="page-btn next-btn" 
+            :disabled="currentPage === totalPages" 
+            @click="changePage(currentPage + 1)"
+          >
+            <Icon icon="line-md:chevron-right" />
+          </button>
         </div>
       </div>
     </main>
@@ -495,7 +545,7 @@ onMounted(() => {
             <p class="section-content">{{ selectedItem.counselorNotes }}</p>
           </div>
           <div class="detail-section next-visit">
-            <span class="label">📅 다음 방문 예정:</span>
+            <span class="label"><Icon icon="line-md:calendar" /> 다음 방문 예정:</span>
             <span class="value">{{ selectedItem.nextVisit }}</span>
           </div>
 
@@ -506,7 +556,7 @@ onMounted(() => {
                  <img :src="selectedItem.guardianSignUrl" alt="수급자 서명" class="sig-img" />
               </div>
               <div v-else class="sig-status">
-                서명 하기 ✍️
+                서명 하기 <Icon icon="line-md:edit-twotone" />
               </div>
             </div>
 
@@ -516,7 +566,7 @@ onMounted(() => {
                  <img :src="selectedItem.counselorSignUrl" alt="요양보호사 서명" class="sig-img" />
               </div>
               <div v-else class="sig-status">
-                 서명 하기 ✍️
+                 서명 하기 <Icon icon="line-md:edit-twotone" />
               </div>
             </div>
           </div>
@@ -701,6 +751,49 @@ onMounted(() => {
 }
 
 .row-col.action-col { text-align: right; color: #d1d5db; font-size: 1.5rem; font-weight: 300; }
+
+/* 페이지네이션 스타일 */
+.pagination-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin-top: 24px;
+}
+
+.page-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  border: 1px solid #e5e7eb;
+  background: white;
+  border-radius: 6px;
+  cursor: pointer;
+  color: #4b5563;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+
+.page-btn:hover:not(:disabled) {
+  border-color: #16a34a;
+  color: #16a34a;
+  background: #f0fdf4;
+}
+
+.page-btn.active {
+  background: #16a34a;
+  border-color: #16a34a;
+  color: white;
+  font-weight: 600;
+}
+
+.page-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #f9fafb;
+}
 
 /* 상세 모달 스타일 */
 .modal-overlay {

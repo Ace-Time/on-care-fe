@@ -1,6 +1,10 @@
 ﻿<script setup>
 import { ref, computed, watch, onMounted } from "vue";
+import { useRoute } from 'vue-router';
 import { useUserStore } from '@/stores/user';
+import { Icon } from '@iconify/vue';
+
+const route = useRoute();
 
 // 1. 각 평가 폼 컴포넌트 임포트
 import FallRiskAssessmentForm from "@/components/careworker/activity/FallRiskAssessmentForm.vue";
@@ -43,19 +47,20 @@ const evalHistory = ref([]);
 const loading = ref(false);
 const selectedYear = ref(new Date().getFullYear());
 const yearStats = ref({});
+const selectedBeneficiaryId = ref(null);
 
 // 평가 카테고리 정의
 const categories = [
-  { key: "fallRisk", label: "낙상위험도", icon: "⚠️", component: FallRiskAssessmentForm },
-  { key: "bedsore", label: "욕창위험도", icon: "🩹", component: BedsoreAssessmentForm },
-  { key: "cognitive", label: "인지기능", icon: "🧠", component: CognitiveAssessmentForm },
-  { key: "needs", label: "욕구사정", icon: "📋", component: NeedsAssessmentForm || null },
+  { key: "fallRisk", label: "낙상위험도", icon: "line-md:alert", component: FallRiskAssessmentForm },
+  { key: "bedsore", label: "욕창위험도", icon: "line-md:plus-square", component: BedsoreAssessmentForm },
+  { key: "cognitive", label: "인지기능", icon: "line-md:lightbulb", component: CognitiveAssessmentForm },
+  { key: "needs", label: "욕구사정", icon: "line-md:clipboard-list", component: NeedsAssessmentForm || null },
 ];
 
 // 보기 모드 탭 정의
 const viewTabs = [
-  { key: "write", label: "작성하기", icon: "✏️" },
-  { key: "history", label: "작성 내역", icon: "📑" },
+  { key: "write", label: "작성하기", icon: "line-md:edit" },
+  { key: "history", label: "작성 내역", icon: "line-md:document-list" },
 ];
 
 const apiMap = {
@@ -95,9 +100,12 @@ const currentTabComponent = computed(() => {
 // 평가 등급 판정
 const getGradeLabel = (resultGrade) => {
   if (!resultGrade) return '-';
-  if (resultGrade.includes('낮음') || resultGrade.includes('정상') || resultGrade.includes('없음')) return '낮음';
-  if (resultGrade.includes('중간') || resultGrade.includes('보통')) return '중간';
-  if (resultGrade.includes('높음')) return '높음';
+  // Green / Safe
+  if (resultGrade.includes('낮음') || resultGrade.includes('정상') || resultGrade.includes('없음') || resultGrade.includes('양호')) return '낮음';
+  // Yellow / Warning
+  if (resultGrade.includes('중간') || resultGrade.includes('보통') || resultGrade.includes('경계')) return '중간';
+  // Red / Danger
+  if (resultGrade.includes('높음') || resultGrade.includes('나쁨') || resultGrade.includes('주의') || resultGrade.includes('인지저하') || resultGrade.includes('치매') || resultGrade.includes('의심')) return '높음';
   return '-';
 };
 
@@ -182,16 +190,24 @@ const loadEvaluationHistory = async () => {
     // 날짜 최신순 정렬
     formattedData.sort((a, b) => new Date(b.evalDate) - new Date(a.evalDate));
 
-    evalHistory.value = formattedData;
-    yearStats.value = calculateYearStats(formattedData);
-    
+    // beneficiaryId로 필터링 (쿼리 파라미터로 전달된 경우)
+    let filteredData = formattedData;
+    if (selectedBeneficiaryId.value) {
+      filteredData = formattedData.filter(item => {
+        return item.beneficiaryId && item.beneficiaryId.toString() === selectedBeneficiaryId.value.toString();
+      });
+    }
+
+    evalHistory.value = filteredData;
+    yearStats.value = calculateYearStats(filteredData);
+
+    // 항상 최신 연도를 선택하도록 수정
     const years = Object.keys(yearStats.value).sort((a, b) => b - a);
-    if (years.length > 0 && !yearStats.value[selectedYear.value]) {
+    if (years.length > 0) {
       selectedYear.value = parseInt(years[0]);
     }
 
   } catch (error) {
-    console.error(error);
   } finally {
     loading.value = false;
   }
@@ -213,6 +229,30 @@ const filteredByYear = computed(() => {
 
 const availableYears = computed(() => {
   return Object.keys(yearStats.value).sort((a, b) => b - a);
+});
+
+// 페이지네이션
+const currentPage = ref(1);
+const itemsPerPage = ref(15); 
+
+const paginatedList = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage.value;
+  const end = start + itemsPerPage.value;
+  return filteredByYear.value.slice(start, end);
+});
+
+const totalPages = computed(() => {
+  return Math.ceil(filteredByYear.value.length / itemsPerPage.value);
+});
+
+const changePage = (page) => {
+  if (page < 1 || page > totalPages.value) return;
+  currentPage.value = page;
+};
+
+// 필터 변경 시 페이지 초기화
+watch([activeCategory, selectedYear, searchQuery], () => {
+  currentPage.value = 1;
 });
 
 
@@ -259,11 +299,57 @@ const createPayload = (data, isDraft = false) => {
   return payload;
 };
 
+// 중복 작성 체크 (연 1회 제한)
+const checkDuplicateEvaluation = async (beneficiaryId, year) => {
+  try {
+    const listApi = apiMap[activeCategory.value];
+    if (!listApi) return false;
+
+    // 해당 카테고리 전체 목록 조회 (서버 부하가 걱정되면 별도 API 필요하지만, 현재는 전체 조회 후 필터링)
+    const response = await listApi();
+    const data = response?.data ?? response;
+    
+    if (!data || !Array.isArray(data)) return false;
+
+    // 수급자 ID와 연도가 일치하고, 임시저장이 아닌(완료된) 데이터가 있는지 확인
+    const exists = data.some(item => {
+      const itemYear = new Date(item.evalDate || item.assessmentDate || item.evaluationDate).getFullYear();
+      
+      // isDraft 필드 체크 (문자열/불리언/JSON 내부 등 다양한 케이스 대응)
+      let isDraft = item.isDraft === true || item.isDraft === 'true' || item.isDraft === 1;
+      
+      // evalData 내부에 isDraft가 있을 수도 있음 (loadEvaluationHistory 로직 참고)
+      if (!isDraft && item.evalData) {
+         try {
+            const parsed = typeof item.evalData === 'string' ? JSON.parse(item.evalData) : item.evalData;
+            if (parsed.isDraft) isDraft = true;
+         } catch (e) {}
+      }
+
+      return item.beneficiaryId === beneficiaryId && itemYear === year && !isDraft;
+    });
+
+    return exists;
+  } catch (error) {
+    return false; // 에러 시에는 일단 통과 (혹은 차단 정책에 따라 변경 가능)
+  }
+};
+
 const handleSubmit = async (data) => {
   try {
     const createApi = createApiMap[activeCategory.value];
     if (!createApi) {
       alert('저장 기능이 준비되지 않았습니다.');
+      return;
+    }
+
+    // 중복 체크
+    // 평가 연도는 입력된 날짜 기준
+    const evalYear = new Date(data.assessmentDate).getFullYear();
+    const isDuplicate = await checkDuplicateEvaluation(data.beneficiaryId, evalYear);
+
+    if (isDuplicate) {
+      alert(`${evalYear}년도 해당 수급자의 평가는 이미 완료되었습니다.\n수정은 '작성 내역' 탭에서 가능합니다.`);
       return;
     }
 
@@ -273,7 +359,6 @@ const handleSubmit = async (data) => {
     activeView.value = 'history';
     await loadEvaluationHistory();
   } catch (error) {
-    console.error('평가 저장 실패:', error);
     alert(`평가 저장 실패: ${error.message}`);
   }
 };
@@ -297,7 +382,6 @@ const handleSaveDraft = async (data) => {
     activeView.value = 'history';
     await loadEvaluationHistory();
   } catch (error) {
-    console.error('임시저장 실패:', error);
     alert(`임시저장 실패: ${error.message}`);
   }
 };
@@ -335,7 +419,6 @@ const parseDetailData = (item) => {
       if (evalJson.comment) parsed.comment = evalJson.comment;
       
     } catch (e) {
-      console.error('evalData 파싱 실패:', e);
     }
   }
   return parsed;
@@ -359,7 +442,6 @@ const openDetailModal = async (item) => {
     detailItem.value = parseDetailData(data);
     showDetailModal.value = true;
   } catch (error) {
-    console.error('평가 상세 조회 실패:', error);
     alert('평가 정보를 불러오는데 실패했습니다.');
   }
 };
@@ -389,7 +471,6 @@ const openEditModal = async (item) => {
     editItem.value = parseDetailData(data);
     showEditModal.value = true;
   } catch (error) {
-    console.error('평가 상세 조회 실패:', error);
     alert('평가 정보를 불러오는데 실패했습니다.');
   }
 };
@@ -411,7 +492,6 @@ const handleEditSubmit = async (formData) => {
     const evalId = formData.id || (editItem.value && (editItem.value.id || editItem.value.evalId));
     
     if (!evalId) {
-      console.error('ID 없음. formData:', formData, 'editItem:', editItem.value);
       throw new Error('평가 ID를 찾을 수 없습니다.');
     }
 
@@ -422,7 +502,6 @@ const handleEditSubmit = async (formData) => {
     closeDetailModal(); // 상세 모달도 닫기
     await loadEvaluationHistory();
   } catch (error) {
-    console.error('평가 수정 실패:', error);
     alert('평가 수정 실패');
   }
 };
@@ -448,7 +527,6 @@ const handleEditDraft = async (formData) => {
     closeDetailModal(); // 상세 모달도 닫기
     await loadEvaluationHistory();
   } catch (error) {
-    console.error('평가 임시저장 수정 실패:', error);
     alert('평가 임시저장 수정 실패');
   }
 };
@@ -478,6 +556,13 @@ watch([activeCategory, activeView], ([newCategory, newView]) => {
 });
 
 onMounted(() => {
+  // 쿼리 파라미터에서 beneficiaryId가 있으면 필터링 설정
+  if (route.query.beneficiaryId) {
+    selectedBeneficiaryId.value = route.query.beneficiaryId;
+    // 내역 탭으로 전환
+    activeView.value = 'history';
+  }
+
   if (activeView.value === 'history') loadEvaluationHistory();
 });
 </script>
@@ -494,7 +579,7 @@ onMounted(() => {
           :class="{ active: activeCategory === cat.key }"
           @click="activeCategory = cat.key"
         >
-          <span class="tab-icon">{{ cat.icon }}</span>
+          <Icon :icon="cat.icon" class="tab-icon" />
           <span>{{ cat.label }}</span>
         </button>
       </div>
@@ -507,7 +592,7 @@ onMounted(() => {
           :class="{ active: activeView === tab.key }"
           @click="activeView = tab.key"
         >
-          <span class="view-icon">{{ tab.icon }}</span>
+          <Icon :icon="tab.icon" class="view-icon" />
           <span>{{ tab.label }}</span>
         </button>
       </div>
@@ -557,7 +642,7 @@ onMounted(() => {
 
           <div v-else-if="filteredByYear.length > 0" class="history-list">
             <div
-              v-for="item in filteredByYear"
+              v-for="item in paginatedList"
               :key="item.id"
               class="eval-row"
               @click="openDetailModal(item)"
@@ -595,14 +680,44 @@ onMounted(() => {
                     <span class="score-value">{{ item.totalScore }}점</span>
                  </div>
                  <div v-if="item.comment" class="comment-preview">
-                    <span class="comment-icon">💬</span>
+                    <Icon icon="line-md:chat" class="comment-icon" />
                     <span class="comment-text">{{ item.comment }}</span>
                  </div>
               </div>
 
               <div class="row-col action-col">
-                 <span class="chevron">›</span>
+                 <Icon icon="line-md:chevron-right" class="chevron" />
               </div>
+            </div>
+
+            
+            <!-- 페이지네이션 컨트롤 -->
+            <div class="pagination-controls" v-if="totalPages > 0">
+              <button 
+                class="page-btn prev-btn" 
+                :disabled="currentPage === 1" 
+                @click="changePage(currentPage - 1)"
+              >
+                <Icon icon="line-md:chevron-left" />
+              </button>
+              
+              <button 
+                v-for="page in totalPages" 
+                :key="page" 
+                class="page-btn number-btn" 
+                :class="{ active: currentPage === page }"
+                @click="changePage(page)"
+              >
+                {{ page }}
+              </button>
+              
+              <button 
+                class="page-btn next-btn" 
+                :disabled="currentPage === totalPages" 
+                @click="changePage(currentPage + 1)"
+              >
+                <Icon icon="line-md:chevron-right" />
+              </button>
             </div>
           </div>
 
@@ -798,9 +913,53 @@ onMounted(() => {
 
 /* 상태 배지 스타일 - 수정됨 */
 .status-badge {
-  display: inline-block; padding: 4px 8px; border-radius: 6px;
-  font-size: 0.8rem; font-weight: 600; width: fit-content;
+  display: inline-block; padding: 2px 8px; background: #dcfce7; color: #16a34a;
+  font-size: 0.7rem; font-weight: 600; border-radius: 4px; width: fit-content;
 }
+
+/* 페이지네이션 스타일 */
+.pagination-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin-top: 24px;
+}
+
+.page-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  border: 1px solid #e5e7eb;
+  background: white;
+  border-radius: 6px;
+  cursor: pointer;
+  color: #4b5563;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+
+.page-btn:hover:not(:disabled) {
+  border-color: #16a34a;
+  color: #16a34a;
+  background: #f0fdf4;
+}
+
+.page-btn.active {
+  background: #16a34a;
+  border-color: #16a34a;
+  color: white;
+  font-weight: 600;
+}
+
+.page-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #f9fafb;
+}
+
 
 /* 임시저장: 노란색 테마 (CareLog form DailyCarePage) */
 .status-badge.draft { 

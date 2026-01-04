@@ -1,9 +1,10 @@
 ﻿<script setup>
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import CareLogForm from '@/components/careworker/activity/CareLogForm.vue';
 import { getCareLogList, getCareLogDetail, createCareLog, updateCareLog, deleteCareLog } from '@/api/careworker/careLogApi';
 import { useScheduleStore } from '@/stores/schedule';
+import { Icon } from '@iconify/vue';
 
 const route = useRoute();
 const scheduleStore = useScheduleStore();
@@ -40,8 +41,8 @@ const scheduleData = computed(() => {
 });
 
 const subTabs = [
-  { key: 'write', label: '작성하기', icon: '📝' },
-  { key: 'history', label: '작성 내역', icon: '📋' }
+  { key: 'write', label: '작성하기', icon: 'line-md:edit' },
+  { key: 'history', label: '작성 내역', icon: 'line-md:document-list' }
 ];
 
 // 요양일지 내역 데이터
@@ -252,7 +253,6 @@ const handleCareLogUpdate = async (formData) => {
     closeModal();
     await loadCareLogHistory();
   } catch (error) {
-    console.error('❌ 요양일지 수정 실패:', error);
     alert('요양일지 수정에 실패했습니다.');
   }
 };
@@ -270,7 +270,6 @@ const handleCareLogDraftUpdate = async (formData) => {
     closeModal();
     await loadCareLogHistory();
   } catch (error) {
-    console.error('❌ 요양일지 임시저장 실패:', error);
     alert('요양일지 임시저장에 실패했습니다.');
   }
 };
@@ -372,10 +371,19 @@ const submitCareLogData = async (formData, isDraft = false) => {
 // 검색어 상태
 const searchQuery = ref('');
 const selectedServiceType = ref('');
+const selectedBeneficiaryId = ref(null);
 
 // 검색 필터링된 목록
 const filteredCareLogHistory = computed(() => {
   let result = careLogHistory.value;
+
+  // beneficiaryId 필터 (쿼리 파라미터로 전달된 경우)
+  if (selectedBeneficiaryId.value) {
+    result = result.filter(item => {
+      const itemBeneficiaryId = item.beneficiaryId || item.beneficiary_id;
+      return itemBeneficiaryId && itemBeneficiaryId.toString() === selectedBeneficiaryId.value.toString();
+    });
+  }
 
   if (selectedServiceType.value) {
     result = result.filter(item => item.serviceType === selectedServiceType.value);
@@ -383,12 +391,39 @@ const filteredCareLogHistory = computed(() => {
 
   if (searchQuery.value) {
     const query = searchQuery.value.trim().toLowerCase();
-    result = result.filter(item => 
+    result = result.filter(item =>
       item.recipientName.toLowerCase().includes(query)
     );
   }
-  
+
   return result;
+});
+
+// 페이지네이션 상태
+const currentPage = ref(1);
+const itemsPerPage = ref(15); // 한 페이지당 15건 표시
+
+// 페이지네이션된 데이터
+const paginatedHistory = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage.value;
+  const end = start + itemsPerPage.value;
+  return filteredCareLogHistory.value.slice(start, end);
+});
+
+// 전체 페이지 수
+const totalPages = computed(() => {
+  return Math.ceil(filteredCareLogHistory.value.length / itemsPerPage.value);
+});
+
+// 페이지 변경
+const changePage = (page) => {
+  if (page < 1 || page > totalPages.value) return;
+  currentPage.value = page;
+};
+
+// 검색이나 필터 변경 시 첫 페이지로 초기화
+watch([searchQuery, selectedServiceType], () => {
+  currentPage.value = 1;
 });
 
 const handleCareLogDraft = async (formData) => {
@@ -402,8 +437,6 @@ const handleCareLogDraft = async (formData) => {
     activeTab.value = 'history';
     await loadCareLogHistory();
   } catch (error) {
-    console.error('❌ 요양일지 임시저장 실패:', error);
-    
     const status = error.response?.status;
     const msg = error.response?.data?.message || '';
 
@@ -429,8 +462,6 @@ const handleCareLogSubmit = async (formData) => {
     activeTab.value = 'history';
     await loadCareLogHistory();
   } catch (error) {
-    console.error('❌ 요양일지 제출 실패:', error);
-    
     const status = error.response?.status;
     const msg = error.response?.data?.message || '';
 
@@ -444,6 +475,16 @@ const handleCareLogSubmit = async (formData) => {
 
 onMounted(async () => {
   await loadCareLogHistory();
+
+  // 쿼리 파라미터에서 beneficiaryId가 있으면 필터링 설정
+  if (route.query.beneficiaryId) {
+    selectedBeneficiaryId.value = route.query.beneficiaryId;
+    // 내역 탭으로 전환
+    if (route.query.tab === 'history') {
+      activeTab.value = 'history';
+    }
+  }
+
   if (route.query.viewLogId) {
     const logId = parseInt(route.query.viewLogId, 10);
     const logItem = careLogHistory.value.find(item => (item.logId || item.id) === logId);
@@ -467,7 +508,7 @@ onMounted(async () => {
           :class="{ active: activeTab === tab.key }"
           @click="activeTab = tab.key"
         >
-          <span class="tab-icon">{{ tab.icon }}</span>
+          <Icon :icon="tab.icon" class="tab-icon" />
           <span>{{ tab.label }}</span>
         </button>
       </div>
@@ -502,7 +543,7 @@ onMounted(async () => {
 
           <div class="history-list">
             <div 
-              v-for="item in filteredCareLogHistory" 
+              v-for="item in paginatedHistory" 
               :key="item.id" 
               class="care-log-row" 
               @click="openDetail(item)"
@@ -526,15 +567,44 @@ onMounted(async () => {
 
               <div class="row-col note-info">
                 <div v-if="item.specialNotes" class="note-preview">
-                  <span class="note-icon">💬</span>
+                  <Icon icon="line-md:chat" class="note-icon" />
                   <span class="note-text">{{ item.specialNotes }}</span>
                 </div>
               </div>
               
               <div class="row-col action-col">
-                <span class="chevron">›</span>
+                <Icon icon="line-md:chevron-right" class="chevron" />
               </div>
             </div>
+          </div>
+
+          <!-- 페이지네이션 컨트롤 -->
+          <div class="pagination-controls" v-if="totalPages > 0">
+            <button 
+              class="page-btn prev-btn" 
+              :disabled="currentPage === 1" 
+              @click="changePage(currentPage - 1)"
+            >
+              <Icon icon="line-md:chevron-left" />
+            </button>
+            
+            <button 
+              v-for="page in totalPages" 
+              :key="page" 
+              class="page-btn number-btn" 
+              :class="{ active: currentPage === page }"
+              @click="changePage(page)"
+            >
+              {{ page }}
+            </button>
+            
+            <button 
+              class="page-btn next-btn" 
+              :disabled="currentPage === totalPages" 
+              @click="changePage(currentPage + 1)"
+            >
+              <Icon icon="line-md:chevron-right" />
+            </button>
           </div>
         </div>
       </div>
@@ -798,7 +868,56 @@ onMounted(async () => {
 .row-col.note-info {
   color: #6b7280;
   font-size: 0.85rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
+
+
+
+/* 페이지네이션 스타일 */
+.pagination-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin-top: 24px;
+}
+
+.page-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  border: 1px solid #e5e7eb;
+  background: white;
+  border-radius: 6px;
+  cursor: pointer;
+  color: #4b5563;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+
+.page-btn:hover:not(:disabled) {
+  border-color: #16a34a;
+  color: #16a34a;
+  background: #f0fdf4;
+}
+
+.page-btn.active {
+  background: #16a34a;
+  border-color: #16a34a;
+  color: white;
+  font-weight: 600;
+}
+
+.page-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #f9fafb;
+}
+
 
 .note-preview {
   display: flex;
