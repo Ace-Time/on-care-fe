@@ -179,7 +179,7 @@ const startContract = async () => {
 const handleRestore = async () => {
   if (!confirm('정말 취소를 철회하시겠습니까?')) return;
   try {
-    await api.patch('/rental/contract', {
+    await api.patch('/api/rental/contract', {
       id: props.contract.id,
       contractStatusCd: 2 
     });

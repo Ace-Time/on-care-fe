@@ -2,7 +2,7 @@ import api from '@/lib/api';
 import { PAGE_CONSTANT } from '../constants/common';
 
 export const getMasterCategoryCode = async() => {
-    const res = await api.get('/product/master-category');
+    const res = await api.get('/api/product/master-category');
     return res.data;
 };
 
@@ -15,13 +15,13 @@ export const getMasterDetail = async({page, size, codeOrName, categoryCode }) =>
         ...(categoryCode != null ? {categoryCode} : {})
     }
 
-    const res = await api.get('/product/master-detail',{params});
+    const res = await api.get('/api/product/master-detail',{params});
     return res.data;
 };
 
 
 export const getProductStatus = async() => {
-    const res = await api.get('/product/product-status');
+    const res = await api.get('/api/product/product-status');
     return res.data;
 };
 
@@ -33,7 +33,7 @@ export const getProducts = async({page, size, productCode, productStatus })  => 
         ...(productStatus != null ? {productStatus} : {})
     }
 
-    const res = await api.get('/product/product',{params});
+    const res = await api.get('/api/product/product',{params});
     return res.data;
 };
 
@@ -45,7 +45,7 @@ export const getProductHistory = async({page, size, productId, historyStatus }) 
         ...(historyStatus != null ? {historyStatus} : {})
     }
 
-    const res = await api.get('/product/product-history',{params});
+    const res = await api.get('/api/product/product-history',{params});
     return res.data;
 };
 
