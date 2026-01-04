@@ -5,7 +5,7 @@
       <!-- Header -->
       <header class="modal-header">
         <div class="title-row">
-          <h3>렌탈 용품 상세</h3>
+          <h3>렌탈 계약 용품 상세</h3>
           <button class="close-btn" type="button" @click="close">✕</button>
         </div>
 
@@ -35,7 +35,7 @@
                 <div class="value">{{ detail.rentalContractId }}</div>
               </div>
               <div class="field">
-                <div class="label">용품 자산번호</div>
+                <div class="label">용품 코드</div>
                 <div class="value">{{ detail.productAssetId }}</div>
               </div>
               <div class="field">
@@ -92,7 +92,7 @@
           :disabled="completing || loading"
           @click="onCompleteClick"
         >
-          {{ completing ? "처리 중..." : "계약 완료로 변경" }}
+          {{ completing ? "처리 중..." : "계약 종료로 변경" }}
         </button>
 
         <button v-else type="button" class="primary-btn" @click="close">
@@ -122,10 +122,35 @@ const completing = ref(false);
 
 const close = () => emit("update:modelValue", false);
 
-const statusLabel = computed(
-  () => detail.value?.contractStatusName ?? props.summaryItem?.contractStatusName ?? "-"
-);
-const isEnded = computed(() => String(statusLabel.value).trim() === "종료");
+/**
+ *  기존 코드 유지 + 최소 변경
+ * - statusLabel은 "종료면 종료로 강제표시"만 추가
+ * - isEnded는 contractStatusCd === 3 도 같이 인정하도록만 추가
+ */
+const statusLabel = computed(() => {
+  const cd = Number(
+    detail.value?.contractStatusCd ??
+      props.summaryItem?.contractStatusCd ??
+      props.summaryItem?.statusCode ??
+      NaN
+  );
+
+  if (cd === 3) return "종료";
+
+  return detail.value?.contractStatusName ?? props.summaryItem?.contractStatusName ?? "-";
+});
+
+const isEnded = computed(() => {
+  const cd = Number(
+    detail.value?.contractStatusCd ??
+      props.summaryItem?.contractStatusCd ??
+      props.summaryItem?.statusCode ??
+      NaN
+  );
+
+  return cd === 3 || String(statusLabel.value).trim() === "종료";
+});
+
 const statusPillClass = computed(() => (isEnded.value ? "ended" : "using"));
 
 const formatCurrency = (n) => `${(n ?? 0).toLocaleString("ko-KR")}원`;
@@ -168,26 +193,44 @@ watch(
   { immediate: true }
 );
 
+/*  onCompleteClick 코드로 교체 */
 const onCompleteClick = async () => {
   if (completing.value) return;
   completing.value = true;
   errorMsg.value = "";
 
   try {
-    const { data } = await api.patch(
-      `/api/beneficiaries/${props.beneficiaryId}/rentals/${props.summaryItem.rentalContractId}/complete`
-    );
+    const today = new Date().toISOString().slice(0, 10);
 
-    if (!data?.success) {
-      errorMsg.value = data?.message || "계약 완료 처리 실패";
+    const payload = {
+      id: props.summaryItem?.rentalContractId, // 계약 pk
+      contractStatusCd: 3, // 종료 코드
+      endDate: today, // 오늘
+    };
+
+    //  계약종료 api
+    const { data } = await api.patch(`/api/rental/contract/termination`, payload);
+
+    // 응답은 ResponseRentalContractDTO (success 없음)
+    if (!data || Number(data.contractStatusCd) !== 3) {
+      errorMsg.value = "계약 종료 처리 실패";
       return;
     }
+
+    // "즉시 종료"로 보이게 최소 업데이트
+    // (detail이 null일 수도 있으니 안전하게)
+    detail.value = {
+      ...(detail.value ?? {}),
+      contractStatusCd: 3,
+      contractStatusName: "종료",
+      endDate: today,
+    };
 
     emit("completed", data);
     emit("update:modelValue", false);
   } catch (e) {
     console.error(e);
-    errorMsg.value = "계약 완료 처리 실패";
+    errorMsg.value = "계약 종료 처리 실패";
   } finally {
     completing.value = false;
   }
@@ -195,7 +238,7 @@ const onCompleteClick = async () => {
 </script>
 
 <style scoped>
-/* ✅ 모달이 아래로 내려가는 문제는 대부분 여기(position: fixed)가 적용 안 된 케이스 */
+/* 모달이 아래로 내려가는 문제는 대부분 여기(position: fixed)가 적용 안 된 케이스 */
 .modal-backdrop {
   position: fixed;
   inset: 0;

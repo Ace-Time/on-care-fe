@@ -341,7 +341,7 @@ const fetchSavedSummariesForMonths = async (months) => {
   const tasks = months.map(async (m) => {
     try {
       const { data } = await api.get(
-        `/api/beneficiaries/${props.beneficiaryId}/care-logs/monthly-summary`,
+        `/ai/beneficiaries/${props.beneficiaryId}/care-logs/monthly-summary`,
         { params: { month: m } }
       )
 
@@ -431,7 +431,7 @@ const runAiSummary = async (month) => {
 
   try {
     const { data } = await api.post(
-      `/api/beneficiaries/${props.beneficiaryId}/care-logs/monthly-summary`,
+      `/ai/beneficiaries/${props.beneficiaryId}/care-logs/monthly-summary`,
       null,
       { params: { month: key } }
     )
