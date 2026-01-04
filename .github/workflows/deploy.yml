@@ -7,7 +7,7 @@ permissions:
 
 on:
   push:
-    branches: [ "practice/github-actions-aws" ]
+    branches: [ "main" ]
 
 # 워크플로우 실행 작업 정의
 jobs:
