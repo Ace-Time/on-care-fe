@@ -110,7 +110,7 @@ const emit = defineEmits(['needMoreData', 'row-click', 'open-rental'])
 
   
   const visualPage = ref(0) // 현재 내가 보고 있는 화면 페이지
-  const pageSize = 6      // 화면에 보여줄 개수
+  const pageSize = 5      // 화면에 보여줄 개수
   const totalItemCount = computed(() => props.products.length) // 전체 아이템 개수
   const isModalOpen = ref(false)  //모달 상태 변수
   const modalMode = ref('create') // 'create' 또는 'edit'

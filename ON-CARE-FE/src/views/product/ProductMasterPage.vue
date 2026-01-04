@@ -25,6 +25,9 @@ import { ref, computed , onMounted, watch} from 'vue'
 import ProductSearchBar from '@/components/product/ProductSearchBar.vue'
 import ProductTable from '@/components/product/ProductMasterTable.vue'
 import { getProductMaster, getMasterCategoryCode , registMaster, updateMaster} from '@/api/product/productMasterAPI.js'
+import { useToast } from '@/lib/toast';
+
+const toast = useToast();
 
 // 검색어
 const searchValue = ref('')
@@ -82,7 +85,14 @@ const handleSearch = async () => {
 }
 
 const registMasterData = async (masterData) => {
- await registMaster(masterData);
+ const response = await registMaster(masterData);
+ if(typeof response.data === 'string') {
+    toast.error(response.data);
+    return;
+ } else if(response === 1) {
+    toast.info("새로운 아이템 정보 등록에 성공 했습니다.");
+ }
+
  handleSearch();
 }
 
