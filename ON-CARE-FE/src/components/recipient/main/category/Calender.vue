@@ -1,15 +1,28 @@
 <!-- src/components/recipient/main/category/Calender.vue -->
 <template>
   <div>
-    <!-- ✅ 헤더: 월 이동 -->
+    <!-- 헤더: 월 이동 -->
     <div class="schedule-header">
-      <!-- ✅ type="button" + @click.prevent : form submit / 기본동작 방지 -->
+      <!-- type="button" + @click.prevent : form submit / 기본동작 방지 -->
       <button type="button" class="link-btn" @click.prevent="prevMonth">
         ← 이전달
       </button>
 
-      <div class="schedule-title">
-        {{ currentYear }}년 {{ currentMonth + 1 }}월
+      <!--  타이틀 + 달력이모지(클릭해서 년/월 이동) -->
+      <div class="schedule-title-wrap">
+        <div class="schedule-title">
+          {{ currentYear }}년 {{ currentMonth + 1 }}월
+        </div>
+
+        <!-- 빨간 박스 위치: 타이틀 오른쪽 -->
+        <button
+          type="button"
+          class="calendar-icon-btn"
+          aria-label="년/월 선택"
+          @click.prevent="openMonthPicker"
+        >
+          📅
+        </button>
       </div>
 
       <button type="button" class="link-btn" @click.prevent="nextMonth">
@@ -17,27 +30,39 @@
       </button>
     </div>
 
-    <!-- ✅ 범례: 고정일정만 -->
+    <!--  아래 예쁜 스타일: MonthPickerModal -->
+    <MonthPickerModal
+      v-if="showMonthPicker"
+      :year-options="yearOptions"
+      :year-value="pickerYear"
+      :month-value="pickerMonth"
+      @update:yearValue="(v) => (pickerYear = v)"
+      @update:monthValue="(v) => (pickerMonth = v)"
+      @close="closeMonthPicker"
+      @apply="applyMonthPicker"
+    />
+
+    <!-- 범례: 고정일정만 -->
     <div class="schedule-legend">
       <span class="legend">
         <span class="dot dot-fixed"></span> 고정일정
       </span>
     </div>
 
-    <!-- ✅ 핵심: 캘린더 DOM을 v-if로 없애지 말고 "항상 유지" -->
+    <!-- 핵심: 캘린더 DOM을 v-if로 없애지 말고 "항상 유지" -->
     <!-- 로딩/에러는 캘린더 위에 오버레이로만 띄워서 깜빡임 제거 -->
     <div class="calendar-wrap">
-      <!-- ✅ 로딩 오버레이(캘린더는 그대로 있고 위에만 덮음) -->
+      <!-- 로딩 오버레이(캘린더는 그대로 있고 위에만 덮음) -->
       <div v-if="loading" class="overlay" aria-live="polite">
         불러오는 중...
       </div>
 
-      <!-- ✅ 에러 오버레이 -->
+      <!-- 에러 오버레이 -->
       <div v-else-if="errorMsg" class="overlay error" aria-live="polite">
         {{ errorMsg }}
       </div>
 
-      <!-- ✅ 캘린더(항상 렌더링) -->
+      <!-- 캘린더(항상 렌더링) -->
       <div class="calendar">
         <!-- 요일 헤더 -->
         <div class="calendar-header-cell" v-for="d in weekDays" :key="d">
@@ -55,14 +80,13 @@
             {{ cell.date.getDate() }}
           </div>
 
-          <!-- ✅ 일정 pills -->
+          <!-- 일정 pills -->
           <div class="cell-events">
             <div
               v-for="ev in cell.events"
               :key="ev.id"
               class="event-pill event-fixed"
             >
-              <!-- ✅ 09:00-11:00  +  (두칸 느낌 간격)  +  김요양1(방문요양) -->
               <span class="event-time">
                 {{ splitTitle(ev.title).time }}
               </span>
@@ -83,28 +107,31 @@
 import { computed, ref, watch } from 'vue'
 import api from '@/lib/api'
 
+/* 추가: 아래 예쁜 모달 컴포넌트 */
+import MonthPickerModal from '@/components/schedule/calendar/MonthPickerModal.vue'
+
 /**
- * ✅ 상위에서 수급자 ID만 받으면 됨
+ * 상위에서 수급자 ID만 받으면 됨
  */
 const props = defineProps({
   beneficiaryId: {
     type: Number,
     default: null
   },
-  refreshKey: Number 
+  refreshKey: Number
 })
 
-/** ✅ 서버 상태 */
+/** 서버 상태 */
 const loading = ref(false)
 const errorMsg = ref('')
 
 /**
- * ✅ 캘린더가 사용하는 이벤트 배열
+ * 캘린더가 사용하는 이벤트 배열
  * { id, date:'YYYY-MM-DD', title, type:'fixed' }
  */
 const fixedEvents = ref([])
 
-/** ✅ 현재 보고있는 달(1일로 고정) */
+/** 현재 보고있는 달(1일로 고정) */
 const today = new Date()
 const viewDate = ref(new Date(today.getFullYear(), today.getMonth(), 1))
 
@@ -115,11 +142,39 @@ const weekDays = ['일', '월', '화', '수', '목', '금', '토']
 const currentYear = computed(() => viewDate.value.getFullYear())
 const currentMonth = computed(() => viewDate.value.getMonth()) // 0~11
 
+/* -------------------- Month Picker (예쁜 모달로 교체) -------------------- */
+const showMonthPicker = ref(false)
+const pickerYear = ref(currentYear.value)
+const pickerMonth = ref(currentMonth.value + 1) // 1~12
+
+const yearOptions = computed(() => {
+  const base = today.getFullYear()
+  const list = []
+  for (let y = base - 5; y <= base + 5; y += 1) list.push(y)
+  return list
+})
+
+const openMonthPicker = () => {
+  pickerYear.value = currentYear.value
+  pickerMonth.value = currentMonth.value + 1
+  showMonthPicker.value = true
+}
+
+const closeMonthPicker = () => {
+  showMonthPicker.value = false
+}
+
+const applyMonthPicker = () => {
+  const y = Number(pickerYear.value)
+  const m = Number(pickerMonth.value) // 1~12
+  if (!y || !m) return
+
+  viewDate.value = new Date(y, m - 1, 1)
+  showMonthPicker.value = false
+}
+
 /**
- * ✅ 백엔드 응답(ScheduleCalendarResponse) -> 캘린더 이벤트 배열로 변환
- * - res.days[].items[] 를 펼쳐서
- * - date는 Day.date 사용
- * - title은 백엔드가 만들어준 it.title 사용
+ * 백엔드 응답(ScheduleCalendarResponse) -> 캘린더 이벤트 배열로 변환
  */
 const mapResponseToEvents = (res) => {
   const out = []
@@ -133,7 +188,7 @@ const mapResponseToEvents = (res) => {
       out.push({
         id: it.visitScheduleId,
         date, // yyyy-MM-dd
-        title: it.title || '', // "09:00-11:00 김요양1(방문요양)" 같은 형태
+        title: it.title || '',
         type: 'fixed'
       })
     }
@@ -142,9 +197,7 @@ const mapResponseToEvents = (res) => {
 }
 
 /**
- * ✅ 월 캘린더(고정일정) API 호출
- * - month는 백엔드가 1~12 기대하므로 +1
- * - 캘린더는 유지, 로딩은 overlay로만 표현 (깜빡임 최소화)
+ * 월 캘린더(고정일정) API 호출
  */
 const fetchMonthlyFixedSchedules = async () => {
   if (!props.beneficiaryId) {
@@ -167,7 +220,6 @@ const fetchMonthlyFixedSchedules = async () => {
     fixedEvents.value = mapResponseToEvents(data)
   } catch (e) {
     console.error(e)
-    // ✅ 에러여도 기존 화면이 확 사라지지 않게 "캘린더는 유지"
     fixedEvents.value = []
     errorMsg.value = '일정을 불러오지 못했습니다.'
   } finally {
@@ -175,10 +227,6 @@ const fetchMonthlyFixedSchedules = async () => {
   }
 }
 
-/**
- * ✅ beneficiaryId / year / month 바뀔 때마다 API 재호출
- * - prevMonth/nextMonth 클릭 시 viewDate가 바뀌고 -> currentMonth/currentYear 변경 -> 재호출
- */
 watch(
   () => [props.beneficiaryId, currentYear.value, currentMonth.value, props.refreshKey],
   () => {
@@ -188,14 +236,14 @@ watch(
 )
 
 /**
- * ✅ 캘린더 42칸 계산
+ * 캘린더 42칸 계산
  */
 const calendarCells = computed(() => {
   const year = currentYear.value
   const month = currentMonth.value
 
   const firstDay = new Date(year, month, 1)
-  const firstWeekDay = firstDay.getDay() // 0=일 ~ 6=토
+  const firstWeekDay = firstDay.getDay()
   const daysInMonth = new Date(year, month + 1, 0).getDate()
   const prevMonthDays = new Date(year, month, 0).getDate()
 
@@ -224,10 +272,6 @@ const calendarCells = computed(() => {
   return cells
 })
 
-/**
- * ✅ 날짜 셀 생성
- * - key(yyyy-MM-dd)로 해당 날짜 이벤트만 필터링
- */
 function makeCell(date, isCurrentMonth) {
   const yyyy = date.getFullYear()
   const mm = String(date.getMonth() + 1).padStart(2, '0')
@@ -241,8 +285,7 @@ function makeCell(date, isCurrentMonth) {
 }
 
 /**
- * ✅ 제목 분리 유틸
- * "09:00-11:00 김요양1(방문요양)" -> { time:"09:00-11:00", text:"김요양1(방문요양)" }
+ * 제목 분리 유틸
  */
 const splitTitle = (title = '') => {
   const s = String(title).trim()
@@ -255,7 +298,7 @@ const splitTitle = (title = '') => {
   }
 }
 
-/** ✅ 월 이동 */
+/** 월 이동 */
 const prevMonth = () => {
   const d = new Date(viewDate.value)
   d.setMonth(d.getMonth() - 1)
@@ -285,8 +328,27 @@ const nextMonth = () => {
   align-items: center;
   margin-bottom: 6px;
 }
+
+/*  타이틀 + 아이콘 래핑 */
+.schedule-title-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
 .schedule-title {
   font-weight: 600;
+}
+
+/*  달력이모지 버튼(살짝 아래로) */
+.calendar-icon-btn {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 2px;
+  margin-top: 4px;
 }
 
 /* 범례 */
@@ -313,7 +375,7 @@ const nextMonth = () => {
   background-color: #c4b5fd;
 }
 
-/* ✅ 핵심: 캘린더 위 오버레이(깜빡임 제거) */
+/* 핵심: 캘린더 위 오버레이(깜빡임 제거) */
 .calendar-wrap {
   position: relative;
 }
@@ -329,7 +391,6 @@ const nextMonth = () => {
   font-size: 12px;
   color: #6b7280;
 
-  /* 살짝 가리면서도 캘린더는 유지 */
   background: rgba(255, 255, 255, 0.75);
   backdrop-filter: blur(1px);
 }
@@ -381,9 +442,8 @@ const nextMonth = () => {
   background-color: #ede9fe;
   color: #6d28d9;
   border-radius: 6px;
-  /* 🔥 여기 핵심 */
-  padding: 4px 6px;   /* 위아래 ↑ / 좌우 → */
-  line-height: 1.3;   /* 글자 위아래 숨통 */
+  padding: 4px 6px;
+  line-height: 1.3;
   white-space: nowrap;
 }
 .event-fixed {
@@ -395,17 +455,13 @@ const nextMonth = () => {
   background-color: #f0fdf4;
 }
 
-/* ✅ "09:00-11:00  김요양1(방문요양)" 띄어쓰기 느낌 */
 .event-time {
   display: inline-block;
   font-weight: 600;
-  margin-right: 7px;   /* 👉 제목과의 간격 */
+  margin-right: 7px;
 }
-
-/* 📄 제목 */
 .event-title {
   font-weight: 500;
-
 }
 
 @media (max-width: 1200px) {

@@ -11,7 +11,7 @@
           type="button"
           class="range-btn"
           :class="{ active: activeRange === btn.key }"
-          :disabled="isNotExtendedMode && btn.key !== 'notExtended'"
+          :disabled="false"
           @click="onClickRange(btn.key)"
         >
           {{ btn.label }}
@@ -166,8 +166,22 @@ const filteredItems = computed(() => {
   list = list.filter((i) => i.extendsStatus !== 'N')
 
   if (activeRange.value === 'all') return list
-  const limit = Number(activeRange.value)
-  return list.filter((i) => i.ddayNum <= limit)
+
+  //  "이내" 누적이 아니라 "구간"으로 보여주기
+  const range = Number(activeRange.value)
+
+  if (range === 45) {
+    return list.filter((i) => i.ddayNum <= 45)
+  }
+  if (range === 60) {
+    return list.filter((i) => i.ddayNum > 45 && i.ddayNum <= 60)
+  }
+  if (range === 90) {
+    return list.filter((i) => i.ddayNum > 60 && i.ddayNum <= 90)
+  }
+
+  // 혹시 모를 fallback(기존 동작)
+  return list.filter((i) => i.ddayNum <= range)
 })
 
 /**  총 페이지 */
@@ -293,7 +307,6 @@ watch(
 </script>
 
 <style scoped>
-/* (네 스타일 그대로) */
 .longcare-wrap {
   box-sizing: border-box;
   min-width: 0;
