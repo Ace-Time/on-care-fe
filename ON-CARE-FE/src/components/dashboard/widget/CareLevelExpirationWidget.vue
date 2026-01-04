@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue';
+import { computed, ref, onMounted, onBeforeUnmount } from 'vue';
 
 const props = defineProps({
   title: { type: String, default: '장기요양등급 만료 임박' },
@@ -7,6 +7,9 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['remove', 'toggleSize']);
+
+const chartBodyRef = ref(null);
+const chartHeight = ref(300);
 
 // --- 데이터 가공 ---
 const chartSeries = computed(() => {
@@ -32,7 +35,8 @@ const chartOptions = computed(() => ({
     type: 'bar', // colum chart
     toolbar: { show: false },
     fontFamily: 'Pretendard, sans-serif',
-    zoom: { enabled: false }
+    zoom: { enabled: false },
+    height: chartHeight.value
   },
   plotOptions: {
     bar: {
@@ -74,6 +78,57 @@ const chartOptions = computed(() => ({
     }
   }
 }));
+
+let resizeObserver = null;
+let resizeTimeout = null;
+
+const updateChartHeight = () => {
+  if (!chartBodyRef.value) return;
+
+  const containerHeight = chartBodyRef.value.offsetHeight;
+  // 높이가 실제로 변경되었을 때만 업데이트 (무한 루프 방지)
+  if (containerHeight > 0 && Math.abs(containerHeight - chartHeight.value) > 1) {
+    chartHeight.value = containerHeight;
+  }
+};
+
+const debouncedUpdateHeight = () => {
+  if (resizeTimeout) {
+    clearTimeout(resizeTimeout);
+  }
+  resizeTimeout = setTimeout(() => {
+    updateChartHeight();
+  }, 150);
+};
+
+onMounted(() => {
+  // 초기 높이 설정은 nextTick 후에 실행
+  setTimeout(() => {
+    updateChartHeight();
+  }, 100);
+
+  if (chartBodyRef.value) {
+    resizeObserver = new ResizeObserver((entries) => {
+      // ResizeObserver 콜백 내에서 디바운싱 적용
+      for (const entry of entries) {
+        if (entry.target === chartBodyRef.value) {
+          debouncedUpdateHeight();
+        }
+      }
+    });
+    resizeObserver.observe(chartBodyRef.value);
+  }
+});
+
+onBeforeUnmount(() => {
+  if (resizeTimeout) {
+    clearTimeout(resizeTimeout);
+  }
+  if (resizeObserver && chartBodyRef.value) {
+    resizeObserver.unobserve(chartBodyRef.value);
+    resizeObserver.disconnect();
+  }
+});
 </script>
 
 <template>
@@ -101,14 +156,14 @@ const chartOptions = computed(() => ({
       </div>
     </div>
 
-    <div class="chart-body">
-      <apexchart 
-        v-if="props.apiData"
-        width="100%" 
-        height="100%" 
-        type="bar" 
-        :options="chartOptions" 
-        :series="chartSeries" 
+    <div ref="chartBodyRef" class="chart-body">
+      <apexchart
+        v-if="props.apiData && chartHeight > 0"
+        width="100%"
+        :height="chartHeight"
+        type="bar"
+        :options="chartOptions"
+        :series="chartSeries"
       />
       <div v-else class="loading-state">
         데이터를 불러오는 중입니다...
@@ -193,6 +248,9 @@ const chartOptions = computed(() => ({
 .chart-body {
   flex-grow: 1;
   min-height: 250px;
+  position: relative;
+  overflow: hidden;
+  min-width: 0;
 }
 
 .loading-state {

@@ -197,8 +197,12 @@ api.interceptors.response.use(
       }
     }
 
-    // 401/403이 아니거나, 이미 재시도한 요청이라면 그 외 에러를 그대로 전파
-    return Promise.reject(error);
+    // 401/403이 아니거나, 이미 재시도한 요청이라면 에러 응답 데이터(body)를 그대로 반환
+    if (error.response && error.response.data) {
+      return Promise.reject(error.response.data);
+    }
+    // 응답이 없거나 data가 없는 경우 (네트워크 오류 등)
+    return Promise.reject(error.message || '서버 오류가 발생했습니다.');
   }
 );
 

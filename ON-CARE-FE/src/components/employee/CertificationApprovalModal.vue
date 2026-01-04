@@ -90,7 +90,7 @@ const handleReject = (id) => emit('reject', id);
               <div class="info-row"><span class="label">자격증 번호:</span> <span class="val">{{ cert.number }}</span></div>
               <div class="info-row"><span class="label">발급일:</span> <span class="val">{{ cert.issueDate }}</span></div>
               <div class="info-row"><span class="label">발급기관:</span> <span class="val">{{ cert.issuer }}</span></div>
-              <div class="info-row"><span class="label">첨부파일:</span> <span class="val link">{{ cert.fileName }}</span></div>
+
             </div>
 
             <div v-if="activeTab === '대기중'" class="action-buttons">

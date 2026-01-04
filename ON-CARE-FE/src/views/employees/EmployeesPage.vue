@@ -20,7 +20,8 @@ import EmployeeEditModal from '@/components/employee/EmployeeEditModal.vue';
 import CertificationApprovalModal from '@/components/employee/CertificationApprovalModal.vue';
 import BulkEducationModal from '@/components/employee/BulkEducationModal.vue';
 import EmployeeRegisterModal from '@/components/employee/EmployeeRegisterModal.vue';
-import EducationAlertBanner from '@/components/employee/EducationAlertBanner.vue'; // [추가]
+import EducationAlertBanner from '@/components/employee/EducationAlertBanner.vue'; 
+import AlertModal from '@/components/common/AlertModal.vue';
 
 // --- State ---
 const employees = ref([]); // 서버에서 받아올 직원 목록
@@ -35,6 +36,7 @@ const isRegisterModalOpen = ref(false);
 const isEditModalOpen = ref(false);
 const showCertApprovalModal = ref(false);
 const showBulkEduModal = ref(false);
+const alertInfo = ref({ isOpen: false, title: '', message: '' });
 
 // [이동] 서비스 옵션 및 매핑 함수 (Top-Level)
 const serviceOptions = [
@@ -323,7 +325,7 @@ const handleRegisterEmployee = async (payload) => {
 
   } catch (error) {
     console.error('직원 등록 실패:', error);
-    const errorMessage = error.response?.data?.message || '등록 중 오류가 발생했습니다.';
+    const errorMessage = error.message || error || '등록 중 오류가 발생했습니다.';
     alert(`직원 등록 실패: ${errorMessage}`);
   }
 };
@@ -352,8 +354,19 @@ const handleUpdateEmployee = async (updatedData) => {
     
   } catch (error) {
     console.error('수정 실패:', error);
-    const errorMessage = error.response?.data?.message || '수정 중 오류가 발생했습니다.';
-    alert(`직원 수정 실패: ${errorMessage}`);
+    const errorMessage = error.message || error || '수정 중 오류가 발생했습니다.';
+    
+    // 에러 종류에 따른 타이틀 설정
+    let title = '수정 실패';
+    if (errorMessage.includes('비밀번호') || errorMessage.includes('password')) {
+        title = '비밀번호 오류';
+    }
+
+    alertInfo.value = {
+        isOpen: true,
+        title: title,
+        message: errorMessage
+    };
   }
 };
 
@@ -501,6 +514,13 @@ const handleBulkEduSubmit = async () => {
       :isOpen="showBulkEduModal"
       @close="showBulkEduModal = false"
       @submit="handleBulkEduSubmit"
+    />
+
+    <AlertModal 
+      :isOpen="alertInfo.isOpen"
+      :title="alertInfo.title"
+      :message="alertInfo.message"
+      @close="alertInfo.isOpen = false"
     />
   </div>
 </template>

@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 
 const props = defineProps({
   title: { type: String, default: '제품 수익률 분석' },
@@ -89,6 +89,7 @@ const chartOptions = computed(() => ({
     }
   }
 }));
+
 </script>
 
 <template>
@@ -136,14 +137,14 @@ const chartOptions = computed(() => ({
       </div>
     </div>
 
-    <div class="chart-body">
-      <apexchart 
+    <div ref="chartBodyRef" class="chart-body">
+      <apexchart
         v-if="props.apiData"
-        width="100%" 
-        height="100%" 
-        type="bar" 
-        :options="chartOptions" 
-        :series="chartSeries" 
+        width="100%"
+        height="100%"
+        type="bar"
+        :options="chartOptions"
+        :series="chartSeries"
       />
       <div v-else class="loading-state">
         데이터를 불러오는 중입니다...
@@ -257,6 +258,9 @@ const chartOptions = computed(() => ({
 .chart-body {
   flex-grow: 1;
   min-height: 250px;
+  position: relative;
+  overflow: hidden;
+  min-width: 0;
 }
 
 .loading-state {

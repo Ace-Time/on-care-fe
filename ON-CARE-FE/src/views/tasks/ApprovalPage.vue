@@ -138,6 +138,7 @@ const selectedCategory = ref('');
 const selectedStatus = ref('');
 const cardFilterStatus = ref(''); // 카드 클릭으로 인한 필터 상태
 const myRequest = ref(false);
+const myTodo = ref(false); // [추가] 내가 결재할 차례인지 필터
 const selectedItem = ref(null);
 const approvalList = ref([]); // 현재 페이지 목록
 const categoryList = ref([]);
@@ -182,7 +183,11 @@ const fetchList = async () => {
     const statusFilter = cardFilterStatus.value || selectedStatus.value;
     if (statusFilter) params.status = statusFilter;
 
-    if (myRequest.value) params.myRequest = true; // myRequest 파라미터 추가
+    if (myRequest.value) params.myRequest = true; 
+    if (myTodo.value) {
+        // [수정] '나의 결재 대기'인 경우: 내 차례인 문서 조회 (API 파라미터 myTurn=true 사용)
+        params.myTurn = true;
+    }
     
     const data = await getPaymentList(params);
     
@@ -225,10 +230,14 @@ const handleFilterChange = (type) => {
     selectedStatus.value = ''; // 드롭다운 초기화
     currentPage.value = 1;
 
+    // 모든 플래그 초기화
+    myRequest.value = false;
+    myTodo.value = false;
+
     switch(type) {
         case 'to-approve':
             cardFilterStatus.value = '0'; 
-            myRequest.value = false;
+            myTodo.value = true; // [수정] 내가 결재할 문서 활성화
             break;
         case 'my-pending':
             cardFilterStatus.value = '0';
@@ -249,7 +258,8 @@ const handleFilterChange = (type) => {
 watch(selectedStatus, (newVal) => {
     if (newVal) {
         cardFilterStatus.value = '';
-        myRequest.value = false; // 드롭다운 사용 시 '나의 요청' 모드 해제
+        myRequest.value = false; 
+        myTodo.value = false; // [추가] 초기화
     }
 });
 
@@ -259,6 +269,7 @@ const handleReset = () => {
   selectedStatus.value = '';
   cardFilterStatus.value = '';
   myRequest.value = false;
+  myTodo.value = false; // [추가] 초기화
   currentPage.value = 1;
   
   // URL 쿼리 파라미터 제거
@@ -266,7 +277,7 @@ const handleReset = () => {
 };
 
 // 전체 필터 변경 감지
-watch([searchQuery, selectedCategory, selectedStatus, myRequest, cardFilterStatus], () => {
+watch([searchQuery, selectedCategory, selectedStatus, myRequest, myTodo, cardFilterStatus], () => {
     currentPage.value = 1; 
     fetchList();
 });
@@ -331,7 +342,8 @@ watch(() => route.query.filterType, (newVal) => {
         // 필터 해제 시 초기화
         cardFilterStatus.value = '';
         myRequest.value = false;
-        // selectedStatus.value = ''; // 드롭다운도 초기화하고 싶으면 추가
+        myTodo.value = false;
+        // selectedStatus.value = ''; 
     }
 }, { immediate: true });
 

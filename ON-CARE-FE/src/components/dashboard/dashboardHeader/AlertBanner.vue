@@ -15,10 +15,20 @@
   border-radius: 8px;
   padding: 12px 16px;
   display: flex;
-  align-items: center;
+  align-items: flex-start; /* 아이콘이 상단에 오도록 변경 */
   gap: 12px;
   margin-bottom: 24px;
   color: #1565c0;
   font-size: 14px;
+  line-height: 1.5; /* 줄간격 확보 */
+}
+
+@media (max-width: 640px) {
+  .alert-banner {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 8px;
+  }
 }
 </style>

@@ -1,5 +1,6 @@
 <script setup>
 import { ref, watch, computed, onMounted, onUnmounted } from 'vue';
+import AlertModal from '@/components/common/AlertModal.vue';
 
 const props = defineProps({
   employee: { type: Object, required: true },
@@ -124,6 +125,13 @@ const errors = ref({
   email: '',
   name: '',
   emergencyNumber: ''
+});
+
+// 알림 모달 상태
+const alertInfo = ref({
+  isOpen: false,
+  title: '',
+  message: ''
 });
 
 // 📞 전화번호 자동 포맷팅 함수
@@ -330,10 +338,12 @@ watch(() => props.employee, (newVal) => {
 // --- [3] 핸들러 ---
 const addCareer = () => {
   if (!newCareer.value.companyName || !newCareer.value.start || !newCareer.value.end) {
-    alert('필수 정보를 입력해주세요.'); return;
+    alertInfo.value = { isOpen: true, title: '경력 추가 오류', message: '회사명, 시작년월, 종료년월은 필수 입력 항목입니다.' };
+    return;
   }
   if (newCareer.value.start > newCareer.value.end) {
-    alert('종료일 오류'); return;
+    alertInfo.value = { isOpen: true, title: '경력 추가 오류', message: '종료일이 시작일보다 빠를 수 없습니다.' };
+    return;
   }
   
   const workPeriod = `${newCareer.value.start.replace('-', '.')} - ${newCareer.value.end.replace('-', '.')}`;
@@ -358,24 +368,32 @@ const removeCareer = (index) => {
 const handleSubmit = () => {
   // 유효성 검사
   if (!isFormValid.value) {
-    alert('필수 정보를 올바르게 입력해주세요.');
+    alertInfo.value = { isOpen: true, title: '입력 확인', message: '필수 정보를 올바르게 입력해주세요.' };
     return;
   }
 
   // 생년월일 검증 - 만 20세 이상인지 체크
   if (form.value.birth && form.value.birth > maxBirthDate.value) {
-    alert('만 20세 이상만 등록 가능합니다.');
+    alertInfo.value = { isOpen: true, title: '입력 확인', message: '만 20세 이상만 등록 가능합니다.' };
     return;
   }
 
   // 비밀번호 변경 시 유효성 검사
   if (form.value.newPassword) {
       if (form.value.newPassword !== form.value.confirmPassword) {
-          alert('새 비밀번호가 일치하지 않습니다.');
+          alertInfo.value = {
+            isOpen: true,
+            title: '비밀번호 불일치',
+            message: '새 비밀번호와 비밀번호 확인이 일치하지 않습니다.\n다시 입력해주세요.'
+          };
           return;
       }
       if (!form.value.currentPassword) {
-          alert('현재 비밀번호를 입력해주세요.');
+          alertInfo.value = {
+            isOpen: true,
+            title: '입력 확인',
+            message: '현재 비밀번호를 입력해주세요.'
+          };
           return;
       }
   }
@@ -645,6 +663,13 @@ const handleSubmit = () => {
       </div>
     </div>
   </div>
+  
+  <AlertModal 
+    :isOpen="alertInfo.isOpen"
+    :title="alertInfo.title"
+    :message="alertInfo.message"
+    @close="alertInfo.isOpen = false"
+  />
 </template>
 
 <style scoped>
