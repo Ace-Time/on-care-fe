@@ -138,7 +138,15 @@ export const registerBulkEducation = async (payload) => {
 };
 
 // 4. 보수교육 알림 조회
-export const getEducationAlerts = async () => {
-  const response = await api.get('/api/employees/education/alerts');
+// 4. 보수교육 알림 조회
+export const getEducationAlerts = async (certId) => {
+  const params = {};
+  if (certId) {
+    params.certificateType = certId; // 백엔드에서 certificateId 또는 certificateType으로 받을 수 있음. 여기서는 certificateType으로 보냄 (이전 컨텍스트에서 id가 type처럼 쓰임)
+    // 하지만 BulkEducationModal.vue에서 certTypes를 보면 id가 실제 id값일 수도 있음.
+    // 보통 id를 보내는게 맞음. params.certificateId로 수정.
+    params.certificateId = certId;
+  }
+  const response = await api.get('/api/employees/education/alerts', { params });
   return response.data;
 };
