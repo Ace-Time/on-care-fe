@@ -1,6 +1,6 @@
 import { createApp } from 'vue'
 import App from './App.vue'
-import indexRoutes from './router/index.routes.js'
+import router from './router'
 
 import { createPinia } from 'pinia';             // Pinia 컨테이너 생성 함수
 import piniaPersistedState from 'pinia-plugin-persistedstate' // 스토리지에 상태를 저장 하기 위해 사용.(새로 고침하면 원래는 pinia 저장 값이 날라감)
@@ -15,5 +15,5 @@ app.use(pinia);                                  // 3) 앱에 Pinia 연결
 
 app.component('apexchart', VueApexCharts);       // ApexCharts 컴포넌트 전역 등록
 
-app.use(indexRoutes);
+app.use(router);
 app.mount('#app');

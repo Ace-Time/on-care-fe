@@ -7,7 +7,7 @@
 </template>
 
 <script setup>
-import scheduleIcon from '@/assets/img/common/scheduleManagement.png'
+import scheduleIcon from '@/assets/img/common/scheduleEmpty.png'
 </script>
 
 <style scoped>
