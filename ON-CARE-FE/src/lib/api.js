@@ -10,7 +10,7 @@
 import axios from 'axios';                  // axios 본체를 가져온다.
 import { useUserStore } from '@/stores/user'; // Pinia의 사용자 스토어(액세스 토큰을 꺼내오기 위함)
 import { useToast } from '@/lib/toast'
-import router from '@/router/index.routes';
+import router from '@/router/index.js';
 import {isTokenExpired} from '@/lib/jwtUtil';
 
 const {success, error : toastError , info} = useToast();

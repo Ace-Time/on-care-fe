@@ -9,7 +9,7 @@
 </template>
 
 <script setup>
-import recipientIcon from '@/assets/img/common/employeeManagement.png'
+import recipientIcon from '@/assets/img/common/recipientEmpty.png'
 </script>
 
 <style scoped>
