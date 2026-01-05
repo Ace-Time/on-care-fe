@@ -208,7 +208,31 @@ const handleItemClick = async (alarm) => {
   })
   
   // 현재 라우트 기준 활성 메뉴
-  const isActive = (item) => route.name === item.routeName
+// 메뉴 key -> 어떤 라우트 그룹에 속하면 active로 볼지 매핑
+const ACTIVE_GROUP = {
+  schedule: ['schedule'],   // /schedule 아래 전부 (calendar, matching 포함)
+  inquiry: ['inquiry'],     // /inquiry 아래 전부 (consult, customer 포함)
+  product: ['product'],     // /product 아래 전부 (master, manage, ...)
+  recipient: ['recipient'],
+  tasks: ['tasks'],
+  activity: ['activity'],
+  home: ['home'],
+  workschedule: ['workschedule'],
+  employees: ['employees'],
+}
+
+const isActive = (item) => {
+  const group = ACTIVE_GROUP[item.key]
+
+  // 1) group이 정의된 메뉴는 "부모 라우트" 기준으로 active 처리
+  if (Array.isArray(group)) {
+    return route.matched.some((m) => group.includes(m.name))
+  }
+
+  // 2) 그 외는 기존처럼 name 기준
+  if (route.name === item.routeName) return true
+  return route.matched.some((m) => m.name === item.routeName)
+}
   
   // const isActive = (item) => {
   //   // 수급자 관리 메뉴: 부모 recipient 가 매칭되면 활성

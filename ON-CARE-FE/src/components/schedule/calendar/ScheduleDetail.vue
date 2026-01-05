@@ -159,7 +159,7 @@
   import detailClockIcon from '@/assets/img/schedule/detailClock.png'
   import memberIcon from '@/assets/img/schedule/member.png'
   import closeIcon from '@/assets/img/common/closeButton.png'
-  import scheduleManagementIcon from '@/assets/img/common/scheduleManagement.png'
+  import scheduleManagementIcon from '@/assets/img/common/scheduleEmpty.png'
   
   const props = defineProps({
     schedule: { type: Object, default: null },
