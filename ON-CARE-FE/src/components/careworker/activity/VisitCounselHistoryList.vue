@@ -93,10 +93,7 @@ const closeModal = () => {
       등록된 상담 내역이 없습니다.
     </div>
 
-<<<<<<< HEAD
-=======
     <!-- 상세 모달 -->
->>>>>>> dev
     <div v-if="showModal && selectedItem" class="modal-overlay" @click="closeModal">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
@@ -146,10 +143,7 @@ const closeModal = () => {
             <span class="next-visit-date">{{ selectedItem.nextVisit }}</span>
           </div>
 
-<<<<<<< HEAD
-=======
           <!-- 서명 이미지 섹션 -->
->>>>>>> dev
           <div class="signature-section-view">
             <div class="signature-item">
               <span class="sig-label">수급자(보호자) 서명</span>
