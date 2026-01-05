@@ -46,7 +46,7 @@
 
 <script setup>
 import { ref, watch } from 'vue';
-import { getMasterDetail, getMasterCategoryCode, getProducts } from '@/api/product/productApi.js';
+import { getMasterDetail, getMasterCategoryCode, getProducts } from '@/api/product/productAPI.js';
 import CounselDetailCard from '@/components/inquiry/Counsel/CounselDetailCard.vue';
 import SubscriptProcess from '@/components/inquiry/Counsel/Process/SubscriptProcess.vue';
 // Product 관련 컴포넌트
