@@ -3,47 +3,80 @@
   <div class="record-summary">
     <!-- 월별 보기 -->
     <div v-if="recordViewMode === 'monthly'" class="record-monthly">
-      <!-- ✅ 월 카드가 0개면 안내 -->
-      <div v-if="monthlySummariesView.length === 0" class="empty-month-card">
+      <!-- 월 카드가 0개면 안내 -->
+      <div v-if="monthlyTotalCount === 0" class="empty-month-card">
         요양일지가 등록되면 월별 카드가 생성됩니다.
       </div>
 
-      <!-- ✅ 월 카드 목록(스크롤 영역) -->
-      <div v-else class="monthly-scroll">
-        <div
-          v-for="item in monthlySummariesView"
-          :key="item.month"
-          class="summary-card"
-          @click="openDailyList(item.month)"
-        >
-          <div class="summary-icon">📅</div>
+      <template v-else>
+        <!-- (선택) 상단: 총 개수 표시 (일지리스트와 톤 맞춤) -->
+        <div class="daily-top-row">
+          <h4 class="section-title">월별 요약</h4>
+          <div class="total">총 {{ monthlyTotalCount }}건</div>
+        </div>
 
-          <div class="summary-main">
-            <div class="summary-header">
-              <span class="summary-month">{{ item.month }}</span>
+        <!-- 월 카드 목록(현재 페이지 10개만) -->
+        <div class="monthly-scroll">
+          <div
+            v-for="item in pagedMonthlySummariesView"
+            :key="item.month"
+            class="summary-card"
+            @click="openDailyList(item.month)"
+          >
+            <div class="summary-icon">📅</div>
 
-              <!-- ✅ AI 요약 버튼 -->
-              <button
-                type="button"
-                class="ai-btn"
-                :disabled="!!aiLoadingByMonth[item.month]"
-                @click.stop="runAiSummary(item.month)"
-              >
-                {{ aiLoadingByMonth[item.month] ? '요약 중…' : 'AI 요약' }}
-              </button>
+            <div class="summary-main">
+              <div class="summary-header">
+                <span class="summary-month">{{ item.month }}</span>
+
+                <!-- AI 요약 버튼 -->
+                <button
+                  type="button"
+                  class="ai-btn"
+                  :disabled="!!aiLoadingByMonth[item.month]"
+                  @click.stop="runAiSummary(item.month)"
+                >
+                  {{ aiLoadingByMonth[item.month] ? '요약 중…' : 'AI 요약' }}
+                </button>
+              </div>
+
+              <p class="summary-text">
+                {{ item.text || '해당 월의 경향을 한눈에 보려면 AI요약 버튼을 클릭하세요!' }}
+              </p>
+
+              <!-- 월 카드별 에러 메시지 -->
+              <p v-if="aiErrorByMonth[item.month]" class="ai-error">
+                {{ aiErrorByMonth[item.month] }}
+              </p>
             </div>
-
-            <p class="summary-text">
-              {{ item.text || '해당 월의 경향을 한눈에 보려면 AI요약 버튼을 클릭하세요!' }}
-            </p>
-
-            <!-- ✅ 월 카드별 에러 메시지 -->
-            <p v-if="aiErrorByMonth[item.month]" class="ai-error">
-              {{ aiErrorByMonth[item.month] }}
-            </p>
           </div>
         </div>
-      </div>
+
+        <!-- 하단 중앙 페이징 (페이지가 2 이상일 때만 표시) -->
+        <div v-if="monthlyTotalPages > 1" class="bottom-pager">
+          <button
+            type="button"
+            class="page-btn"
+            :disabled="monthlyPage <= 0"
+            @click="monthlyPage--"
+          >
+            이전
+          </button>
+
+          <span class="page-info">
+            {{ monthlyPage + 1 }} / {{ monthlyTotalPages }}
+          </span>
+
+          <button
+            type="button"
+            class="page-btn"
+            :disabled="monthlyPage >= monthlyTotalPages - 1"
+            @click="monthlyPage++"
+          >
+            다음
+          </button>
+        </div>
+      </template>
     </div>
 
     <!-- 일지 리스트 보기 -->
@@ -56,7 +89,7 @@
         ← 월별 보기로 돌아가기
       </button>
 
-      <!-- ✅ 제목 + (오른쪽) 총 건수 : 사진 빨간박스 자리 -->
+      <!--  제목 + (오른쪽) 총 건수 : 사진 빨간박스 자리 -->
       <div class="daily-top-row">
         <h4 class="section-title">{{ selectedMonth }} 일지</h4>
         <div class="total">총 {{ dailyTotalCount }}건</div>
@@ -65,7 +98,7 @@
       <div v-if="listLoading" class="hint">불러오는 중...</div>
       <div v-else-if="listError" class="hint error">{{ listError }}</div>
 
-      <!-- ✅ 목록(현재 페이지 10개만) -->
+      <!--  목록(현재 페이지 10개만) -->
       <ul v-else class="daily-list">
         <li
           v-for="log in pagedDailyLogList"
@@ -89,7 +122,7 @@
         </li>
       </ul>
 
-      <!-- ✅ 하단 중앙 페이징 (페이지가 2 이상일 때만 표시) -->
+      <!-- 하단 중앙 페이징 (페이지가 2 이상일 때만 표시) -->
       <div v-if="dailyTotalPages > 1" class="bottom-pager">
         <button
           type="button"
@@ -129,7 +162,7 @@
       <div v-else-if="detailError" class="hint error">{{ detailError }}</div>
 
       <template v-else>
-        <!-- ✅ 헤더 정보 -->
+        <!--  헤더 정보 -->
         <div class="detail-header-row">
           <div class="detail-col">
             <div class="detail-line">
@@ -293,20 +326,36 @@ const aiErrorByMonth = ref({})
 
 const BLOCK_EMPTY_SUMMARY_OVERWRITE = true
 
-/** ✅ dailyList 페이징 상태(문의이력과 동일) */
+/** dailyList 페이징 상태(문의이력과 동일) */
 const dailyPage = ref(0)
 const dailyPageSize = ref(10)
 
-/** ✅ 총 건수/총 페이지 */
+/**  monthly 페이징 상태(일지리스트와 동일) */
+const monthlyPage = ref(0)
+const monthlyPageSize = ref(8)
+
+/**  총 건수/총 페이지 (daily) */
 const dailyTotalCount = computed(() => dailyLogList.value.length)
 const dailyTotalPages = computed(() =>
   dailyTotalCount.value === 0 ? 0 : Math.ceil(dailyTotalCount.value / dailyPageSize.value)
 )
 
-/** ✅ 현재 페이지에 보여줄 10개 */
+/** 현재 페이지에 보여줄 10개 (daily) */
 const pagedDailyLogList = computed(() => {
   const start = dailyPage.value * dailyPageSize.value
   return dailyLogList.value.slice(start, start + dailyPageSize.value)
+})
+
+/**  총 건수/총 페이지 (monthly) */
+const monthlyTotalCount = computed(() => monthlySummariesView.value.length)
+const monthlyTotalPages = computed(() =>
+  monthlyTotalCount.value === 0 ? 0 : Math.ceil(monthlyTotalCount.value / monthlyPageSize.value)
+)
+
+/** 현재 페이지에 보여줄 10개 (monthly) */
+const pagedMonthlySummariesView = computed(() => {
+  const start = monthlyPage.value * monthlyPageSize.value
+  return monthlySummariesView.value.slice(start, start + monthlyPageSize.value)
 })
 
 const fetchMonthlyCardsFromLogs = async () => {
@@ -329,9 +378,15 @@ const fetchMonthlyCardsFromLogs = async () => {
       text: ''
     }))
 
+    //  월 카드 로드 후 페이지 범위 보정
+    if (monthlyPage.value > 0 && monthlyPage.value >= monthlyTotalPages.value) {
+      monthlyPage.value = Math.max(monthlyTotalPages.value - 1, 0)
+    }
+
     await fetchSavedSummariesForMonths(months)
   } catch (e) {
     localMonthlySummaries.value = []
+    monthlyPage.value = 0
   }
 }
 
@@ -365,7 +420,7 @@ const fetchSavedSummariesForMonths = async (months) => {
 const openDailyList = async (month) => {
   selectedMonth.value = String(month || '')
   recordViewMode.value = 'dailyList'
-  dailyPage.value = 0 // ✅ 월 변경 시 페이지 초기화
+  dailyPage.value = 0 //  월 변경 시 페이지 초기화
   await fetchDailyList()
 }
 
@@ -380,7 +435,7 @@ const fetchDailyList = async () => {
     })
     dailyLogList.value = Array.isArray(data) ? data : []
 
-    // ✅ 목록 로드 후 현재 page가 범위를 벗어나면 보정
+    //  목록 로드 후 현재 page가 범위를 벗어나면 보정
     if (dailyPage.value > 0 && dailyPage.value >= dailyTotalPages.value) {
       dailyPage.value = Math.max(dailyTotalPages.value - 1, 0)
     }
@@ -469,6 +524,7 @@ watch(
     aiErrorByMonth.value = {}
 
     dailyPage.value = 0
+    monthlyPage.value = 0 // 월 목록도 초기화
 
     await fetchMonthlyCardsFromLogs()
   },
@@ -503,6 +559,13 @@ const hasAnyAllPhysical = (d) => {
   font-size: 12px;
 }
 
+/* 월 카드 영역 */
+.monthly-scroll{
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .summary-card {
   display: flex;
   gap: 10px;
@@ -533,7 +596,7 @@ const hasAnyAllPhysical = (d) => {
 .summary-text { margin: 0; font-size: 12px; color: #4b5563; }
 .ai-error { margin: 6px 0 0; font-size: 11px; color: #dc2626; }
 
-/* ✅ dailyList: 제목줄 + 총건수(오른쪽) */
+/*  제목줄 + 총건수(오른쪽) */
 .daily-top-row{
   display: flex;
   justify-content: space-between;
@@ -574,7 +637,7 @@ const hasAnyAllPhysical = (d) => {
 }
 .empty-row { padding: 10px 8px; color: #6b7280; font-size: 12px; }
 
-/* ✅ 하단 중앙 페이징 (Inquiry.vue와 동일) */
+/* 하단 중앙 페이징 (Inquiry.vue와 동일) */
 .bottom-pager {
   display: flex;
   justify-content: center;
