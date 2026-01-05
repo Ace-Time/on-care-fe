@@ -131,7 +131,7 @@ const fetchHolders = async (certId) => {
 // 알림 정보 가져오기
 const fetchAlertsData = async () => {
   try {
-    const alerts = await getEducationAlerts();
+    const alerts = await getEducationAlerts(form.value.targetCertId);
     const map = {};
     if (Array.isArray(alerts)) {
       alerts.forEach(a => {
