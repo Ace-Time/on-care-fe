@@ -98,6 +98,8 @@
           :source="isConfirmed ? 'CONFIRMED' : 'NORMAL'"
           :matching-id="viewModel?.matchingId ?? null"
           :vs-id="viewModel?.vsId ?? null"
+          :beneficiary-name="viewModel?.beneficiaryName ?? ''"
+          :current-care-worker-name="viewModel?.careWorkerName ?? ''"
           :schedule-date="formatDate(viewModel?.date) ?? ''"
           :start-time="formatTimeHM(viewModel?.startTime) ?? ''"
           :end-time="formatTimeHM(viewModel?.endTime) ?? ''"
