@@ -173,7 +173,7 @@ const loadEvaluationHistory = async () => {
 
       return {
         id: item.evalId || item.id,
-        evalDate: item.evalDate || item.assessmentDate || item.evaluationDate,
+        evalDate: item.eval_date || item.evalDate || item.assessmentDate || item.evaluationDate,
         beneficiaryId: item.beneficiaryId,
         beneficiaryName: item.beneficiaryName || item.recipientName || '-',
         careLevel: item.careLevel || '-',
@@ -670,7 +670,7 @@ onMounted(() => {
               </div>
 
               <div class="row-col date-info">
-                <span class="row-date">{{ item.evalDate?.split('T')[0] }}</span>
+                <span class="row-date">{{ item.evalDate }}</span>
                 <span class="row-evaluator">평가자: {{ item.evaluatorName }}</span>
               </div>
 

@@ -39,20 +39,29 @@ const selectedId = ref(null)
 const refreshKey = ref(0)
 
 /**
- * ✅ 상세에서 올라온 변경 이벤트 전달용(즉시 UI 반영)
+ *  상세에서 올라온 변경 이벤트 전달용(즉시 UI 반영)
  * 예) { type:'extendsStatus', expirationId: 3, extendsStatus:'N' }
+ * 예) { type:'notice', expirationId: 3 }
  */
 const lastChange = ref(null)
 
 const onRefresh = (payload) => {
-  // ✅ extendsStatus 토글은 "즉시 제거/이동"이 목적 → 재조회 말고 이벤트만 전달
+  //  extendsStatus 토글은 "즉시 제거/이동"이 목적 → 재조회 말고 이벤트만 전달
   if (payload && payload.type === 'extendsStatus') {
-    // 같은 payload 연속 emit이어도 watcher가 확실히 돌도록 객체 새로 생성
     lastChange.value = { ...payload, ts: Date.now() }
     return
   }
 
-  // ✅ 그 외(완료/삭제/수정 등)는 기존대로 재조회
+  //  notice(완료/부재중/수정/삭제)는 목록 라벨이 바뀌므로:
+  // 1) refreshKey로 재조회 트리거
+  // 2) lastChange로도 이벤트 전달(필요 시 즉시 반응용)
+  if (payload && payload.type === 'notice') {
+    lastChange.value = { ...payload, ts: Date.now() }
+    refreshKey.value++
+    return
+  }
+
+  //  그 외(기존대로 재조회)
   refreshKey.value++
 }
 </script>

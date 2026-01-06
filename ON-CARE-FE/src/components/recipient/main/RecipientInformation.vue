@@ -27,7 +27,7 @@
       </div>
     </div>
 
-    <!-- ✅ 우측 상단 버튼 -->
+    <!-- 우측 상단 버튼 -->
     <div class="info-action-area">
       <button class="edit-button" type="button" @click="showRegist = true">
         수급자 정보 수정
@@ -45,15 +45,68 @@
     <div class="detail-body">
       <div class="detail-col">
         <div class="info-row">
-          <span class="info-label">📅 생년월일</span>
+          <span class="info-label">
+            <!-- 생년월일 아이콘 (캘린더 SVG) -->
+            <svg
+              class="icon-xs text-green"
+              xmlns="http://www.w3.org/2000/svg"
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
+              <line x1="16" y1="2" x2="16" y2="6" />
+              <line x1="8" y1="2" x2="8" y2="6" />
+              <line x1="3" y1="10" x2="21" y2="10" />
+            </svg>
+            생년월일
+          </span>
           <span class="info-value">{{ vm.birth }}</span>
         </div>
+
         <div class="info-row">
-          <span class="info-label">📍 주소</span>
+          <span class="info-label">
+            <!-- 주소 아이콘 (지도핀 SVG) -->
+            <svg
+              class="icon-xs text-green"
+              xmlns="http://www.w3.org/2000/svg"
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
+              <circle cx="12" cy="10" r="3" />
+            </svg>
+            주소
+          </span>
           <span class="info-value">{{ vm.address }}</span>
         </div>
+
         <div class="info-row">
-          <span class="info-label">👨‍👩‍👧 보호자</span>
+          <span class="info-label">
+            <!-- 보호자 아이콘 (User SVG) -->
+            <svg
+              class="icon-xs text-green"
+              xmlns="http://www.w3.org/2000/svg"
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+              <circle cx="12" cy="7" r="4" />
+            </svg>
+            보호자
+          </span>
+
           <span class="info-value">
             {{ vm.guardianName || '-' }}
             <template v-if="vm.guardianRelation">
@@ -65,15 +118,66 @@
 
       <div class="detail-col">
         <div class="info-row">
-          <span class="info-label">📞 연락처</span>
+          <span class="info-label">
+            <!-- 연락처 아이콘 (전화 SVG) -->
+            <svg
+              class="icon-xs text-green"
+              xmlns="http://www.w3.org/2000/svg"
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path
+                d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"
+              />
+            </svg>
+            연락처
+          </span>
           <span class="info-value">{{ vm.phone }}</span>
         </div>
+
         <div class="info-row">
-          <span class="info-label">🧑‍⚕️ 담당 요양보호사</span>
+          <span class="info-label">
+            <!-- 담당 요양보호사 아이콘 (성별 SVG) -->
+            <svg
+              class="icon-xs text-green"
+              xmlns="http://www.w3.org/2000/svg"
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+              <circle cx="12" cy="7" r="4" />
+            </svg>
+            담당 요양보호사
+          </span>
           <span class="info-value">{{ vm.careWorker }}</span>
         </div>
+
         <div class="info-row">
-          <span class="info-label">📱 보호자 연락처</span>
+          <span class="info-label">
+            <!-- 보호자 연락처 아이콘 (Smartphone SVG) -->
+            <svg
+              class="icon-xs text-green"
+              xmlns="http://www.w3.org/2000/svg"
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
+              <path d="M12 18h.01" />
+            </svg>
+            보호자 연락처
+          </span>
           <span class="info-value">{{ vm.guardianPhone || '-' }}</span>
         </div>
       </div>
@@ -136,7 +240,7 @@ const props = defineProps({
   beneficiaryId: { type: Number, default: null }
 })
 
-/* ✅ 부모로 updated 신호 */
+/* 부모로 updated 신호 */
 const emit = defineEmits(['updated'])
 
 const showRegist = ref(false)
@@ -144,7 +248,7 @@ const loading = ref(false)
 const errorMsg = ref('')
 const vm = ref(null)
 
-/* ✅ 상세 조회 */
+/* 상세 조회 */
 const fetchDetail = async () => {
   if (!props.beneficiaryId) {
     vm.value = null
@@ -165,7 +269,7 @@ const fetchDetail = async () => {
   }
 }
 
-/* ✅ 수정 완료 이벤트: 우측 즉시 반영 + 부모에게 신호 */
+/* 수정 완료 이벤트: 우측 즉시 반영 + 부모에게 신호 */
 const handleUpdated = async () => {
   showRegist.value = false
   await fetchDetail()
@@ -174,14 +278,14 @@ const handleUpdated = async () => {
 
 watch(() => props.beneficiaryId, fetchDetail, { immediate: true })
 
-/* ✅ 백엔드 응답 -> 화면용 VM */
+/* 백엔드 응답 -> 화면용 VM */
 const toViewModel = (d) => ({
   id: d.beneficiaryId,
   name: d.name,
   risk: d.riskLevel,
   status: d.status,
 
-  // ✅ 백엔드가 "1등급" 그대로 내려주므로 땜빵 제거
+  // 백엔드가 "1등급" 그대로 내려주므로 땜빵 제거
   careLevel: d.careLevel ?? '-',
   careLevelEndDate: d.careLevelEndDate,
 
@@ -198,14 +302,14 @@ const toViewModel = (d) => ({
   limitAmount: d.monthlyLimit ?? 0,
   usedAmount: d.usedAmount ?? 0,
 
-  // ✅ 백엔드 값이 있으면 그걸 우선 사용
+  // 백엔드 값이 있으면 그걸 우선 사용
   remainingAmount: d.remainingAmount ?? ((d.monthlyLimit ?? 0) - (d.usedAmount ?? 0)),
 
   tags: d.tags ?? [],
   riskTags: (d.riskFactors ?? []).map((x) => x.name)
 })
 
-/* ✅ 잔액(백엔드 계산값 우선) */
+/* 잔액(백엔드 계산값 우선) */
 const remainingAmount = computed(() => vm.value?.remainingAmount ?? 0)
 
 const usedPercent = computed(() => {
@@ -408,5 +512,14 @@ const stateClass = (status) => ({
   .bottom-tags {
     flex-direction: column;
   }
+}
+
+/* SVG 아이콘용 */
+.icon-xs {
+  width: 16px;
+  height: 16px;
+}
+.text-green {
+  color: #16a34a;
 }
 </style>
