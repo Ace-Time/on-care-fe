@@ -109,6 +109,7 @@ const props = defineProps({
   /**
    * 상세에서 올라온 변경 이벤트
    * 예) { type:'extendsStatus', expirationId: 3, extendsStatus:'N' }
+   * 예) { type:'notice', expirationId: 3 }   // 추가로 받음
    */
   lastChange: { type: Object, default: null }
 })
@@ -180,7 +181,7 @@ const filteredItems = computed(() => {
     return list.filter((i) => i.ddayNum > 60 && i.ddayNum <= 90)
   }
 
-  // 혹시 모를 fallback(기존 동작)
+  // fallback
   return list.filter((i) => i.ddayNum <= range)
 })
 
@@ -257,7 +258,7 @@ watch(
   }
 )
 
-/** refreshKey 올라오면(완료/삭제 등) 서버 재조회 + page 보정 */
+/** refreshKey 올라오면(완료/삭제 등) 서버 재조회 */
 watch(
   () => props.refreshKey,
   async () => {
@@ -266,14 +267,20 @@ watch(
 )
 
 /**
- * 핵심: extendsStatus 변경 즉시 반영
- * - 연장예정 목록에서 N 되면 즉시 제거
- * - 미연장 목록에서 Y 되면 즉시 제거
+ *  핵심: 상세에서 올라온 변경 이벤트 즉시 반영
+ * - extendsStatus는 로컬에서 즉시 제거 처리(기존 유지)
+ * - notice(완료/부재중/수정/삭제)는 상태 라벨이 바뀌므로 서버 재조회
  */
 watch(
   () => props.lastChange,
-  (chg) => {
-    if (!chg || chg.type !== 'extendsStatus') return
+  async (chg) => {
+    if (!chg) return
+
+    //  notice는 부모가 refreshKey++로 재조회하므로 여기서는 중복 호출 방지
+    if (chg.type === 'notice') return
+
+    //  기존 extendsStatus 처리 유지
+    if (chg.type !== 'extendsStatus') return
 
     const id = Number(chg.expirationId)
     const next = String(chg.extendsStatus || '').toUpperCase() // 'N' or 'Y'
@@ -307,6 +314,7 @@ watch(
 </script>
 
 <style scoped>
+/* (스타일은 너가 준 그대로) */
 .longcare-wrap {
   box-sizing: border-box;
   min-width: 0;
