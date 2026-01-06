@@ -221,21 +221,12 @@ const history = ref([])
 const extendPlanned = ref(true)
 
 /**
- * KST 기준 "오늘 날짜(YYYY-MM-DD)" 만들기
- */
-const todayKst = () => {
-  const now = new Date()
-  const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000)
-  return kst.toISOString().slice(0, 10)
-}
-
-/**
  * KST 기준 "지금(YYYY-MM-DDTHH:mm)" (datetime-local용)
  */
 const nowKstDateTimeLocal = () => {
   const now = new Date()
   const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000)
-  return kst.toISOString().slice(0, 16) // YYYY-MM-DDTHH:mm
+  return kst.toISOString().slice(0, 16)
 }
 
 /**
@@ -250,21 +241,19 @@ const nowKstPretty = () => {
  */
 const toDbDateTimeString = (dtLocal) => {
   if (!dtLocal) return null
-  // dtLocal: "YYYY-MM-DDTHH:mm"
   return `${dtLocal.replace('T', ' ')}:00`
 }
 
 const contactMode = ref('now') // 'now' | 'manual'
 
 const form = ref({
-  contactAt: nowKstDateTimeLocal(), // 직접입력 탭에서 사용
+  contactAt: nowKstDateTimeLocal(),
   memo: '',
 })
 
 const setContactMode = (mode) => {
   contactMode.value = mode
   if (mode === 'now') {
-    // 현재 탭으로 바꾸면 "지금"으로 갱신
     form.value.contactAt = nowKstDateTimeLocal()
   }
 }
@@ -302,7 +291,6 @@ const fetchDetail = async () => {
     detail.value = data || null
     extendPlanned.value = (detail.value?.extendsStatus ?? 'Y') !== 'N'
 
-    // 폼 초기화
     contactMode.value = 'now'
     form.value.contactAt = nowKstDateTimeLocal()
     form.value.memo = ''
@@ -369,9 +357,15 @@ const validateManualDateTimeOrAlert = () => {
 }
 
 /**
+ * notice 변경 알림(목록 갱신용)
+ * - 기존 emit('refresh') 유지 + payload도 같이 전달
+ */
+const emitNoticeRefresh = () => {
+  emit('refresh', { type: 'notice', expirationId: props.expirationId })
+}
+
+/**
  * 부재중
- * - 현재탭: 서버 NOW()
- * - 직접입력: noticeDate를 함께 보냄(백엔드가 지원하면 해당 시간 저장)
  */
 const recordAbsent = async () => {
   if (!requireEmpId()) return
@@ -391,7 +385,7 @@ const recordAbsent = async () => {
     )
 
     await fetchNotices()
-    emit('refresh')
+    emitNoticeRefresh()
   } catch (e) {
     console.error(e)
     alert('부재중/미완료 기록에 실패했습니다.')
@@ -402,8 +396,6 @@ const recordAbsent = async () => {
 
 /**
  * 안내 완료
- * - 현재탭: 서버 NOW()
- * - 직접입력: noticeDate 함께 전송
  */
 const addComplete = async () => {
   if (!requireEmpId()) return
@@ -431,7 +423,7 @@ const addComplete = async () => {
     form.value.contactAt = nowKstDateTimeLocal()
 
     await fetchNotices()
-    emit('refresh')
+    emitNoticeRefresh()
   } catch (e) {
     console.error(e)
     alert('안내 완료 처리에 실패했습니다.')
@@ -444,7 +436,6 @@ const startEdit = (log) => {
   isEditing.value = true
   editingNoticeId.value = log.noticeId
 
-  // 수정 시작하면: 기본은 "현재" 탭으로 두고(서버 NOW), 필요하면 직접입력으로 바꿔서 수정 가능
   contactMode.value = 'now'
   form.value.contactAt = nowKstDateTimeLocal()
   form.value.memo = log.memo || ''
@@ -461,8 +452,6 @@ const cancelEdit = () => {
 
 /**
  * 수정 저장
- * - 현재탭: 서버 NOW()로 업데이트 (00:00 문제 해결)
- * - 직접입력: noticeDate 함께 전송
  */
 const saveEdit = async () => {
   if (!validateManualDateTimeOrAlert()) return
@@ -490,7 +479,7 @@ const saveEdit = async () => {
 
     await fetchNotices()
     cancelEdit()
-    emit('refresh')
+    emitNoticeRefresh()
   } catch (e) {
     console.error(e)
     alert('안내 이력 변경에 실패했습니다.')
@@ -505,7 +494,7 @@ const removeLog = async (noticeId) => {
   try {
     await api.delete(`/api/care-level/expirations/${props.expirationId}/notices/${noticeId}`)
     await fetchNotices()
-    emit('refresh')
+    emitNoticeRefresh()
   } catch (e) {
     console.error(e)
     alert('안내 이력 삭제에 실패했습니다.')
@@ -529,6 +518,7 @@ watch(
 </script>
 
 <style scoped>
+/* (스타일은 너가 준 그대로) */
 .detail-card {
   box-sizing: border-box;
   max-width: 100%;
