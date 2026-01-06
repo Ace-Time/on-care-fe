@@ -160,6 +160,7 @@ onBeforeUnmount(() => {
   flex-direction: column;
   position: relative;
   transition: box-shadow 0.3s ease;
+  box-sizing: border-box;
 }
 
 /* 카드에 마우스를 올렸을 때 그림자 효과 강화 */

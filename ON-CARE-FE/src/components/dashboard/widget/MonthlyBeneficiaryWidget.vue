@@ -181,6 +181,7 @@ onBeforeUnmount(() => {
   flex-direction: column;
   position: relative;
   transition: box-shadow 0.3s ease;
+  box-sizing: border-box;
 }
 
 .chart-card:hover {
