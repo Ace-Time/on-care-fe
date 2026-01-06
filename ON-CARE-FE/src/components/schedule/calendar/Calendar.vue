@@ -190,6 +190,17 @@ const calendarDays = computed(() => {
 const isSelected = (day) => formatDateKey(day.date) === selectedDateKey.value;
 
 /* -------------------- month navigation -------------------- */
+const pickDefaultDateInViewMonth = () => {
+    const isTodayInView =
+      today.getFullYear() === year.value && today.getMonth() === month.value;
+  
+    const target = isTodayInView ? today : new Date(year.value, month.value, 1);
+    const key = formatDateKey(target);
+  
+    selectedDateKey.value = key;
+    emit('select-date', key);
+};
+
 const goPrevMonth = () => {
   if (month.value === 0) {
     month.value = 11;
@@ -197,6 +208,7 @@ const goPrevMonth = () => {
   } else {
     month.value -= 1;
   }
+  pickDefaultDateInViewMonth()
 };
 
 const goNextMonth = () => {
@@ -206,6 +218,7 @@ const goNextMonth = () => {
   } else {
     month.value += 1;
   }
+  pickDefaultDateInViewMonth()
 };
 
 const onDayClick = (day) => {
@@ -245,6 +258,7 @@ const applyMonthPicker = () => {
   year.value = Number(pickerYear.value);
   month.value = Number(pickerMonth.value) - 1; // 0~11
   showMonthPicker.value = false;
+  pickDefaultDateInViewMonth()
 };
 
 /* -------------------- confirmed/normal 판단 -------------------- */
