@@ -147,7 +147,15 @@ const openAdd = () => {
               @click.stop="emit('select-schedule', schedule)"
             >
               <span class="time">{{ schedule.startTime }}</span>
-              <span class="recipient">{{ schedule.recipient }}</span>
+              <span class="recipient">
+                {{ schedule.recipient }}
+                <span v-if="schedule.serviceTypes && schedule.serviceTypes.length > 0">
+                  ({{ schedule.serviceTypes.join(', ') }})
+                </span>
+                <span v-else-if="schedule.serviceLabel">
+                  ({{ schedule.serviceLabel }})
+                </span>
+              </span>
             </div>
           </div>
         </div>
