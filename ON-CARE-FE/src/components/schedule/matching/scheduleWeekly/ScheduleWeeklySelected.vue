@@ -15,7 +15,7 @@
       </div>
 
       <div class="day-columns">
-        <div v-for="day in days" :key="day" class="day-column">
+        <div v-for="day in days" :key="day" class="day-column" ref="dayColumnRefs">
           <div v-for="time in timeSlots" :key="time" class="day-cell"></div>
 
           <div
@@ -47,190 +47,229 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
-import { getBeneficiaryDetail, getCareWorkerDetail } from '@/api/schedule/matching.js'
-import { useMatchingSelectionStore } from '@/stores/matchingSelection'
-
-const props = defineProps({
-  recipient: { type: Object, default: null },
-  caregiver: { type: Object, default: null },
-  refreshKey: { type: Number, default: 0 },
-})
-
-const store = useMatchingSelectionStore()
-
-const days = ['월', '화', '수', '목', '금', '토', '일']
-const timeSlots = [
-  '06:00', '07:00', '08:00', '09:00', '10:00', '11:00',
-  '12:00', '13:00', '14:00', '15:00', '16:00', '17:00',
-  '18:00', '19:00', '20:00', '21:00', '22:00',
-]
-
-const getBeneficiaryId = (obj) => obj?.beneficiaryId ?? obj?.id ?? null
-const getCareWorkerId = (obj) => obj?.careWorkerId ?? obj?.id ?? null
-
-const loading = ref(false)
-const error = ref('')
-
-const recipientDetail = ref(null)
-const caregiverDetail = ref(null)
-
-/* ===== API ===== */
-async function loadRecipientDetail() {
-  const beneficiaryId = getBeneficiaryId(props.recipient)
-  if (!beneficiaryId) {
-    recipientDetail.value = null
-    return
-  }
-
-  try {
-    loading.value = true
-    error.value = ''
-    const res = await getBeneficiaryDetail(beneficiaryId)
-    recipientDetail.value = res?.data ?? res ?? null
-  } catch (e) {
-    recipientDetail.value = null
-    error.value = e?.response?.data?.message || '주간 일정을 불러오지 못했습니다.'
-  } finally {
-    loading.value = false
-  }
-}
-
-async function loadCaregiverDetail() {
-  const careWorkerId = getCareWorkerId(props.caregiver)
-  if (!careWorkerId) {
-    caregiverDetail.value = null
-    return
-  }
-
-  try {
-    const res = await getCareWorkerDetail(careWorkerId)
-    caregiverDetail.value = res?.data ?? res ?? null
-  } catch (e) {
-    caregiverDetail.value = null
-  }
-}
-
-function reloadBoth() {
-  loadRecipientDetail()
-  loadCaregiverDetail()
-}
-
-/* ===== watch ===== */
-watch(
-  () => getBeneficiaryId(props.recipient),
-  () => loadRecipientDetail(),
-  { immediate: true }
-)
-
-watch(
-  () => getCareWorkerId(props.caregiver),
-  () => loadCaregiverDetail(),
-  { immediate: true }
-)
-
-watch(
-  () => props.refreshKey,
-  () => reloadBoth()
-)
-
-watch(
-  () => store.refreshTick,
-  () => reloadBoth()
-)
-
-/* ===== 데이터 가공 ===== */
-const dayToKor = (day) => {
-  const map = { 1: '월', 2: '화', 3: '수', 4: '목', 5: '금', 6: '토', 7: '일' }
-  return map[day] || ''
-}
-
-const normalizeTime = (t) => {
-  if (!t) return ''
-  const s = String(t)
-  return s.length >= 5 ? s.slice(0, 5) : s
-}
-
-const recipientEvents = computed(() => {
-  const beneficiaryId = getBeneficiaryId(props.recipient)
-  const schedules = recipientDetail.value?.schedules || []
-  if (!beneficiaryId || !Array.isArray(schedules)) return []
-
-  return schedules
-    .map((s, idx) => {
-      const day = s.dayName || dayToKor(s.day)
-      const start = normalizeTime(s.startTime)
-      const end = normalizeTime(s.endTime)
-      if (!day || !start || !end) return null
-
-      return {
-        id: `rec-${beneficiaryId}-${idx}`,
-        day,
-        start,
-        end,
-        type: 'wish',
-        title: '희망 시간',
-        timeText: `${start}-${end}`,
-        service: s.serviceTypeName || '',
-      }
-    })
-    .filter(Boolean)
-})
-
-const caregiverEvents = computed(() => {
-  const careWorkerId = getCareWorkerId(props.caregiver)
-  const times = caregiverDetail.value?.workingTimes || []
-  if (!careWorkerId || !Array.isArray(times)) return []
-
-  return times
-    .map((w, idx) => {
-      const day = w.dayName || dayToKor(w.day)
-      const start = normalizeTime(w.startTime)
-      const end = normalizeTime(w.endTime)
-      if (!day || !start || !end) return null
-
-      return {
-        id: `cw-${careWorkerId}-${idx}`,
-        day,
-        start,
-        end,
-        type: 'work',
-        title: '근무',
-        timeText: `${start}-${end}`,
-        service: w.serviceTypeName || '',
-      }
-    })
-    .filter(Boolean)
-})
-
-const eventsByDay = computed(() => {
-  const map = {}
-  days.forEach((d) => (map[d] = []))
-
-  ;[...recipientEvents.value, ...caregiverEvents.value].forEach((ev) => {
-    if (map[ev.day]) map[ev.day].push(ev)
+  import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
+  import { getBeneficiaryDetail, getCareWorkerDetail } from '@/api/schedule/matching.js'
+  import { useMatchingSelectionStore } from '@/stores/matchingSelection'
+  
+  const props = defineProps({
+    recipient: { type: Object, default: null },
+    caregiver: { type: Object, default: null },
+    refreshKey: { type: Number, default: 0 },
   })
-
-  Object.keys(map).forEach((k) => {
-    map[k].sort((a, b) => (a.type === b.type ? 0 : a.type === 'work' ? -1 : 1))
+  
+  const store = useMatchingSelectionStore()
+  
+  const days = ['월', '화', '수', '목', '금', '토', '일']
+  const timeSlots = [
+    '06:00', '07:00', '08:00', '09:00', '10:00', '11:00',
+    '12:00', '13:00', '14:00', '15:00', '16:00', '17:00',
+    '18:00', '19:00', '20:00', '21:00', '22:00',
+  ]
+  
+  const getBeneficiaryId = (obj) => obj?.beneficiaryId ?? obj?.id ?? null
+  const getCareWorkerId = (obj) => obj?.careWorkerId ?? obj?.id ?? null
+  
+  const loading = ref(false)
+  const error = ref('')
+  
+  const recipientDetail = ref(null)
+  const caregiverDetail = ref(null)
+  
+  const dayColumnRefs = ref([])
+  
+  const slotHeight = ref(48)
+  const gridOffsetTop = ref(0)
+  
+  const measureGrid = async () => {
+    await nextTick()
+    const col = dayColumnRefs.value?.[0]
+    if (!col) return
+  
+    const firstCell = col.querySelector('.day-cell')
+    if (!firstCell) return
+  
+    const cellRect = firstCell.getBoundingClientRect()
+    const colRect = col.getBoundingClientRect()
+  
+    slotHeight.value = cellRect.height || 48
+    gridOffsetTop.value = cellRect.top - colRect.top
+  }
+  
+  /* ===== API ===== */
+  async function loadRecipientDetail() {
+    const beneficiaryId = getBeneficiaryId(props.recipient)
+    if (!beneficiaryId) {
+      recipientDetail.value = null
+      return
+    }
+  
+    try {
+      loading.value = true
+      error.value = ''
+      const res = await getBeneficiaryDetail(beneficiaryId)
+      recipientDetail.value = res?.data ?? res ?? null
+    } catch (e) {
+      recipientDetail.value = null
+      error.value = e?.response?.data?.message || '주간 일정을 불러오지 못했습니다.'
+    } finally {
+      loading.value = false
+    }
+  }
+  
+  async function loadCaregiverDetail() {
+    const careWorkerId = getCareWorkerId(props.caregiver)
+    if (!careWorkerId) {
+      caregiverDetail.value = null
+      return
+    }
+  
+    try {
+      const res = await getCareWorkerDetail(careWorkerId)
+      caregiverDetail.value = res?.data ?? res ?? null
+    } catch (e) {
+      caregiverDetail.value = null
+    }
+  }
+  
+  function reloadBoth() {
+    loadRecipientDetail()
+    loadCaregiverDetail()
+  }
+  
+  watch(
+    () => getBeneficiaryId(props.recipient),
+    async () => {
+      await loadRecipientDetail()
+      await measureGrid()
+    },
+    { immediate: true }
+  )
+  
+  watch(
+    () => getCareWorkerId(props.caregiver),
+    async () => {
+      await loadCaregiverDetail()
+      await measureGrid()
+    },
+    { immediate: true }
+  )
+  
+  watch(
+    () => props.refreshKey,
+    async () => {
+      reloadBoth()
+      await measureGrid()
+    }
+  )
+  
+  watch(
+    () => store.refreshTick,
+    async () => {
+      reloadBoth()
+      await measureGrid()
+    }
+  )
+  
+  onMounted(async () => {
+    await measureGrid()
+    window.addEventListener('resize', measureGrid)
   })
-
-  return map
-})
-
-const eventStyle = (event) => {
-  const [sh, sm] = event.start.split(':').map(Number)
-  const [eh, em] = event.end.split(':').map(Number)
-
-  const slotHeight = 48
-  const startIndex = sh - 6 + sm / 60
-  const endIndex = eh - 6 + em / 60
-
-  const top = startIndex * slotHeight
-  const height = (endIndex - startIndex) * slotHeight
-
-  return { top: `${top}px`, height: `${height}px` }
-}
+  
+  onBeforeUnmount(() => {
+    window.removeEventListener('resize', measureGrid)
+  })
+  
+  /* ===== 데이터 가공 ===== */
+  const dayToKor = (day) => {
+    const map = { 1: '월', 2: '화', 3: '수', 4: '목', 5: '금', 6: '토', 7: '일' }
+    return map[day] || ''
+  }
+  
+  const normalizeTime = (t) => {
+    if (!t) return ''
+    const s = String(t).slice(0, 5)   // HH:mm
+    return s.replace(/^0/, '')       // 앞에 0 있으면 제거
+  }
+  
+  const recipientEvents = computed(() => {
+    const beneficiaryId = getBeneficiaryId(props.recipient)
+    const schedules = recipientDetail.value?.schedules || []
+    if (!beneficiaryId || !Array.isArray(schedules)) return []
+  
+    return schedules
+      .map((s, idx) => {
+        const day = s.dayName || dayToKor(s.day)
+        const start = normalizeTime(s.startTime)
+        const end = normalizeTime(s.endTime)
+        if (!day || !start || !end) return null
+  
+        return {
+          id: `rec-${beneficiaryId}-${idx}`,
+          day,
+          start,
+          end,
+          type: 'wish',
+          title: '희망 시간',
+          timeText: `${start}-${end}`,
+          service: s.serviceTypeName || '',
+        }
+      })
+      .filter(Boolean)
+  })
+  
+  const caregiverEvents = computed(() => {
+    const careWorkerId = getCareWorkerId(props.caregiver)
+    const times = caregiverDetail.value?.workingTimes || []
+    if (!careWorkerId || !Array.isArray(times)) return []
+  
+    return times
+      .map((w, idx) => {
+        const day = w.dayName || dayToKor(w.day)
+        const start = normalizeTime(w.startTime)
+        const end = normalizeTime(w.endTime)
+        if (!day || !start || !end) return null
+  
+        return {
+          id: `cw-${careWorkerId}-${idx}`,
+          day,
+          start,
+          end,
+          type: 'work',
+          title: '근무',
+          timeText: `${start}-${end}`,
+          service: w.serviceTypeName || '',
+        }
+      })
+      .filter(Boolean)
+  })
+  
+  const eventsByDay = computed(() => {
+    const map = {}
+    days.forEach((d) => (map[d] = []))
+  
+    ;[...recipientEvents.value, ...caregiverEvents.value].forEach((ev) => {
+      if (map[ev.day]) map[ev.day].push(ev)
+    })
+  
+    Object.keys(map).forEach((k) => {
+      map[k].sort((a, b) => (a.type === b.type ? 0 : a.type === 'work' ? -1 : 1))
+    })
+  
+    return map
+  })
+  
+  const eventStyle = (event) => {
+    const [sh, sm] = event.start.split(':').map(Number)
+    const [eh, em] = event.end.split(':').map(Number)
+  
+    const startIndex = sh - 6 + sm / 60
+    const endIndex = eh - 6 + em / 60
+  
+    const top = gridOffsetTop.value + startIndex * slotHeight.value
+    const height = (endIndex - startIndex) * slotHeight.value
+  
+    return { top: `${top}px`, height: `${height}px` }
+  }
 </script>
 
 <style scoped>
@@ -321,11 +360,9 @@ const eventStyle = (event) => {
   background: #fef9c3;
   border: 1px solid #facc15;
   color: #92400e;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  font-size: 13px;
-  font-weight: 600;
+  align-items: flex-start;
+  justify-content: flex-start;
+  text-align: left;
 }
 
 .event-block.work {
@@ -335,11 +372,11 @@ const eventStyle = (event) => {
 }
 
 .event-time {
-  font-weight: 700;
+  font-weight: 600;
 }
 .event-name,
 .event-service {
-  font-size: 11px;
+  font-size: 9px;
 }
 
 .legend {
