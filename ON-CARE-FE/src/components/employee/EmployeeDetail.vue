@@ -58,7 +58,11 @@ const tabs = [
         </div>
 
         <div v-else-if="activeTab === 'careLogs'">
-          <BeneficiaryLogList :employeeId="employee.id" />
+          <BeneficiaryLogList
+            :employeeId="employee.id" 
+            :careWorkerId="employee.careWorkerId"
+            :employeeName="employee.name"
+          />
         </div>
 
         <div v-else-if="activeTab === 'recipients'">
