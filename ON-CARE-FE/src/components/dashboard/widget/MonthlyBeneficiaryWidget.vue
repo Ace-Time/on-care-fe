@@ -67,7 +67,7 @@ const chartOptions = computed(() => ({
   colors: ['#3B82F6', '#EF4444'], 
   grid: {
     borderColor: '#f1f1f1',
-    padding: { top: 10 }
+    padding: { top: 10, bottom: 20, right: 20, left: 10 }
   },
   legend: { position: 'top', horizontalAlign: 'right' },
   tooltip: {
@@ -181,6 +181,7 @@ onBeforeUnmount(() => {
   flex-direction: column;
   position: relative;
   transition: box-shadow 0.3s ease;
+  box-sizing: border-box;
 }
 
 .chart-card:hover {

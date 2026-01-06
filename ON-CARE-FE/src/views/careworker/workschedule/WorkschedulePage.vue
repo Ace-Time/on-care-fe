@@ -123,6 +123,7 @@ const transformSchedule = (schedule) => {
         endTime: schedule.endTime,
         recipient: schedule.recipientName || '수급자',
         serviceLabel: schedule.type || '방문요양',
+        serviceTypes: schedule.serviceTypes || (schedule.type ? [schedule.type] : []), // 서비스 유형 배열
         service: 'VISIT',
         status: status,
         statusColor: getStatusColor(status),
@@ -132,6 +133,7 @@ const transformSchedule = (schedule) => {
         duration: calculateDuration(schedule.startTime, schedule.endTime),
         recipientName: schedule.recipientName,
         location: schedule.location,
+        beneficiaryId: schedule.beneficiaryId,
       };
     }
   }
@@ -355,6 +357,7 @@ const showAddModal = ref(false);
 const isEditMode = ref(false); // 수정 모드 여부
 const editingScheduleId = ref(null); // 수정 중인 일정 ID
 const isPersonalSchedule = ref(false); // 개인일정 체크박스 상태
+const originalStatus = ref(null); // 수정 시 원본 상태 저장
 const newSchedule = ref({
   // 공통
   date: '',
@@ -450,6 +453,7 @@ const resetNewSchedule = () => {
   isPersonalSchedule.value = false;
   isEditMode.value = false;
   editingScheduleId.value = null;
+  originalStatus.value = null; // 원본 상태 초기화
 };
 
 const openAddModal = (payload) => {
@@ -468,6 +472,9 @@ const openEditModal = (schedule) => {
   isEditMode.value = true;
   editingScheduleId.value = schedule.scheduleId || schedule.id;
   isPersonalSchedule.value = schedule.scheduleType === 'PERSONAL';
+
+  // 원본 상태 저장 (수정 시 상태 유지용)
+  originalStatus.value = schedule.status || schedule.visitStatus || 'SCHEDULED';
 
   // 원본 일정 목록에서 notes 찾기 (상세 조회 데이터는 notes가 누락될 수 있음)
   const originalSchedule = schedules.value.find(s =>
@@ -503,7 +510,9 @@ const openEditModal = (schedule) => {
       notes: scheduleNotes,
       beneficiaryId: schedule.beneficiaryId,
       beneficiaryName: schedule.recipient,
-      serviceTypes: [schedule.serviceLabel], // 단일 서비스 유형
+      serviceTypes: (schedule.serviceTypes && schedule.serviceTypes.length > 0) 
+        ? [...schedule.serviceTypes] 
+        : (schedule.serviceLabel ? [schedule.serviceLabel] : []), // 서비스 유형 배열 (없으면 단일값 fallback)
       address: schedule.address || '',
       // 개인 일정 필드 초기화
       personalTypeId: null,
@@ -630,23 +639,33 @@ const saveSchedule = async () => {
 
       if (isEditMode.value) {
         // 방문 일정 수정
-        const serviceTypeId = getServiceTypeId(newSchedule.value.serviceTypes[0]);
+        // 여러 서비스 유형 ID 매핑
+        const serviceTypeIds = newSchedule.value.serviceTypes
+          .map(type => getServiceTypeId(type))
+          .filter(id => id);
 
-        if (!serviceTypeId) {
+        if (serviceTypeIds.length === 0) {
           alert('유효하지 않은 서비스 유형입니다.');
           return;
         }
 
         const scheduleData = {
           beneficiaryId: newSchedule.value.beneficiaryId,
-          serviceTypeId: serviceTypeId,
           startDt: startDt,
           endDt: endDt,
-          visitStatus: 'SCHEDULED',
+          visitStatus: originalStatus.value || 'SCHEDULED', // 원본 상태 유지
           note: newSchedule.value.notes || '',
         };
 
-
+        if (serviceTypeIds.length > 1) {
+          // 다중 서비스 유형: 리스트 전송 (백엔드에서 삭제 후 재생성 로직 유도)
+          scheduleData.serviceTypeIds = serviceTypeIds;
+          scheduleData.serviceTypeId = serviceTypeIds[0];
+        } else {
+          // 단일 서비스 유형: 리스트 미전송 (백엔드에서 단순 Update 로직 유도)
+          scheduleData.serviceTypeId = serviceTypeIds[0];
+          scheduleData.serviceTypeIds = null;
+        }
 
         await updateVisitSchedule(editingScheduleId.value, scheduleData);
         alert('방문 일정이 수정되었습니다.');

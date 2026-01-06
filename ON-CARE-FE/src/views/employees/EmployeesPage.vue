@@ -240,7 +240,8 @@ const handleSelect = async (emp) => {
             ? mapServiceIdsToNames(detailData.serviceTypeIds)
             : (detailData.specialties || [])),
         
-      schedules: []
+      schedules: [],
+      careWorkerId: detailData.careWorkerId || null 
     };
 
     // [수정] 일정 데이터 별도 조회 및 병합 (API 분리됨)

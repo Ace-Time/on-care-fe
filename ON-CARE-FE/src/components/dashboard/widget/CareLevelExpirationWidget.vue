@@ -67,7 +67,7 @@ const chartOptions = computed(() => ({
   colors: ['#3B82F6', '#F59E0B', '#EF4444'], 
   grid: {
     borderColor: '#f1f1f1',
-    padding: { top: 10 }
+    padding: { top: 10, bottom: 20, right: 20, left: 10 }
   },
   legend: { show: false }, // distributed: true일 때 자동으로 범례가 생기는데 필요 없으면 false
   tooltip: {
@@ -183,6 +183,7 @@ onBeforeUnmount(() => {
   flex-direction: column;
   position: relative;
   transition: box-shadow 0.3s ease;
+  box-sizing: border-box;
 }
 
 .chart-card:hover {

@@ -231,9 +231,16 @@ const getPositionStyle = (start, end, scheduleId) => {
              :style="getPositionStyle(item.startTime, item.endTime, item.id)"
              @click="handleSelect(item)">
           <div class="block-content">
-            <div class="block-time">시간 {{ item.startTime }} - {{ item.endTime }}</div>
+            <div class="block-time">{{ item.startTime }} - {{ item.endTime }}</div>
             <div class="block-title">{{ item.recipient }}</div>
-            <div class="block-sub">{{ item.serviceType || item.serviceLabel }}</div>
+            <div class="block-sub">
+              <template v-if="Array.isArray(item.serviceTypes) && item.serviceTypes.length > 0">
+                {{ item.serviceTypes.join(', ') }}
+              </template>
+              <template v-else>
+                {{ item.serviceType || item.serviceLabel || item.service }}
+              </template>
+            </div>
           </div>
         </div>
       </div>

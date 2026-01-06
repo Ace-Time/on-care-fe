@@ -420,7 +420,7 @@ onMounted(async () => {
         @end="saveDashboardSettings" 
       >
         <template #item="{ element }">
-          <div :class="['widget-wrapper', element.layoutClass, 'transition-all']">
+          <div :class="['widget-wrapper', element.layoutClass, element.type, 'transition-all']">
             <component 
               :is="componentsMap[element.type]" 
               v-bind="element.props" 
@@ -484,6 +484,18 @@ onMounted(async () => {
     row-gap: 24px;
     grid-auto-rows: auto; /* 모바일에서는 내용에 맞게 (차트가 작아질 수 있음) */
   } 
-  .span-1, .span-2, .span-4 { grid-column: span 1; } 
+  .span-1, .span-2, .span-4 { grid-column: span 1; }
+  
+  /* 리스트형 및 차트형 위젯에 강제 높이 부여하여 스크롤/크기 고정 */
+  .CommonListWidget,
+  .BaseChart,
+  .ProductProfitWidget,
+  .CareLevelExpirationWidget,
+  .MonthlyClientWidget,
+  .MonthlyBeneficiaryWidget,
+  .RiskLevelWidget,
+  .CareGradeWidget {
+    height: 420px !important; 
+  }
 }
 </style>
