@@ -25,8 +25,8 @@
         </div>
 
         <div class="header-right">
-          <span class="chip" v-if="currentData?.evalDate">
-            최근 평가: {{ currentData.evalDate }}
+          <span class="chip" v-if="currentData?.assessmentDate || currentData?.evaluatedAt || currentData?.evalDate">
+            최근 평가: {{ currentData.assessmentDate || currentData.evaluatedAt || currentData.evalDate }}
           </span>
           <span class="chip ghost" v-else>
             평가 이력 없음

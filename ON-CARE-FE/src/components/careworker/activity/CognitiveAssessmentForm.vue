@@ -32,7 +32,7 @@ const formData = ref({
   beneficiaryId: props.initialData?.beneficiaryId ?? 0,
   recipientName: props.initialData?.recipientName || '',
   careWorkerName: props.initialData?.careWorkerName || userStore.name || '',
-  assessmentDate: props.initialData?.assessmentDate || new Date().toISOString().split('T')[0],
+  assessmentDate: props.initialData?.eval_date || props.initialData?.evalDate || props.initialData?.assessmentDate || new Date().toISOString().split('T')[0],
   educationLevel: props.initialData?.educationLevel || 'MIDDLE_HIGH',
   responses: props.initialData?.responses || props.initialData?.cognitiveItems || {},
   comment: props.initialData?.comment || ''
@@ -45,7 +45,7 @@ watch(() => props.initialData, (newData) => {
       beneficiaryId: newData.beneficiaryId,
       recipientName: newData.recipientName || formData.value.recipientName,
       careWorkerName: newData.careWorkerName || userStore.name || '',
-      assessmentDate: newData.assessmentDate || formData.value.assessmentDate,
+      assessmentDate: newData.eval_date || newData.evalDate || newData.assessmentDate || formData.value.assessmentDate,
       educationLevel: newData.educationLevel || formData.value.educationLevel,
       responses: newData.responses || newData.cognitiveItems || formData.value.responses || {},
       comment: newData.comment || formData.value.comment || ''
