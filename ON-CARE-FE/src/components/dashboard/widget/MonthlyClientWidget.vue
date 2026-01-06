@@ -78,9 +78,9 @@ const chartOptions = computed(() => ({
     }
   ],
   colors: ['#A78BFA', '#10B981'], // 보라색(잠재), 초록색(계약)
-  grid: {
+    grid: {
     borderColor: '#f1f1f1',
-    padding: { top: 10 }
+    padding: { top: 10, bottom: 20, right: 20, left: 10 }
   },
   legend: { position: 'bottom' },
   tooltip: {

@@ -53,7 +53,7 @@ const chartOptions = computed(() => {
     },
     grid: {
       borderColor: '#f1f1f1',
-      padding: { top: 10 }
+      padding: { top: 0, bottom: 20, right: 20, left: 10 }
     },
     legend: { position: 'bottom' }
   };
