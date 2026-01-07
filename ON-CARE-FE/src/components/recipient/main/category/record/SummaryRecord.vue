@@ -633,14 +633,20 @@ const hasAnyAllPhysical = (d) => {
 .ai-btn {
   border-radius: 999px;
   border: none;
-  padding: 4px 8px;
-  font-size: 11px;
+  /* 배경 컴포 크게 */
+  padding: 6px 12px;
+  min-height: 26px;
+  /* 텍스트 안정 */
+  font-size: 12px;
+  line-height: 1;
   background-color: #eef2ff;
   color: #4f46e5;
   cursor: pointer;
+  /* 살짝 내려오기 */
+  /* margin-top: 2px; */
 }
 .ai-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-.summary-text { margin: 0; font-size: 12px; color: #4b5563; }
+.summary-text { margin: 0; font-size: 14px; color: #4b5563; }
 .ai-error { margin: 6px 0 0; font-size: 11px; color: #dc2626; }
 
 /*  제목줄 + 총건수(오른쪽) */
