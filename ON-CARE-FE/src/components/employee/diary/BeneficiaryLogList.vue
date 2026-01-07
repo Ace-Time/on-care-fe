@@ -9,7 +9,9 @@ import EvaluationHistoryList from '@/components/employee/diary/EvaluationHistory
 import VisitCounselHistoryList from '@/components/careworker/activity/VisitCounselHistoryList.vue';
 
 const props = defineProps({
-  employeeId: { type: [Number, String], required: true }
+  employeeId: { type: [Number, String], required: true },
+  careWorkerId: { type: [Number, String], default: null },
+  employeeName: { type: String, default: '' }
 });
 
 const list = ref([]);
@@ -194,6 +196,8 @@ watch(() => props.employeeId, fetchData);
         <EvaluationHistoryList 
           v-else-if="selectedTab === 'basic'" 
           :beneficiaryId="selectedBeneficiary.beneficiaryId || selectedBeneficiary.id" 
+          :careWorkerId="careWorkerId"
+          :employeeName="employeeName"
         />
 
         <!-- 방문상담: 공통 컴포넌트 사용 -->

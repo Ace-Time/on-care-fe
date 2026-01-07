@@ -3,6 +3,7 @@ import { ref, onMounted, computed, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import CareLogForm from '@/components/careworker/activity/CareLogForm.vue';
 import { getCareLogList, getCareLogDetail, createCareLog, updateCareLog, deleteCareLog } from '@/api/careworker/careLogApi';
+import { getSchedules } from '@/api/careworker/scheduleApi';
 import { useScheduleStore } from '@/stores/schedule';
 import { Icon } from '@iconify/vue';
 
@@ -301,6 +302,9 @@ const submitCareLogData = async (formData, isDraft = false) => {
     endTime: formData.endTime,
     serviceType: formData.serviceType,
     isDraft: isDraft,
+    // scheduleId가 있으면 vsId로 전달 (백엔드 중복 검사용)
+    // 없을 경우 직접 조회하여 매핑
+    vsId: formData.scheduleId ? parseInt(formData.scheduleId, 10) : null,
 
     // 식사
     isBreakfast: formData.isBreakfast,
@@ -362,6 +366,29 @@ const submitCareLogData = async (formData, isDraft = false) => {
     // 특이사항
     specialNote: formData.specialNotes
   };
+
+  // scheduleId가 없으면 일정 조회를 통해 중복 체크용 ID 찾기
+  if (!submitData.vsId) {
+    try {
+      const schedules = await getSchedules({
+        startDate: submitData.serviceDate,
+        endDate: submitData.serviceDate
+      });
+
+      // 해당 수급자와 시간대가 일치하는 일정 찾기
+      const targetSchedule = (schedules || []).find(s => 
+        s.beneficiaryId === submitData.beneficiaryId &&
+        s.visitStartTime.substring(0, 5) === submitData.startTime &&
+        s.isCompleted !== true // 이미 완료된 일정에는 추가로 작성 불가? (정책에 따라 다름, 일단 제외)
+      );
+
+      if (targetSchedule) {
+        submitData.vsId = targetSchedule.scheduleId;
+      }
+    } catch (e) {
+      console.log('일정 조회 실패 (중복 체크 건너뜀):', e);
+    }
+  }
 
   const result = await createCareLog(submitData);
   
@@ -437,13 +464,16 @@ const handleCareLogDraft = async (formData) => {
     activeTab.value = 'history';
     await loadCareLogHistory();
   } catch (error) {
-    const status = error.response?.status;
-    const msg = error.response?.data?.message || '';
+    // api.js 인터셉터에서 error.response.data를 바로 반환하므로 error 자체가 메시지이거나 객체일 수 있음
+    const msg = (typeof error === 'string') ? error : (error?.message || JSON.stringify(error) || '');
 
-    if (status === 404 || status === 500 || msg.includes('Schedule') || msg.includes('일정')) {
+    // 중복 등록 에러 처리
+    if (msg.includes('이미 요양일지가 등록되어 있습니다')) {
+      alert('해당근무일정의 요양일정은 이미 작성했습니다');
+    } else if (msg.includes('Schedule') || msg.includes('일정')) {
       alert('해당 날짜에 등록된 근무 일정이 없습니다.\n일정을 먼저 등록한 후 요양일지를 작성해주세요.');
     } else {
-      alert('요양일지 임시저장에 실패했습니다.\nERROR: ' + (msg || '알 수 없는 오류'));
+      alert('요양일지 임시저장에 실패했습니다.\nERROR: ' + msg);
     }
   }
 };
@@ -462,13 +492,16 @@ const handleCareLogSubmit = async (formData) => {
     activeTab.value = 'history';
     await loadCareLogHistory();
   } catch (error) {
-    const status = error.response?.status;
-    const msg = error.response?.data?.message || '';
+    // api.js 인터셉터에서 error.response.data를 바로 반환하므로 error 자체가 메시지이거나 객체일 수 있음
+    const msg = (typeof error === 'string') ? error : (error?.message || JSON.stringify(error) || '');
 
-    if (status === 404 || status === 500 || msg.includes('Schedule') || msg.includes('일정')) {
+    // 중복 등록 에러 처리
+    if (msg.includes('이미 요양일지가 등록되어 있습니다')) {
+      alert('해당근무일정의 요양일정은 이미 작성했습니다');
+    } else if (msg.includes('Schedule') || msg.includes('일정')) {
       alert('해당 날짜에 등록된 근무 일정이 없습니다.\n일정을 먼저 등록한 후 요양일지를 작성해주세요.');
     } else {
-      alert('요양일지 제출에 실패했습니다.\nERROR: ' + (msg || '알 수 없는 오류'));
+      alert('요양일지 제출에 실패했습니다.\nERROR: ' + msg);
     }
   }
 };

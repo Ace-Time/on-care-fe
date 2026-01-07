@@ -23,7 +23,26 @@
             class="summary-card"
             @click="openDailyList(item.month)"
           >
-            <div class="summary-icon">📅</div>
+            <!-- 기존 📅 → 캘린더 SVG -->
+            <div class="summary-icon" aria-hidden="true">
+              <svg
+                class="icon-xs text-green"
+                xmlns="http://www.w3.org/2000/svg"
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
+              </svg>
+            </div>
 
             <div class="summary-main">
               <div class="summary-header">
@@ -107,7 +126,27 @@
           @click="openDetail(log.logId)"
         >
           <div class="daily-left">
-            <span class="daily-icon">📄</span>
+            <!-- 기존 📄 → 문서 SVG -->
+            <span class="daily-icon" aria-hidden="true">
+              <svg
+                class="icon-xs text-green"
+                xmlns="http://www.w3.org/2000/svg"
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+                <line x1="16" y1="13" x2="8" y2="13" />
+                <line x1="16" y1="17" x2="8" y2="17" />
+              </svg>
+            </span>
+
             <span class="daily-date">{{ log.serviceDate }}</span>
             <span class="daily-worker">{{ log.careWorkerName }}</span>
           </div>
@@ -574,7 +613,15 @@ const hasAnyAllPhysical = (d) => {
   background-color: #f9fafb;
   cursor: pointer;
 }
-.summary-icon { font-size: 18px; }
+
+/* 아이콘 컨테이너: 이모지 대신 SVG가 들어가므로 정렬만 보강 */
+.summary-icon {
+  width: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .summary-main { flex: 1; }
 .summary-header {
   display: flex;
@@ -624,7 +671,15 @@ const hasAnyAllPhysical = (d) => {
   cursor: pointer;
 }
 .daily-left { display: flex; align-items: center; gap: 8px; }
-.daily-icon { font-size: 14px; }
+
+/* 아이콘 컨테이너: 이모지 대신 SVG가 들어가므로 정렬만 보강 */
+.daily-icon {
+  width: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .daily-date { font-weight: 500; }
 .daily-worker { color: #6b7280; }
 .daily-time-pill {
@@ -704,4 +759,8 @@ const hasAnyAllPhysical = (d) => {
 .hint { font-size: 12px; color: #6b7280; padding: 6px 2px; }
 .hint.error { color: #dc2626; }
 .empty-sub { margin-top: 6px; font-size: 12px; color: #6b7280; }
+
+/* 아이콘 공통 유틸 (RecipientInformation에서 쓰던 방식 그대로) */
+.icon-xs { width: 16px; height: 16px; }
+.text-green { color: #166534; }
 </style>

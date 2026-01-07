@@ -35,7 +35,8 @@ const loadBeneficiaryDetail = async (beneficiaryId) => {
 
 // 일정 변경 감지
 watch(() => props.schedule, (newSchedule) => {
-  if (newSchedule?.beneficiaryId && newSchedule?.scheduleType === 'VISIT') {
+  if (newSchedule?.beneficiaryId && newSchedule?.scheduleType !== 'PERSONAL') {
+    // 개인 일정이 아니면 (방문 일정이면) 수급자 정보 로드
     loadBeneficiaryDetail(newSchedule.beneficiaryId);
   } else {
     beneficiaryDetail.value = null;
@@ -233,7 +234,14 @@ const handleViewAssessment = () => {
               <span class="time-icon"><Icon icon="line-md:home-md" /></span>
               <div class="time-content">
                 <span class="time-range">{{ schedule.startTime }} - {{ schedule.endTime }}</span>
-                <span class="service-type">{{ schedule.serviceLabel || '방문요양' }}</span>
+                <span class="service-type">
+                  <template v-if="schedule.serviceTypes && schedule.serviceTypes.length > 0">
+                    {{ schedule.serviceTypes.join(', ') }}
+                  </template>
+                  <template v-else>
+                    {{ schedule.serviceLabel || '방문요양' }}
+                  </template>
+                </span>
               </div>
             </div>
           </div>

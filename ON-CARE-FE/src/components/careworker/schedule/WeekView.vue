@@ -260,6 +260,14 @@ const openAdd = () => {
                  :style="getPositionStyle(date, item.startTime, item.endTime, item.id)"
                  @click="emit('select-schedule', item)">
               <div class="block-title">{{ item.recipient }}</div>
+              <div class="block-sub">
+                <template v-if="Array.isArray(item.serviceTypes) && item.serviceTypes.length > 0">
+                  {{ item.serviceTypes.join(', ') }}
+                </template>
+                <template v-else>
+                  {{ item.serviceType || item.serviceLabel || item.service }}
+                </template>
+              </div>
               <div class="block-time">{{ item.startTime }}</div>
             </div>
           </div>
@@ -316,5 +324,6 @@ const openAdd = () => {
 .bg-yellow { background: #fefce8; border-left: 3px solid #eab308; color: #854d0e; }
 
 .block-title { font-weight: 700; }
+.block-sub { font-size: 0.75rem; }
 .block-time { font-size: 0.75rem; }
 </style>
