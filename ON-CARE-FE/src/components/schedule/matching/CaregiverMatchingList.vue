@@ -1,9 +1,41 @@
 <template>
   <section class="matching-panel">
     <header class="panel-header">
-      <h2 class="panel-title">요양보호사</h2>
+    <h2 class="panel-title">요양보호사</h2>
+
+    <div class="header-right">
+      <div class="filter-tabs" role="tablist" aria-label="요양보호사 정렬">
+        <button
+          type="button"
+          class="tab"
+          :class="{ active: sortMode === 'TOTAL' }"
+          @click="setSort('TOTAL')"
+        >
+          태그+거리
+        </button>
+
+        <button
+          type="button"
+          class="tab"
+          :class="{ active: sortMode === 'DIST' }"
+          @click="setSort('DIST')"
+        >
+          거리순
+        </button>
+
+        <button
+          type="button"
+          class="tab"
+          :class="{ active: sortMode === 'TAG' }"
+          @click="setSort('TAG')"
+        >
+          태그순
+        </button>
+      </div>
+
       <span class="count-badge">{{ total }}명</span>
-    </header>
+    </div>
+  </header>
 
     <div class="search-bar">
       <img :src="searchIcon" class="search-icon" />
@@ -23,7 +55,15 @@
             :class="{ selected: selectedCareWorkerId === (item.careWorkerId ?? item.id) }"
             @click="handleSelect(item)"
           >
-            <td class="name">{{ item.name }}</td>
+          <td class="name">
+            <span class="name-text">{{ item.name }}</span>
+
+            <div class="score-chips">
+              <span class="score-badge total">총 {{ item.totalScore }}점</span>
+              <span class="score-badge distance">거리 {{ item.distanceScore }}점</span>
+              <span class="score-badge tag">태그 {{ item.tagScore }}점</span>
+            </div>
+          </td>
             <td>
               <span :class="badgeClass(item.gender)">
                 {{ item.gender }}
@@ -76,6 +116,8 @@
   const search = ref('')
   const page = ref(1)
   const pageSize = 8
+
+  const sortMode = ref('TOTAL')
   
   const loading = ref(false)
   const error = ref('')
@@ -98,6 +140,19 @@
       name: c?.name ?? '-',
       gender: c?.gender ?? '-',
       tags: Array.isArray(c?.tags) ? c.tags : [],
+
+      
+      totalScore: Number.isFinite(c?.totalScore) ? c.totalScore
+        : Number.isFinite(c?.score) ? c.score
+        : 0,
+
+      distanceScore: Number.isFinite(c?.distanceScore) ? c.distanceScore
+        : Number.isFinite(c?.distScore) ? c.distScore
+        : 0,
+
+      tagScore: Number.isFinite(c?.tagScore) ? c.tagScore
+        : Number.isFinite(c?.tagsScore) ? c.tagsScore
+        : 0,
     }))
   
   const pickPage = (resData) => {
@@ -116,6 +171,14 @@
       return { content: list, total: list.length }
     }
     return { content: [], total: 0 }
+  }
+
+  const setSort = (mode) => {
+    if (sortMode.value === mode) return
+    sortMode.value = mode
+    page.value = 1
+    autoPickedKey.value = ''
+    loadCareWorkers()
   }
   
   const loadCareWorkers = async () => {
@@ -142,12 +205,14 @@
             page: page.value - 1,
             size: pageSize,
             keyword,
+            sort: sortMode.value,
           })
         : await getCandidateCareWorkerCards({
             beneficiaryId: beneficiaryId.value,
             page: page.value - 1,
             size: pageSize,
             keyword,
+            sort: sortMode.value,
           })
   
       const { content, total: t } = pickPage(res?.data)
@@ -158,8 +223,9 @@
       const assignedId = getCareWorkerId(assigned)
   
       if (assignedId) {
+        const found = content.find((c) => c.careWorkerId === assignedId)
         selectedCareWorkerId.value = assignedId
-        emit('select-caregiver', assigned)
+        emit('select-caregiver', found ?? assigned)
         return
       }
   
@@ -256,7 +322,7 @@
   
 
 <style scoped>
-.matching-panel {
+  .matching-panel {
   background: #ffffff;
   border-radius: 16px;
   padding: 16px 20px;
@@ -267,11 +333,13 @@
   height: 480px;
 }
 
+/* ===== 헤더 ===== */
 .panel-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 10px;
+  gap: 12px;
 }
 
 .panel-title {
@@ -280,14 +348,53 @@
   color: #1a5928;
 }
 
-.count-badge {
-  padding: 4px 10px;
-  background: #f3e8ff;
-  border-radius: 999px;
-  font-size: 13px;
-  color: #9333ea;
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
 }
 
+/* 정렬 탭(필터 버튼) */
+.filter-tabs {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px;
+  border-radius: 999px;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  gap: 4px;
+}
+
+.tab {
+  border: none;
+  background: transparent;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  color: #475569;
+  cursor: pointer;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.tab.active {
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+  border: 1px solid #e5e7eb;
+}
+
+.count-badge {
+  padding: 6px 12px;
+  background: #f3e8ff;
+  border-radius: 999px;
+  font-size: 14px;
+  color: #9333ea;
+  white-space: nowrap;
+}
+
+/* ===== 검색바 ===== */
 .search-bar {
   display: flex;
   align-items: center;
@@ -313,6 +420,7 @@
   outline: none;
 }
 
+/* ===== 테이블 ===== */
 .table-scroll {
   flex: 1;
   overflow: visible;
@@ -348,16 +456,63 @@
   padding: 10px 6px;
   border-bottom: 1px solid #f3f4f6;
   font-size: 15px;
+  vertical-align: middle;
 }
 
+/* ===== 이름 + 점수칩 ===== */
 .name {
   font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 120px;
 }
 
+.name-text {
+  white-space: nowrap;
+}
+
+/* 점수칩 묶음 */
+.score-chips {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+/* 점수칩 공통 */
+.score-badge {
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* 총점 */
+.score-badge.total {
+  background: #ede9fe;
+  color: #7c3aed;
+}
+
+/* 거리 */
+.score-badge.distance {
+  background: #e0f2fe;
+  color: #0284c7;
+}
+
+/* 태그 */
+.score-badge.tag {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+/* ===== 빈 상태 ===== */
 .dash {
   color: #9ca3af;
 }
 
+/* ===== 성별 배지 ===== */
 .badge {
   padding: 3px 8px;
   border-radius: 999px;
@@ -375,6 +530,7 @@
   color: #ec4899;
 }
 
+/* ===== 태그 ===== */
 .tags {
   display: flex;
   flex-wrap: wrap;
@@ -389,6 +545,7 @@
   font-size: 12px;
 }
 
+/* ===== 페이지네이션 ===== */
 .pagination {
   display: flex;
   justify-content: center;
@@ -410,5 +567,16 @@
 
 .pagination span {
   font-size: 14px;
+}
+
+/* (옵션) 로딩/에러 표시 스타일이 필요하면 추가로 쓰세요 */
+.loading {
+  padding: 12px 0;
+  color: #6b7280;
+}
+
+.error {
+  padding: 12px 0;
+  color: #b91c1c;
 }
 </style>
