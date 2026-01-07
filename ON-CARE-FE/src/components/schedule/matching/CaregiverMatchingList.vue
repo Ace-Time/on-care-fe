@@ -476,16 +476,16 @@
 .score-chips {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   flex-wrap: wrap;
 }
 
 /* 점수칩 공통 */
 .score-badge {
-  padding: 3px 8px;
+  padding: 2px 6px;
   border-radius: 999px;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   white-space: nowrap;
 }
 
@@ -514,9 +514,9 @@
 
 /* ===== 성별 배지 ===== */
 .badge {
-  padding: 3px 8px;
+  padding: 2px 6px;
   border-radius: 999px;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
 }
 
@@ -534,7 +534,7 @@
 .tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 3px;
 }
 
 .tag {
