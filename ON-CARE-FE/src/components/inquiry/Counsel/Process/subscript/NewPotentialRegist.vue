@@ -1,15 +1,3 @@
-요청하신 내용을 바탕으로 보호자 이름/전화번호 유효성 검사와 생년월일 미래 날짜 방지 기능을 추가한 코드입니다.
-
-주요 변경 사항은 다음과 같습니다.
-
-Validation 로직 추가: validateGuardianName, validateGuardianPhone, validateBirthdate 함수를 추가했습니다.
-
-HTML 속성 추가: 생년월일 입력(input type="date")에 :max 속성을 추가하여 달력 팝업에서도 미래 날짜를 선택할 수 없도록 막았습니다.
-
-에러 메시지 UI: 보호자 정보와 생년월일 필드 아래에 에러 메시지가 표시되도록 템플릿을 수정했습니다.
-
-HTML
-
 <template>
   <div class="advanced-info-container" ref="rootRef">
     <div class="step-title">1단계: 신규접수</div>

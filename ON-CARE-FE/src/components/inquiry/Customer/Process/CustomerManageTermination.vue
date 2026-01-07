@@ -57,8 +57,6 @@
           </div>
         </div>
       </div>
-
-      계약 연장/종료 버튼 (종료되지 않은 경우만)
       <div v-if="!isTerminated" class="action-section">
         <button class="action-btn extend" @click="openExtendModal">
           📝 계약 연장
