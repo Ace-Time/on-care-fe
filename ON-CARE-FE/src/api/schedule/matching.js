@@ -99,6 +99,7 @@ export const getCreateVisitAvailableCareWorkerCards = ({
   serviceTypeId,
   page = 0,
   size = 8,
+  keyword = null,          
   sort = 'TOTAL',
 } = {}) =>
   api.get('/api/matching/careworkers/visit-create-available', {
@@ -109,6 +110,7 @@ export const getCreateVisitAvailableCareWorkerCards = ({
       serviceTypeId,
       page,
       size,
+      ...(keyword && String(keyword).trim() ? { keyword: String(keyword).trim() } : {}), 
       sort,
     },
   })

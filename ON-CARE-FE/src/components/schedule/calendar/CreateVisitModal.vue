@@ -372,7 +372,7 @@ const onClickCreateAll = () => {
 }
 
 .modal {
-  width: 1200px;
+  width: 1400px;
   max-width: calc(100vw - 40px);
   height: calc(100vh - 80px);
   background: #fff;
