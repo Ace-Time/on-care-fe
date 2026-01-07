@@ -13,7 +13,7 @@
         <CounselDetailCard v-bind="counselDetail" />
       </div>
       
-      <div v-else-if="category === '렌탈상담'" class="rental-product-area">
+      <div v-if="category === '렌탈상담'" class="rental-product-area">
         <ProductSearchBar
           v-model:searchText="searchText"
           v-model:selectedStatus="selectedCategoryCode"
@@ -34,10 +34,8 @@
         />
       </div>
       
-      
-      
       <div v-else class="empty-guide">
-        상담 카테고리를 선택하면 맞춤 가이드가 표시됩니다.
+        고객의 이전 상담 이력을 확인해보세요
       </div>
 
     </div>
@@ -52,6 +50,8 @@ import SubscriptProcess from '@/components/inquiry/Counsel/Process/SubscriptProc
 // Product 관련 컴포넌트
 import ProductSearchBar from '@/components/product/ProductSearchBar.vue';
 import ProductManageTable from '@/components/product/ProductManageTable.vue';
+
+// import BeneficiarySignificantHelp from '@/components/inquiry/Counsel/HelpDetail/BeneficiarySignificantHelper.vue';
 
 const props = defineProps({
   category: { type: String, default: '' },

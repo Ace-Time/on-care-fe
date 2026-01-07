@@ -9,37 +9,38 @@ const props = defineProps({
 const calculatedCareer = computed(() => {
   const histories = props.employee.workHistory || [];
   
-  // 이력이 없으면 '신입'
   if (histories.length === 0) return '신입';
 
   let totalMonths = 0;
 
   histories.forEach(item => {
-    // workPeriod 형식: "YYYY.MM - YYYY.MM"
     if (item.workPeriod) {
-      const parts = item.workPeriod.split(' - ');
+      // 구분자 처리: " - ", " ~ ", "-", "~" 등 모두 허용
+      const parts = item.workPeriod.split(/[\s~-]+(?=\d|현재)/);
       
-      if (parts.length === 2) {
-        const [startStr, endStr] = parts;
-        
-        // "2020.01" -> [2020, 1]
-        const [startYear, startMonth] = startStr.split('.').map(Number);
-        
-        // "현재"인 경우 처리 (현재 날짜 기준)
-        let endYear, endMonth;
-        if (endStr.includes('현재')) {
-          const now = new Date();
-          endYear = now.getFullYear();
-          endMonth = now.getMonth() + 1;
-        } else {
-          [endYear, endMonth] = endStr.split('.').map(Number);
-        }
+      if (parts.length >= 2) {
+        let startStr = parts[0].trim();
+        let endStr = parts[1].trim();
 
-        if (!isNaN(startYear) && !isNaN(endYear)) {
-          const startDate = new Date(startYear, startMonth - 1);
-          const endDate = new Date(endYear, endMonth - 1);
+        // 날짜 파싱 함수
+        const parseDate = (str) => {
+          if (str.includes('현재')) {
+             const now = new Date();
+             return { year: now.getFullYear(), month: now.getMonth() + 1 };
+          }
+          // YYYY.MM 또는 YYYY-MM 처리
+          const cleanStr = str.replace(/-/g, '.'); 
+          const [y, m] = cleanStr.split('.').map(Number);
+          return { year: y, month: m };
+        };
 
-          // 월 차이 계산 + 1 (시작월 포함)
+        const start = parseDate(startStr);
+        const end = parseDate(endStr);
+
+        if (!isNaN(start.year) && !isNaN(start.month) && !isNaN(end.year) && !isNaN(end.month)) {
+          const startDate = new Date(start.year, start.month - 1);
+          const endDate = new Date(end.year, end.month - 1);
+
           const months = (endDate.getFullYear() - startDate.getFullYear()) * 12 + 
                          (endDate.getMonth() - startDate.getMonth()) + 1;
 

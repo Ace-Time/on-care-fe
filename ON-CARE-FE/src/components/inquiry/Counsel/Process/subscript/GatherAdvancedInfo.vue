@@ -658,6 +658,10 @@ defineExpose({
   overflow-x: auto;
 }
 
+.tab-header::-webkit-scrollbar {
+  display: none; 
+}
+
 .tab-item {
   padding: 10px 16px;
   font-size: 14px;
@@ -841,7 +845,7 @@ defineExpose({
   font-weight: 500;
 }
 
-/* 일정 관리 */
+/* 일정 관리 그리드 레이아웃 */
 .schedule-list {
   display: flex;
   flex-direction: column;
@@ -849,53 +853,124 @@ defineExpose({
 }
 
 .schedule-item {
-  display: flex;
+  display: grid;
+  /* 컬럼 정의: [시간입력] [물결] [시간입력] [삭제버튼] */
+  /* minmax(0, 1fr)은 내용물이 커져도 옆 칸을 침범하지 않게 강제합니다 */
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto; /* 2줄 */
+  gap: 10px; /* 상하좌우 간격을 8px -> 10px로 늘림 */
   align-items: center;
-  gap: 8px;
+  
+  background-color: #F9FAFB;
+  padding: 14px; /* 패딩을 조금 늘려 답답함 해소 */
+  border-radius: 8px;
+  border: 1px solid #E5E7EB;
 }
 
-.schedule-select, .schedule-time {
+/* 공통: 모든 입력 필드가 박스 크기를 넘지 않도록 설정 */
+.schedule-item input,
+.schedule-item select {
+  box-sizing: border-box; /* 테두리와 패딩을 너비에 포함 */
+  width: 100%;
+}
+
+/* --- 1번째 줄 배치 --- */
+
+/* 요일 선택 */
+.schedule-select.day {
+  grid-row: 1;
+  grid-column: 1 / 2; /* 첫 번째 칸 */
+  
   height: 40px;
-  padding: 0 12px;
+  padding: 0 8px;
   border: 1px solid #D1D5DB;
   border-radius: 6px;
-  font-size: 14px;
-  outline: none;
+  background-color: white;
 }
 
-.schedule-select.day {
-  flex: 1;
-  min-width: 100px;
-}
-
+/* 서비스 선택 */
 .schedule-select.service {
-  flex: 1.5;
-  min-width: 180px;
+  grid-row: 1;
+  grid-column: 2 / 5; /* 두 번째 칸부터 끝까지(물결,시간2,버튼 칸 합침) */
+  
+  height: 40px;
+  padding: 0 8px;
+  border: 1px solid #D1D5DB;
+  border-radius: 6px;
+  background-color: white;
 }
 
-.schedule-time {
-  width: 120px;
+/* --- 2번째 줄 배치 --- */
+
+/* 시작 시간 (HTML 순서상 3번째) */
+.schedule-item > :nth-child(3) {
+  grid-row: 2;
+  grid-column: 1 / 2;
+  
+  height: 40px;
+  padding: 0 8px;
+  border: 1px solid #D1D5DB;
+  border-radius: 6px;
+  background-color: white;
+  text-align: center; /* 시간 가운데 정렬 */
 }
 
+/* 물결 (~) */
 .time-separator {
+  grid-row: 2;
+  grid-column: 2 / 3;
+  
+  padding: 0 4px; /* 좌우 여백 확보 */
   color: #6B7280;
-  font-size: 14px;
+  font-weight: 500;
+  text-align: center;
 }
 
+/* 종료 시간 (HTML 순서상 5번째) */
+.schedule-item > :nth-child(5) {
+  grid-row: 2;
+  grid-column: 3 / 4;
+  
+  height: 40px;
+  padding: 0 8px;
+  border: 1px solid #D1D5DB;
+  border-radius: 6px;
+  background-color: white;
+  text-align: center;
+}
+
+/* 삭제 버튼 */
 .btn-delete-schedule {
-  padding: 8px 16px;
+  grid-row: 2;
+  grid-column: 4 / 5;
+  
+  height: 40px;
+  padding: 0 14px;
   background: #FEE2E2;
   border: 1px solid #FCA5A5;
   border-radius: 6px;
-  font-size: 13px;
   color: #DC2626;
+  font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
+  white-space: nowrap; /* 글자 줄바꿈 방지 */
 }
 
 .btn-delete-schedule:hover {
   background: #FCA5A5;
   color: #991B1B;
+}
+
+/* 화면이 매우 좁을 때 (모바일 등) */
+@media (max-width: 400px) {
+  .schedule-item {
+    gap: 8px;
+    padding: 10px;
+  }
+  .btn-delete-schedule {
+    padding: 0 10px;
+    font-size: 12px;
+  }
 }
 
 .btn-add-schedule {

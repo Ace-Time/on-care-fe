@@ -40,36 +40,50 @@
         </div>
       </div>
 
-      <div class="form-group">
-        <div class="checkbox-row" @click="toggleChurn">
-          <div class="checkbox" :class="{ checked: isChurned }">
-            <div v-if="isChurned" class="check-mark"></div>
+      <div class="form-group action-panel" :class="{ 'churn-active': isChurned }">
+        <div class="action-header" @click="toggleChurn">
+          <div class="checkbox-wrapper">
+            <div class="checkbox churn-check" :class="{ checked: isChurned }">
+              <transition name="check-pop">
+                <div v-if="isChurned" class="check-mark"></div>
+              </transition>
+            </div>
+            <span class="check-label add-weight">고객 이탈 여부</span>
           </div>
-          <span class="check-label">고객 이탈 여부</span>
+          <span class="toggle-hint">{{ isChurned ? '접기' : '사유 입력' }}</span>
         </div>
-        <div v-if="isChurned" class="churn-reason-box">
-          <textarea 
-            v-model="form.churnReason"
-            class="churn-input" 
-            placeholder="이탈 사유를 상세히 입력해주세요."
-          ></textarea>
-        </div>
+        <transition name="slide-down">
+          <div v-if="isChurned" class="action-body">
+            <textarea 
+              v-model="form.churnReason"
+              class="panel-textarea churn-input" 
+              placeholder="이탈 사유를 상세히 입력해주세요."
+            ></textarea>
+          </div>
+        </transition>
       </div>
 
-      <div class="form-group">
-        <div class="checkbox-row2" @click="toggleNecessary">
-          <div class="checkbox blue" :class="{ checked: isNecessary }">
-            <div v-if="isNecessary" class="check-mark"></div>
+      <div class="form-group action-panel" :class="{ 'followup-active': isNecessary }">
+        <div class="action-header" @click="toggleNecessary">
+          <div class="checkbox-wrapper">
+            <div class="checkbox followup-check" :class="{ checked: isNecessary }">
+               <transition name="check-pop">
+                <div v-if="isNecessary" class="check-mark"></div>
+               </transition>
+            </div>
+            <span class="check-label add-weight">후속 조치 여부</span>
           </div>
-          <span class="check-label">후속 조치 여부</span>
+          <span class="toggle-hint">{{ isNecessary ? '접기' : '내용 입력' }}</span>
         </div>
-        <div v-if="isNecessary" class="follow-up-box">
-          <textarea 
-            v-model="form.followUp"
-            class="follow-up-input" 
-            placeholder="필요한 후속 조치를 입력해주세요."
-          ></textarea>
-        </div>
+        <transition name="slide-down">
+          <div v-if="isNecessary" class="action-body">
+            <textarea 
+              v-model="form.followUp"
+              class="panel-textarea followup-input" 
+              placeholder="필요한 후속 조치를 입력해주세요."
+            ></textarea>
+          </div>
+        </transition>
       </div>
 
       <div class="form-group">
@@ -416,4 +430,142 @@ watch(() => isNecessary.value, (value) => {
   color: #6B7280;
   font-size: 13px;
 }
+
+.action-panel {
+  background: #F9FAFB;
+  border: 1px solid #E5E7EB;
+  border-radius: 8px;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 헤더 영역 */
+.action-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.checkbox-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.check-label.add-weight {
+  font-weight: 600;
+  color: #4B5563;
+  transition: color 0.2s;
+}
+
+.toggle-hint {
+  font-size: 12px;
+  color: #9CA3AF;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+/* 공통 체크박스 스타일 재정의 */
+.checkbox {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #D1D5DB;
+  border-radius: 6px; /* 조금 더 둥글게 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  background: white;
+}
+.check-mark {
+  width: 12px;
+  height: 12px;
+  /* 기존 mask 스타일 유지 */
+}
+
+/* --- 이탈 여부(Red) 디자인 --- */
+.action-panel.churn-active {
+  background: #FEF2F2; /* 아주 연한 빨강 배경 */
+  border-color: #FCA5A5;
+  box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.1);
+}
+.action-panel.churn-active .check-label.add-weight { color: #B91C1C; }
+.action-panel.churn-active .toggle-hint { color: #EF4444; }
+
+.checkbox.churn-check.checked {
+  background: #EF4444;
+  border-color: #EF4444;
+}
+.churn-input:focus {
+  border-color: #EF4444 !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1) !important;
+}
+
+
+/* --- 후속 조치(Blue) 디자인 --- */
+.action-panel.followup-active {
+  background: #EFF6FF; /* 아주 연한 파랑 배경 */
+  border-color: #93C5FD;
+  box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.1);
+}
+.action-panel.followup-active .check-label.add-weight { color: #1D4ED8; }
+.action-panel.followup-active .toggle-hint { color: #3B82F6; }
+
+.checkbox.followup-check.checked {
+  background: #3B82F6;
+  border-color: #3B82F6;
+}
+.followup-input:focus {
+  border-color: #3B82F6 !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important;
+}
+
+
+/* --- 내용 입력 영역 및 텍스트에어리어 --- */
+.action-body {
+  padding: 0 16px 16px 16px;
+}
+
+.panel-textarea {
+  width: 100%;
+  min-height: 90px;
+  padding: 12px;
+  border: 1px solid #D1D5DB;
+  border-radius: 6px;
+  font-size: 14px;
+  resize: vertical;
+  font-family: inherit;
+  background: white;
+  transition: all 0.2s;
+}
+.panel-textarea:focus {
+ outline: none;
+}
+
+
+/* --- Vue Transition 애니메이션 --- */
+/* 슬라이드 다운 효과 */
+.slide-down-enter-active,
+.slide-down-leave-active {
+  transition: all 0.3s ease-in-out;
+  max-height: 200px; /* 텍스트에어리어 최대 높이 근사치 */
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.slide-down-enter-from,
+.slide-down-leave-to {
+  max-height: 0;
+  opacity: 0;
+  transform: translateY(-10px);
+  padding-bottom: 0; /* 닫힐 때 패딩 제거 */
+  margin: 0;
+}
+
+/* 체크 표시 팝 효과 */
+.check-pop-enter-active { transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+.check-pop-enter-from { transform: scale(0); opacity: 0; }
 </style>

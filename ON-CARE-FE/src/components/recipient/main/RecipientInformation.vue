@@ -384,9 +384,11 @@ const stateClass = (status) => ({
 .info-label {
   width: 120px;
   color: #6b7280;
+  font-size: 13px;
 }
 .info-value {
   flex: 1;
+  font-size: 13px;
 }
 .info-action-area {
   position: absolute;
@@ -414,7 +416,7 @@ const stateClass = (status) => ({
 .benefit-bar-top {
   display: flex;
   justify-content: space-between;
-  font-size: 12px;
+  font-size: 13px;
   color: #6b7280;
   margin-bottom: 4px;
 }
@@ -439,7 +441,7 @@ const stateClass = (status) => ({
   display: flex;
   justify-content: space-between;
   margin-top: 4px;
-  font-size: 11px;
+  font-size: 12px;
   color: #6b7280;
 }
 .badge {
@@ -475,6 +477,7 @@ const stateClass = (status) => ({
   margin-top: 14px;
   display: flex;
   gap: 32px;
+  font-size: 12px;
 }
 .tag-section {
   flex: 1;
@@ -485,9 +488,10 @@ const stateClass = (status) => ({
   margin-bottom: 6px;
 }
 .chip-row {
+  font-size: 12px;
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 5px;
 }
 .chip {
   padding: 2px 8px;

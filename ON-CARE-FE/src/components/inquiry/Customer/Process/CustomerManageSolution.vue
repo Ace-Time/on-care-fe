@@ -116,12 +116,12 @@
               <span class="highlight-date">{{ formatDate(manageDetail.plannedTerminationDate) }}</span>
             </div>
             <p class="card-solution">
-              <strong>💡 Solution:</strong> 해지 예정 고객입니다. 해지 15일 전 상담사, 3일 전 담당 요양보호사에게 알림이 발송됩니다.
+              <strong>💡 Solution:</strong> 해지 예정 고객입니다. 해지 전 고객과 지속적인 상담이 필요합니다.
             </p>
           </div>
           
           <!-- 해지일 미등록 시 등록 폼 -->
-          <div class="card-actions" v-if="!manageDetail.plannedTerminationDate">
+          <!-- <div class="card-actions" v-if="!manageDetail.plannedTerminationDate">
             <div class="input-group">
               <label>해지 예정일</label>
               <input 
@@ -145,7 +145,7 @@
             >
               {{ actionLoading ? '등록 중...' : '해지 예정일 등록' }}
             </button>
-          </div>
+          </div> -->
         </div>
       </div>
 
@@ -214,7 +214,7 @@
               </div>
             </div>
             <p class="card-solution">
-              <strong>💡 Solution:</strong> 렌탈 상담이 등록되었습니다. 담당 요양보호사에게 알림을 발송하여 방문 시 렌탈 안내를 요청하세요.
+              <strong>💡 Solution:</strong> 렌탈 상담이 등록되었습니다. 담당 요양보호사는 확인 후 렌탈 안내를 시작하세요.
             </p>
           </div>
           <div class="card-actions">

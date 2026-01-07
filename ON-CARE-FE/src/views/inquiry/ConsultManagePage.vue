@@ -83,18 +83,16 @@ const handleResetCustomer = () => {
 </script>
 
 <style scoped>
-/* ✅ 페이지는 스크롤 가능해야 하므로 "고정 height"를 없애고 min-height로 처리 */
+/* ✅ 페이지 컨테이너 - 유동적 크기 */
 .page-container {
   width: 100%;
-  max-width: 1600px;
+  max-width: 100%; /* ✅ 고정 max-width 제거 */
   margin: 0 auto;
-  padding: 0 0 40px;
+  padding: 0 clamp(16px, 2vw, 24px) 40px; /* ✅ 유동적 패딩 */
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: clamp(16px, 2vw, 24px); /* ✅ 유동적 간격 */
   box-sizing: border-box;
-
-  /* 핵심: 고정 높이 제거 */
   min-height: 100vh;
 }
 
@@ -102,85 +100,74 @@ const handleResetCustomer = () => {
   flex: 0 0 auto;
 }
 
-/* ✅ [1] upper-column: 무한 스크롤을 위한 "고정 높이" 영역 */
+.page-header h2 {
+  font-size: clamp(20px, 2vw, 24px); /* ✅ 유동적 폰트 크기 */
+  margin: 0;
+  color: #111827;
+}
+
+/* ✅ [1] upper-column: 뷰포트 기반 유동적 높이 */
 .upper-column {
-  /* 고정 높이(뷰포트 기반) + 최소/최대 */
-  height: clamp(420px, 45vh, 560px);
-  min-height: 420px;
+  /* ✅ 고정 높이 대신 뷰포트 비율 사용 */
+  height: clamp(350px, 40vh, 600px);
+  min-height: 350px;
 
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 24px;
+  /* ✅ 고정 비율 대신 유동적 컬럼 */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(16px, 2vw, 24px);
 
-  /* 내부 스크롤(리스트)만 허용하기 위해 영역 자체는 넘침 숨김 */
   overflow: hidden;
-  align-items: stretch; /* 각 칸이 높이를 꽉 채우게 */
+  align-items: stretch;
 }
 
-/* ✅ upper 내부의 카드/래퍼는 "부모 높이를 100%"로 꽉 채우도록 */
+/* ✅ grid-item 공통 */
 .grid-item {
   min-width: 0;
-  min-height: 0; /* 중요: grid 자식 overflow 안정화 */
+  min-height: 0;
 }
 
-/* 카드 공통 */
+/* ✅ 카드 공통 - 유동적 */
 .card {
   background: white;
-  border-radius: 10px;
+  border-radius: clamp(8px, 1vw, 12px); /* ✅ 유동적 border-radius */
   border: 1px solid #E5E7EB;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-
-  height: 100%;     /* upper에서 칸 높이 꽉 채우기 */
-  min-height: 0;    /* 중요 */
+  height: 100%;
+  min-height: 0;
 }
 
-/* 검색 카드도 동일하게 */
 .search-card {
   height: 100%;
   min-height: 0;
 }
 
-/* ✅ 리스트 래퍼: 여기(또는 CounselList 내부)에서만 스크롤이 일어나게 */
+/* ✅ 리스트 래퍼 */
 .list-wrapper {
   height: 100%;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  overflow: hidden; /* 스크롤은 내부(실제 리스트)에 맡김 */
+  overflow: hidden;
 }
 
-/* (권장) CounselList의 최상위 컨테이너에 아래처럼 적용되면 가장 깔끔합니다.
-   - 부모(list-wrapper)가 flex column이므로 CounselList 루트가 flex:1로 늘어나야 함
-   - 그 내부에서 overflow:auto 로 스크롤
-*/
-/*
-.list-wrapper :deep(.counsel-list-root) {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-}
-*/
-
-/* ✅ [2] bottom-column: 내용에 따라 자연스럽게 늘어나는 영역 */
+/* ✅ [2] bottom-column: 유동적 그리드 */
 .bottom-column {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 24px;
-
-  /* 핵심: 높이/overflow로 막지 않기 */
-  align-items: start;      /* 내용 위쪽부터 자연스럽게 쌓이게 */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(16px, 2vw, 24px);
+  align-items: start;
   align-content: start;
 }
 
-/* 우측 하단: 상세 + 도움말 스택 */
+/* ✅ 우측 하단: 상세 + 도움말 */
 .detail-container {
   display: flex;
   flex-direction: column;
-  gap: 20px;
-
-  min-height: 0; /* 내부 overflow 안정화 */
+  gap: clamp(12px, 1.5vw, 20px);
+  min-height: 0;
 }
 
 .detail-card-wrapper {
@@ -191,15 +178,72 @@ const handleResetCustomer = () => {
   /* 내용만큼 */
 }
 
-/* ✅ 반응형 */
+/* ✅ 반응형 - 대형 모니터 */
+@media (min-width: 1920px) {
+  .page-container {
+    max-width: 1800px;
+    padding: 0 32px 40px;
+  }
+  
+  .upper-column {
+    height: clamp(400px, 35vh, 550px);
+  }
+}
+
+/* ✅ 반응형 - 중간 화면 */
+@media (max-width: 1400px) {
+  .upper-column {
+    height: clamp(320px, 42vh, 500px);
+  }
+}
+
+/* ✅ 반응형 - 태블릿 */
 @media (max-width: 1200px) {
   .upper-column {
     grid-template-columns: 1fr;
-    height: clamp(520px, 55vh, 720px); /* 모바일에서 upper 조금 더 확보 */
+    height: auto;
+    min-height: auto;
+    gap: 16px;
+  }
+  
+  .upper-column .grid-item {
+    height: clamp(280px, 35vh, 400px);
   }
 
   .bottom-column {
     grid-template-columns: 1fr;
+  }
+}
+
+/* ✅ 반응형 - 작은 태블릿 */
+@media (max-width: 900px) {
+  .page-container {
+    padding: 0 16px 32px;
+    gap: 16px;
+  }
+  
+  .upper-column .grid-item {
+    height: clamp(250px, 40vh, 350px);
+  }
+}
+
+/* ✅ 반응형 - 모바일 */
+@media (max-width: 600px) {
+  .page-container {
+    padding: 0 12px 24px;
+    gap: 12px;
+  }
+  
+  .page-header h2 {
+    font-size: 18px;
+  }
+  
+  .upper-column .grid-item {
+    height: clamp(220px, 45vh, 320px);
+  }
+  
+  .card {
+    border-radius: 8px;
   }
 }
 </style>
