@@ -127,15 +127,23 @@ const categoryTitle = computed(() => props.category);
 
 // 이미 추가된 특이사항 ID 목록
 const addedSignificantIds = computed(() => 
-  significants.value.map(s => s.significantId)
+  significants.value.map(s => s?.significantId).filter(id => id != null)
 );
 
-// 추가 가능한 특이사항 (현재 카테고리 & 미추가)
+// ✅ 수정: 추가 가능한 특이사항 (현재 카테고리 & 미추가) - null 체크 추가
 const availableSignificants = computed(() => {
-  return allSignificants.value.filter(sig => 
-    sig.categoryName === props.category && 
-    !addedSignificantIds.value.includes(sig.significantId)
-  );
+  if (!allSignificants.value || allSignificants.value.length === 0) {
+    return [];
+  }
+  
+  return allSignificants.value.filter(sig => {
+    // ✅ null/undefined 체크 추가
+    if (!sig || !sig.categoryName) {
+      return false;
+    }
+    return sig.categoryName === props.category && 
+           !addedSignificantIds.value.includes(sig.significantId);
+  });
 });
 
 // 특이사항 조회
@@ -150,11 +158,13 @@ const loadSignificants = async () => {
   try {
     const response = await getBeneficiarySignificantsApi(props.beneficiaryId, props.category);
     
-    significants.value = response.data || [];
+    // ✅ null 체크 및 배열 검증 추가
+    significants.value = Array.isArray(response.data) ? response.data : [];
     console.log('✅ 특이사항 로드:', significants.value);
     
   } catch (error) {
     console.error('❌ 특이사항 로드 실패:', error);
+    significants.value = [];
     toast.error('특이사항을 불러오는데 실패했습니다.');
   } finally {
     loading.value = false;
@@ -167,11 +177,14 @@ const loadAllSignificants = async () => {
   
   try {
     const response = await getAllSignificantsApi();
-    allSignificants.value = response.data || [];
+    
+    // ✅ null 체크 및 배열 검증 추가
+    allSignificants.value = Array.isArray(response.data) ? response.data : [];
     console.log('✅ 전체 특이사항 로드:', allSignificants.value);
     
   } catch (error) {
     console.error('❌ 전체 특이사항 로드 실패:', error);
+    allSignificants.value = [];
     toast.error('특이사항 목록을 불러오는데 실패했습니다.');
   } finally {
     loadingMaster.value = false;
@@ -228,15 +241,20 @@ const addSignificant = async () => {
 
 // 특이사항 삭제
 const removeSignificant = async (item) => {
+  if (!item || !item.significantName) {
+    toast.error('삭제할 특이사항 정보가 없습니다.');
+    return;
+  }
+
   if (!confirm(`"${item.significantName}"을(를) 삭제하시겠습니까?`)) {
     return;
   }
 
   try {
-    await deleteBeneficiarySignificantApi(item.beneficiaryId, item.significantId);
+    await deleteBeneficiarySignificantApi(item.beneficiaryId || props.beneficiaryId, item.significantId);
     
     // 로컬 상태에서도 제거
-    significants.value = significants.value.filter(s => s.significantId !== item.significantId);
+    significants.value = significants.value.filter(s => s?.significantId !== item.significantId);
     
     toast.success('특이사항이 삭제되었습니다.');
     
@@ -248,11 +266,15 @@ const removeSignificant = async (item) => {
 
 // 수급자 ID나 카테고리 변경 시 재조회
 watch(() => [props.beneficiaryId, props.category], () => {
-  loadSignificants();
+  if (props.beneficiaryId) {
+    loadSignificants();
+  }
 }, { immediate: false });
 
 onMounted(() => {
-  loadSignificants();
+  if (props.beneficiaryId) {
+    loadSignificants();
+  }
 });
 </script>
 

@@ -1,3 +1,15 @@
+요청하신 내용을 바탕으로 보호자 이름/전화번호 유효성 검사와 생년월일 미래 날짜 방지 기능을 추가한 코드입니다.
+
+주요 변경 사항은 다음과 같습니다.
+
+Validation 로직 추가: validateGuardianName, validateGuardianPhone, validateBirthdate 함수를 추가했습니다.
+
+HTML 속성 추가: 생년월일 입력(input type="date")에 :max 속성을 추가하여 달력 팝업에서도 미래 날짜를 선택할 수 없도록 막았습니다.
+
+에러 메시지 UI: 보호자 정보와 생년월일 필드 아래에 에러 메시지가 표시되도록 템플릿을 수정했습니다.
+
+HTML
+
 <template>
   <div class="advanced-info-container" ref="rootRef">
     <div class="step-title">1단계: 신규접수</div>
@@ -46,7 +58,15 @@
       <div class="input-grid">
         <div class="input-group">
           <label class="label">보호자 이름</label>
-          <input type="text" class="input-field" placeholder="보호자 이름 입력" v-model="form.guardianName" />
+          <input 
+            type="text" 
+            class="input-field" 
+            :class="{ 'error': errors.guardianName }"
+            placeholder="보호자 이름 입력" 
+            v-model="form.guardianName"
+            @blur="validateGuardianName" 
+          />
+          <span v-if="errors.guardianName" class="error-message">{{ errors.guardianName }}</span>
         </div>
         <div class="input-group">
           <label class="label">보호자 관계</label>
@@ -54,7 +74,15 @@
         </div>
         <div class="input-group">
           <label class="label">보호자 전화번호</label>
-          <input type="text" class="input-field" placeholder="전화번호 입력" v-model="form.guardianPhone" />
+          <input 
+            type="text" 
+            class="input-field" 
+            :class="{ 'error': errors.guardianPhone }"
+            placeholder="전화번호 입력" 
+            v-model="form.guardianPhone"
+            @blur="validateGuardianPhone"
+          />
+          <span v-if="errors.guardianPhone" class="error-message">{{ errors.guardianPhone }}</span>
         </div>
       </div>
     </div>
@@ -66,11 +94,19 @@
         <div class="input-group">
           <label class="label">생년월일</label>
           <div class="input-with-icon">
-            <input type="date" class="input-field" v-model="form.birthdate" />
+            <input 
+              type="date" 
+              class="input-field" 
+              :class="{ 'error': errors.birthdate }"
+              v-model="form.birthdate"
+              :max="todayDate"
+              @blur="validateBirthdate"
+            />
             <svg class="icon-svg" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
           </div>
+          <span v-if="errors.birthdate" class="error-message">{{ errors.birthdate }}</span>
         </div>
         <div class="input-group full-width">
           <label class="label">주소</label>
@@ -100,7 +136,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, watch } from 'vue';
+import { ref, reactive, onMounted, watch, computed } from 'vue';
 
 const props = defineProps({
   customer: {
@@ -116,6 +152,11 @@ const props = defineProps({
 const emit = defineEmits(['has-changes', 'validation-status']);
 
 const rootRef = ref(null);
+
+// 오늘 날짜 구하기 (YYYY-MM-DD 포맷) - input date의 max 속성용
+const todayDate = computed(() => {
+  return new Date().toISOString().split('T')[0];
+});
 
 // 가입 경로 데이터
 const joinPaths = [
@@ -141,10 +182,13 @@ const form = reactive({
 // 초기 데이터 저장 (변경 감지용)
 const initialFormData = ref(null);
 
-// Validation 에러
+// Validation 에러 상태 관리
 const errors = reactive({
   name: '',
-  phone: ''
+  phone: '',
+  guardianName: '',
+  guardianPhone: '',
+  birthdate: ''
 });
 
 // 가입 경로 토글
@@ -157,6 +201,8 @@ const togglePath = (id) => {
 };
 
 // Validation 함수들
+
+// 1. 수급자 이름 검증
 const validateName = () => {
   if (!form.name || form.name.trim() === '') {
     errors.name = '수급자 이름은 필수입니다.';
@@ -166,15 +212,20 @@ const validateName = () => {
   return true;
 };
 
+// 2. 전화번호 공통 검증 정규식 (숫자와 하이픈만 허용)
+const isValidPhoneFormat = (phone) => {
+  const phoneRegex = /^[0-9-]+$/;
+  return phoneRegex.test(phone);
+};
+
+// 3. 수급자 전화번호 검증
 const validatePhone = () => {
   if (!form.phone || form.phone.trim() === '') {
     errors.phone = '전화번호는 필수입니다.';
     return false;
   }
   
-  // 전화번호 형식 검증 (숫자와 하이픈만 허용)
-  const phoneRegex = /^[0-9-]+$/;
-  if (!phoneRegex.test(form.phone)) {
+  if (!isValidPhoneFormat(form.phone)) {
     errors.phone = '올바른 전화번호 형식이 아닙니다.';
     return false;
   }
@@ -183,12 +234,73 @@ const validatePhone = () => {
   return true;
 };
 
+// 4. 보호자 이름 검증 (특수문자/숫자 제외, 한글/영문만 허용)
+const validateGuardianName = () => {
+  // 필수값이 아니므로 비어있으면 통과
+  if (!form.guardianName || form.guardianName.trim() === '') {
+    errors.guardianName = '';
+    return true;
+  }
+
+  // 한글, 영문, 공백만 허용
+  const nameRegex = /^[가-힣a-zA-Z\s]+$/;
+  if (!nameRegex.test(form.guardianName)) {
+    errors.guardianName = '이름에 특수문자나 숫자를 포함할 수 없습니다.';
+    return false;
+  }
+
+  errors.guardianName = '';
+  return true;
+};
+
+// 5. 보호자 전화번호 검증
+const validateGuardianPhone = () => {
+  // 필수값이 아니므로 비어있으면 통과
+  if (!form.guardianPhone || form.guardianPhone.trim() === '') {
+    errors.guardianPhone = '';
+    return true;
+  }
+
+  if (!isValidPhoneFormat(form.guardianPhone)) {
+    errors.guardianPhone = '올바른 전화번호 형식이 아닙니다.';
+    return false;
+  }
+
+  errors.guardianPhone = '';
+  return true;
+};
+
+// 6. 생년월일 검증 (미래 날짜 방지)
+const validateBirthdate = () => {
+  if (!form.birthdate) {
+    errors.birthdate = '';
+    return true;
+  }
+
+  const selectedDate = new Date(form.birthdate);
+  const today = new Date();
+  // 시간 비교를 제외하기 위해 오늘 날짜의 시간을 00:00:00으로 설정
+  today.setHours(0, 0, 0, 0);
+
+  if (selectedDate > today) {
+    errors.birthdate = '미래의 날짜는 입력할 수 없습니다.';
+    return false;
+  }
+
+  errors.birthdate = '';
+  return true;
+};
+
 // 전체 Validation
 const validateForm = () => {
   const nameValid = validateName();
   const phoneValid = validatePhone();
+  const guardianNameValid = validateGuardianName();
+  const guardianPhoneValid = validateGuardianPhone();
+  const birthdateValid = validateBirthdate();
   
-  const isValid = nameValid && phoneValid;
+  // 모든 필드가 유효해야 함
+  const isValid = nameValid && phoneValid && guardianNameValid && guardianPhoneValid && birthdateValid;
   
   // 부모에게 validation 상태 전달
   emit('validation-status', isValid);
@@ -199,7 +311,6 @@ const validateForm = () => {
 // 폼 데이터가 변경되었는지 확인
 const hasFormChanged = () => {
   if (!initialFormData.value) return false;
-  
   return JSON.stringify(form) !== JSON.stringify(initialFormData.value);
 };
 
@@ -216,33 +327,30 @@ watch(() => ({ ...form }), () => {
 
 // 초기 데이터 로드
 onMounted(() => {
-  
   if (props.initialData) {
-    
     const data = { ...props.initialData };
     if (data.birthdate && typeof data.birthdate === 'string') {
       data.birthdate = data.birthdate.split(' ')[0];
     }
-    
     Object.assign(form, data);
   } else if (props.customer) {
     form.name = props.customer.name || '';
     form.phone = props.customer.phone || '';
   }
   
-  // 초기 데이터 저장 (변경 감지 기준)
+  // 초기 데이터 저장
   initialFormData.value = JSON.parse(JSON.stringify(form));
   
-  // 초기 validation 상태 전달
+  // 초기 validation 수행
   validateForm();
 });
 
-// 폼 데이터 반환 (부모에서 접근)
+// 폼 데이터 반환
 const getFormData = () => {
   return { ...form };
 };
 
-// 저장 후 초기 데이터 업데이트 (변경 감지 리셋용)
+// 저장 후 초기 데이터 업데이트
 const resetChangeTracking = () => {
   initialFormData.value = JSON.parse(JSON.stringify(form));
   emit('has-changes', false);
@@ -256,6 +364,7 @@ defineExpose({
 </script>
 
 <style scoped>
+/* 기존 스타일 그대로 유지 */
 .advanced-info-container {
   width: 100%;
   background: transparent;

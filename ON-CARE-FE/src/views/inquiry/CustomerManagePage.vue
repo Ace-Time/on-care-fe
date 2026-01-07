@@ -71,33 +71,48 @@ const refreshData = () => {
   flex-direction: column;
   gap: 24px;
   padding: 0 24px 24px;
-  max-width: 1800px;
+  /* ✅ 고정 max-width 대신 유동적으로 */
+  width: 100%;
+  max-width: 100%;
   margin: 0 auto;
+  box-sizing: border-box;
 }
 
 .page-title {
   margin: 0;
-  font-size: 24px;
+  font-size: clamp(20px, 2vw, 24px); /* ✅ 유동적 폰트 크기 */
   font-weight: 600;
   color: #111827;
 }
 
 .page-layout {
   display: flex;
-  gap: 24px;
+  gap: clamp(16px, 2vw, 24px); /* ✅ 유동적 간격 */
+  /* ✅ 고정 높이 대신 뷰포트 기반 */
   min-height: calc(100vh - 180px);
+  height: auto;
 }
 
 .left-panel {
-  width: 400px;
+  /* ✅ 고정 width 대신 비율 기반 + 최소/최대 */
+  width: clamp(280px, 25vw, 450px);
+  min-width: 280px;
   flex-shrink: 0;
+  
+  /* ✅ 내부 스크롤 허용 */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .right-panel {
+  /* ✅ 남은 공간 모두 차지 */
   flex: 1;
+  min-width: 0; /* flex item 축소 허용 */
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: clamp(16px, 2vw, 24px);
+  overflow: hidden;
 }
 
 .right-panel.empty {
@@ -115,13 +130,13 @@ const refreshData = () => {
 }
 
 .empty-icon {
-  font-size: 64px;
+  font-size: clamp(48px, 5vw, 64px); /* ✅ 유동적 아이콘 크기 */
   margin-bottom: 16px;
 }
 
 .empty-content p {
   margin: 4px 0;
-  font-size: 14px;
+  font-size: clamp(12px, 1.2vw, 14px); /* ✅ 유동적 폰트 크기 */
 }
 
 .info-section {
@@ -130,19 +145,53 @@ const refreshData = () => {
 
 .process-section {
   flex: 1;
+  min-height: 0; /* ✅ flex 자식 overflow 안정화 */
   background: white;
   border-radius: 12px;
-  padding: 24px;
+  padding: clamp(16px, 2vw, 24px); /* ✅ 유동적 패딩 */
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  overflow: auto; /* ✅ 내용이 넘치면 스크롤 */
 }
 
+/* ✅ 반응형 - 태블릿 */
+@media (max-width: 1400px) {
+  .left-panel {
+    width: clamp(260px, 30vw, 350px);
+  }
+}
+
+/* ✅ 반응형 - 작은 화면 */
 @media (max-width: 1200px) {
   .page-layout {
     flex-direction: column;
+    min-height: auto;
   }
   
   .left-panel {
     width: 100%;
+    max-height: 40vh;
+    min-height: 300px;
+  }
+  
+  .right-panel {
+    min-height: 50vh;
+  }
+}
+
+/* ✅ 반응형 - 모바일 */
+@media (max-width: 768px) {
+  .customer-manage-page {
+    padding: 0 16px 16px;
+    gap: 16px;
+  }
+  
+  .left-panel {
+    max-height: 35vh;
+    min-height: 250px;
+  }
+  
+  .process-section {
+    padding: 16px;
   }
 }
 </style>

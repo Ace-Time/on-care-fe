@@ -24,33 +24,50 @@ export const getCustomerManageDetail = (beneficiaryId) => {
 };
 
 /**
- * 이탈위험 - 상담 요청 알림 발송
- * @param {number} beneficiaryId
+ * 수급자 계약 정보 조회 (beneficiary_history 테이블)
+ */
+export const getBeneficiaryContractInfo = (beneficiaryId) => {
+  return api.get(`/api/customer-manage/${beneficiaryId}/contract`);
+};
+
+/**
+ * 계약 연장
+ */
+export const extendBeneficiaryContract = (beneficiaryId, data) => {
+  return api.post(`/api/customer-manage/${beneficiaryId}/contract/extend`, data);
+};
+
+/**
+ * 계약 종료 처리
+ */
+export const terminateBeneficiaryContract = (beneficiaryId, data) => {
+  return api.post(`/api/customer-manage/${beneficiaryId}/contract/terminate`, data);
+};
+
+/**
+ * 이탈위험 알림 발송
  */
 export const sendChurnRiskNotification = (beneficiaryId) => {
-  return api.post(`/api/customer-manage/beneficiaries/${beneficiaryId}/churn-risk/notify`);
+  return api.post(`/api/customer-manage/${beneficiaryId}/notification/churn-risk`);
 };
 
 /**
- * 불만상담 - 후속조치 등록 및 알림 발송
- * @param {Object} data - { beneficiaryId, counselId, followUpContent, actionType }
+ * 불만 후속조치 등록
  */
-export const registerComplaintFollowUp = (data) => {
-  return api.post('/api/customer-manage/complaint/follow-up', data);
+export const registerComplaintFollowUp = (beneficiaryId, data) => {
+  return api.post(`/api/customer-manage/${beneficiaryId}/complaint/follow-up`, data);
 };
 
 /**
- * 해지상담 - 해지 등록
- * @param {Object} data - { beneficiaryId, plannedTerminationDate, terminationReason }
+ * 해지 등록
  */
-export const registerTermination = (data) => {
-  return api.post('/api/customer-manage/termination', data);
+export const registerTermination = (beneficiaryId, data) => {
+  return api.post(`/api/customer-manage/${beneficiaryId}/termination`, data);
 };
 
 /**
- * 렌탈상담 - 요양보호사 알림 발송
- * @param {number} beneficiaryId
+ * 렌탈 알림 발송
  */
 export const sendRentalNotification = (beneficiaryId) => {
-  return api.post(`/api/customer-manage/beneficiaries/${beneficiaryId}/rental/notify`);
+  return api.post(`/api/customer-manage/${beneficiaryId}/notification/rental`);
 };

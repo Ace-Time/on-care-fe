@@ -108,8 +108,6 @@
             <div class="item-name">{{ item.name }}</div>
             <div class="item-info">
               <span>{{ item.phone }}</span>
-              <span class="divider">|</span>
-              <span>{{ item.careLevel || '-' }}</span>
             </div>
           </div>
           <div class="item-badges">
