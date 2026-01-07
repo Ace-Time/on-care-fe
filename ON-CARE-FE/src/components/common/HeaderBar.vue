@@ -6,7 +6,10 @@
           <img :src="logoIcon" alt="OnCare" />
         </div>
         <div class="logo-text">
-          <div class="logo-sub">{{ currentRole[1] }}</div>
+          <div class="logo-sub">
+          <div class="role-text">{{ currentRole.roleName }}</div>
+          <div class="name-text">{{ currentRole.userName }}님</div>
+        </div>
         </div>
       </div>
   
@@ -183,28 +186,32 @@ const handleItemClick = async (alarm) => {
   
   // 현재 역할
   const currentRole = computed(() => {
+  let authority = ""
+  const authorityName = userStore.jobName   // 직무명 (센터장, 요양보호사 등)
+  const userName = userStore.name           // 사용자 이름
 
-    let authority = "";
-    let authority_name = userStore.jobName;;
-  
-    if (userStore.hasSomeAuthorities(["ROLE_CENTER_MANAGER"])) {
-      authority = "ROLE_CENTER_MANAGER"; // 센터 관리자 
-    } else if (userStore.hasAllAuthorities(["ROLE_SALES_TEAM","ROLE_TEAM_LEAD"])) {
-      authority = "ROLE_SALES_TEAM"; // or 영업팀 팀장
-    }  else if (userStore.hasAllAuthorities(["ROLE_SALES_TEAM","ROLE_EMPLOYEE"])) {
-      authority = "ROLE_SALES_TEAM"; // 영업사원
-    } else if(userStore.hasAllAuthorities(["ROLE_CAREGIVER"])) {
-      authority = "ROLE_CAREGIVER"; // 요양사
-    } else if(userStore.hasAllAuthorities(["ROLE_MATERIAL_TEAM","ROLE_EMPLOYEE"])) {
-      authority = "ROLE_MATERIAL_TEAM";
-    }
-    return [authority, authority_name];
-  })
+  if (userStore.hasSomeAuthorities(["ROLE_CENTER_MANAGER"])) {
+    authority = "ROLE_CENTER_MANAGER"
+  } else if (userStore.hasAllAuthorities(["ROLE_SALES_TEAM", "ROLE_TEAM_LEAD"])) {
+    authority = "ROLE_SALES_TEAM"
+  } else if (userStore.hasAllAuthorities(["ROLE_SALES_TEAM", "ROLE_EMPLOYEE"])) {
+    authority = "ROLE_SALES_TEAM"
+  } else if (userStore.hasAllAuthorities(["ROLE_CAREGIVER"])) {
+    authority = "ROLE_CAREGIVER"
+  } else if (userStore.hasAllAuthorities(["ROLE_MATERIAL_TEAM", "ROLE_EMPLOYEE"])) {
+    authority = "ROLE_MATERIAL_TEAM"
+  }
+
+  return {
+    authority,
+    roleName: authorityName,
+    userName: userName,
+  }
+})
   
   // 역할별 메뉴
   const menuList = computed(() => {
-    console.log("currentRole.value::", currentRole.value);
-    return MENU_CONFIG[currentRole.value[0]] || MENU_CONFIG.ROLE_CAREGIVER
+    return MENU_CONFIG[currentRole.value.authority] || MENU_CONFIG.ROLE_CAREGIVER
   })
   
   // 현재 라우트 기준 활성 메뉴
@@ -245,10 +252,12 @@ const isActive = (item) => {
   // }
   
   
-  const goHome = async () => {
-    // const response = await api.get('/health');
-    // console.log(response.data);
-    router.push({ name: 'dashboard' })
+  const goHome = () => {
+    if (currentRole.value.authority === 'ROLE_CAREGIVER') {
+      router.push({ name: 'home' })
+    } else {
+      router.push({ name: 'dashboard' })
+    }
   }
   
   const onLogout = () => {
@@ -309,10 +318,22 @@ const isActive = (item) => {
     font-size: 18px;
     color: #16a34a;
   }
-  
-  .logo-sub {
+
+  .role-text {
     font-size: 12px;
     color: #64748b;
+  }
+
+  .name-text {
+    font-size: 12px;
+    font-weight: 600;
+    color: #111827;
+  }
+  
+  .logo-sub {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.2;
   }
   
   .header-center {

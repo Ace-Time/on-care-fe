@@ -78,8 +78,17 @@
       </div>
 
       <div class="tag-description">
-        요양보호사는 수급자의 태그 매칭을 바탕으로
-        거리가 가까운 요양보호사를 추천합니다.
+        <div class="score-line">
+          <span class="score-pill total">총 {{ viewModel.totalScore }}점</span>
+          <span class="score-pill distance">거리 {{ viewModel.distanceScore }}점</span>
+          <span class="score-pill tag">태그 {{ viewModel.tagScore }}점</span>
+        </div>
+
+        <div class="desc-text">
+          <div>거리 점수: 1km당 - 1점 (10점)</div>
+          <div>태그 점수: 1개당 +3점 (30점)</div>
+          <div>총 점수: 40점</div>
+        </div>
       </div>
     </template>
   </section>
@@ -123,7 +132,13 @@ const loadDetail = async () => {
     error.value = ''
     const res = await getCareWorkerDetail(careWorkerId)
     detail.value = res?.data ?? res ?? null
-    store.syncCaregiver(detail.value)
+    const base = props.caregiver || store.caregiver || {}
+    store.syncCaregiver({
+      ...(detail.value || {}),
+      totalScore: Number.isFinite(base?.totalScore) ? base.totalScore : 0,
+      distanceScore: Number.isFinite(base?.distanceScore) ? base.distanceScore : 0,
+      tagScore: Number.isFinite(base?.tagScore) ? base.tagScore : 0,
+    })
   } catch (e) {
     error.value = e?.response?.data?.message || '상세 정보를 불러오지 못했습니다.'
     detail.value = null
@@ -164,6 +179,11 @@ const viewModel = computed(() => {
     })
     .filter(Boolean)
 
+  
+  const totalScore = Number.isFinite(base?.totalScore) ? base.totalScore : 0
+  const distanceScore = Number.isFinite(base?.distanceScore) ? base.distanceScore : 0
+  const tagScore = Number.isFinite(base?.tagScore) ? base.tagScore : 0
+
   return {
     careWorkerId: d.careWorkerId ?? getCareWorkerId(base),
     name: d.name ?? base.name ?? '-',
@@ -174,6 +194,10 @@ const viewModel = computed(() => {
     tags: d.tags ?? [],
     certificates: d.certificates ?? [],
     workingTimes,
+
+    totalScore,
+    distanceScore,
+    tagScore,
   }
 })
 </script>
@@ -349,5 +373,38 @@ const viewModel = computed(() => {
   line-height: 1.6;
   color: #6b7280;
   word-break: keep-all;
+}
+.score-line {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.score-pill {
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.score-pill.total {
+  background: #ede9fe;
+  color: #7c3aed;
+}
+
+.score-pill.distance {
+  background: #e0f2fe;
+  color: #0284c7;
+}
+
+.score-pill.tag {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.desc-text {
+  line-height: 1.6;
 }
 </style>
