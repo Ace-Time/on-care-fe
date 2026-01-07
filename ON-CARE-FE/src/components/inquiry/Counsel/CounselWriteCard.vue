@@ -531,6 +531,9 @@ watch(() => isNecessary.value, (value) => {
 
 .panel-textarea {
   width: 100%;
+  /* 테두리와 패딩을 너비(width) 안에 포함시키는 핵심 속성 */
+  box-sizing: border-box; 
+  
   min-height: 90px;
   padding: 12px;
   border: 1px solid #D1D5DB;
