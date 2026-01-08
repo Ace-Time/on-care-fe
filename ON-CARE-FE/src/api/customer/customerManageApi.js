@@ -24,33 +24,52 @@ export const getCustomerManageDetail = (beneficiaryId) => {
 };
 
 /**
- * 이탈위험 - 상담 요청 알림 발송
- * @param {number} beneficiaryId
+ * 수급자 계약 정보 조회 (beneficiary_history 테이블)
  */
-export const sendChurnRiskNotification = (beneficiaryId) => {
-  return api.post(`/api/customer-manage/beneficiaries/${beneficiaryId}/churn-risk/notify`);
+export const getBeneficiaryContractInfo = (beneficiaryId) => {
+  return api.get(`/api/customer-manage/${beneficiaryId}/contract`);
 };
 
 /**
- * 불만상담 - 후속조치 등록 및 알림 발송
- * @param {Object} data - { beneficiaryId, counselId, followUpContent, actionType }
+ * 계약 연장
  */
-export const registerComplaintFollowUp = (data) => {
-  return api.post('/api/customer-manage/complaint/follow-up', data);
+export const extendBeneficiaryContract = (beneficiaryId, data) => {
+  return api.post(`/api/customer-manage/${beneficiaryId}/contract/extend`, data);
 };
 
 /**
- * 해지상담 - 해지 등록
- * @param {Object} data - { beneficiaryId, plannedTerminationDate, terminationReason }
+ * 계약 종료 처리
  */
-export const registerTermination = (data) => {
-  return api.post('/api/customer-manage/termination', data);
+export const terminateBeneficiaryContract = (beneficiaryId, data) => {
+  return api.post(`/api/customer-manage/${beneficiaryId}/contract/terminate`, data);
 };
 
+
+
 /**
- * 렌탈상담 - 요양보호사 알림 발송
- * @param {number} beneficiaryId
+ * 이탈 위험 수급자 알림 발송
  */
+export const sendChurnRiskBeneficiariesNotification = (beneficiaryId) => {
+  // 예: /api/customer-manage/notify/churn-risk/12345
+  return api.post(`/api/customer-manage/notify/churn-risk/${beneficiaryId}`);
+};
+
+export const sendComplainNotification = (beneficiaryId) => {
+  // 예: /api/customer-manage/notify/complain/12345
+  return api.post(`/api/customer-manage/notify/complain/${beneficiaryId}`);
+};
+
+export const sendTerminationNotification = (beneficiaryId) => {
+  // 예: /api/customer-manage/notify/termination/12345
+  return api.post(`/api/customer-manage/notify/termination/${beneficiaryId}`);
+};
+
+export const sendExpirationNotification = (beneficiaryId) => {
+  // 예: /api/customer-manage/notify/expiration/12345
+  return api.post(`/api/customer-manage/notify/expiration/${beneficiaryId}`);
+};
+
 export const sendRentalNotification = (beneficiaryId) => {
-  return api.post(`/api/customer-manage/beneficiaries/${beneficiaryId}/rental/notify`);
+  // 예: /api/customer-manage/notify/rental/12345
+  return api.post(`/api/customer-manage/notify/rental/${beneficiaryId}`);
 };

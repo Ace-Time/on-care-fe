@@ -49,13 +49,28 @@ const chartOptions = computed(() => {
     },
     plotOptions: {
       bar: { borderRadius: 4, columnWidth: '50%' },
-      pie: { donut: { size: '70%' } } // 도넛 두께 조절
+      pie: { 
+        donut: { size: '55%' },
+        
+        // 전체 차트 크기 조정 (오프셋 등)
+        offsetX: 0,
+        offsetY: 0
+      },
     },
     grid: {
       borderColor: '#f1f1f1',
-      padding: { top: 10 }
+      padding: { top: 0, bottom: 20, right: 20, left: 10 }
     },
-    legend: { position: 'bottom' }
+    legend: {
+      position: isPie ? 'right' : 'bottom',
+      fontSize: '14px',
+      formatter: function(seriesName, opts) {
+        if (isPie) {
+          return seriesName + " : " + opts.w.globals.series[opts.seriesIndex] + "명"
+        }
+        return seriesName
+      }
+    }
   };
 });
 
@@ -160,6 +175,7 @@ onBeforeUnmount(() => {
   flex-direction: column;
   position: relative;
   transition: box-shadow 0.3s ease;
+  box-sizing: border-box;
 }
 
 /* 카드에 마우스를 올렸을 때 그림자 효과 강화 */

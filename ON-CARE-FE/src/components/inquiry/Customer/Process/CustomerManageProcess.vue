@@ -10,7 +10,6 @@
         <div 
           class="step-item clickable" 
           :class="{ 'completed': completedStages.includes(step.stage) }"
-          @click="selectStage(step.stage)"
         >
           <div class="step-circle" :class="getStepCircleClass(step.stage)">{{ step.stage }}</div>
           <div class="step-label" :class="{ 'active-text': currentStage === step.stage }">{{ step.label }}</div>
@@ -47,15 +46,18 @@
       </div>
 
       <!-- 6단계: 관리 이력 -->
-      <div v-else-if="currentStage === 6" class="history-stage">
-        <CustomerManageHistory 
-          :beneficiaryId="beneficiaryId"
-        />
+      <div v-else-if="currentStage === 6" class="termination-stage">
+      <CustomerManageTermination 
+        :beneficiaryId="beneficiaryId"
+        :contractInfo="contractInfo"
+        :isTerminated="isTerminated"
+        @termination-complete="handleTerminationComplete"
+      />
       </div>
     </div>
 
     <!-- 하단 버튼 -->
-    <div class="action-bar-container" v-if="currentStage">
+    <!-- <div class="action-bar-container" v-if="currentStage">
       <div class="left-group">
         <button 
           class="btn btn-white" 
@@ -75,7 +77,7 @@
           <div class="btn-text-white">다음 단계로</div>
         </button>
       </div>
-    </div>
+    </div> -->
   </div>
 </template>
 
@@ -84,6 +86,7 @@ import { ref, shallowRef, computed, onMounted, watch } from 'vue';
 import { getStageDataApi } from '@/api/inquiry/counselApi';
 import { getCustomerManageDetail } from '@/api/customer/customerManageApi';
 import { useToast } from '@/lib/toast.js';
+import { getBeneficiaryContractInfo } from '@/api/customer/customerManageApi';
 
 // 기존 가입 프로세스 컴포넌트들
 import NewPotentialRegist from '@/components/inquiry/Counsel/Process/subscript/NewPotentialRegist.vue';
@@ -94,6 +97,7 @@ import RegistSubscription from '@/components/inquiry/Counsel/Process/subscript/R
 // 고객 관리 컴포넌트들
 import CustomerManageSolution from './CustomerManageSolution.vue';
 import CustomerManageHistory from './CustomerManageHistory.vue';
+import CustomerManageTermination from './CustomerManageTermination.vue';
 
 const props = defineProps({
   beneficiaryId: {
@@ -108,6 +112,29 @@ const props = defineProps({
 
 const emit = defineEmits(['refresh']);
 const toast = useToast();
+const contractInfo = ref(null);
+
+const isTerminated = computed(() => {
+  if (!contractInfo.value) return false;
+  const terminateDate = contractInfo.value.terminateDate;
+  if (!terminateDate) return false;
+  return new Date(terminateDate) <= new Date();
+});
+
+const loadContractInfo = async () => {
+  if (!props.beneficiaryId) return;
+  
+  loading.value = true;
+  try {
+    const { data } = await getBeneficiaryContractInfo(props.beneficiaryId);
+    contractInfo.value = data;
+  } catch (e) {
+    console.error('계약 정보 로드 실패:', e);
+    toast.error('계약 정보를 불러오지 못했습니다.');
+  } finally {
+    loading.value = false;
+  }
+};
 
 // 단계 정의
 const steps = [
@@ -116,7 +143,7 @@ const steps = [
   { stage: 3, label: '사전정보' },
   { stage: 4, label: '계약완료' },
   { stage: 5, label: '고객관리' },
-  { stage: 6, label: '관리이력' }
+  { stage: 6, label: '계약종료' }
 ];
 
 // 단계별 컴포넌트 (1~4단계)
@@ -146,7 +173,14 @@ const selectStage = (stage) => {
   
   if (stage === 5) {
     loadManageDetail();
+  } else if (stage === 6) { // 추가된 부분
+    loadContractInfo();
   }
+};
+
+const handleTerminationComplete = () => {
+  loadContractInfo();
+  emit('refresh');
 };
 
 // 단계별 initialData
@@ -268,12 +302,7 @@ watch(() => props.beneficiaryId, () => {
   gap: 8px;
   position: relative;
   z-index: 1;
-  cursor: pointer;
   transition: transform 0.2s;
-}
-
-.step-item:hover {
-  transform: translateY(-2px);
 }
 
 .step-circle {

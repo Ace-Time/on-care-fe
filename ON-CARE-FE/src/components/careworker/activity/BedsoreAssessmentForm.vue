@@ -45,7 +45,7 @@ const formData = ref({
   beneficiaryId: props.initialData?.beneficiaryId ?? 0,
   recipientName: props.initialData?.recipientName || '',
   careWorkerName: props.initialData?.careWorkerName || userStore.name || '',
-  assessmentDate: props.initialData?.assessmentDate || new Date().toISOString().split('T')[0],
+  assessmentDate: props.initialData?.eval_date || props.initialData?.evalDate || props.initialData?.assessmentDate || new Date().toISOString().split('T')[0],
   bedsoreRisk: props.initialData?.bedsoreRisk || {},
   comment: props.initialData?.comment || ''
 });
@@ -57,7 +57,7 @@ watch(() => props.initialData, (newData) => {
       beneficiaryId: newData.beneficiaryId,
       recipientName: newData.recipientName || formData.value.recipientName,
       careWorkerName: newData.careWorkerName || userStore.name || '',
-      assessmentDate: newData.assessmentDate || formData.value.assessmentDate,
+      assessmentDate: newData.eval_date || newData.evalDate || newData.assessmentDate || formData.value.assessmentDate,
       bedsoreRisk: newData.bedsoreRisk || formData.value.bedsoreRisk || {},
       comment: newData.comment || formData.value.comment || ''
     };

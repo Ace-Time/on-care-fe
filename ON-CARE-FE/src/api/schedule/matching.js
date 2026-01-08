@@ -33,15 +33,28 @@ export const getCandidateCareWorkerCards = ({
   page = 0,
   size = 8,
   keyword = null,
-}) =>
+  sort = 'TOTAL',
+} = {}) =>
   api.get('/api/matching/careworkers/list', {
-    params: { beneficiaryId, page, size, keyword },
+    params: {
+      beneficiaryId,
+      page,
+      size,
+      ...(keyword && String(keyword).trim() ? { keyword: String(keyword).trim() } : {}),
+      ...(sort ? { sort } : {}),
+    },
   })
 
 // 방문일정(confirmed) 시간 기준 배정가능 요양보호사 카드 조회
-export const getVisitAvailableCareWorkerCards = ({ vsId, startDt, endDt, page = 0 }) =>
+export const getVisitAvailableCareWorkerCards = ({
+  vsId,
+  startDt,
+  endDt,
+  page = 0,
+  sort = 'TOTAL',
+} = {}) =>
   api.get('/api/matching/careworkers/visit-available', {
-    params: { vsId, startDt, endDt, page },
+    params: { vsId, startDt, endDt, page, sort },
   })
   
 // 요양보호사 상세 조회
@@ -86,7 +99,9 @@ export const getCreateVisitAvailableCareWorkerCards = ({
   serviceTypeId,
   page = 0,
   size = 8,
-}) =>
+  keyword = null,          
+  sort = 'TOTAL',
+} = {}) =>
   api.get('/api/matching/careworkers/visit-create-available', {
     params: {
       beneficiaryId,
@@ -95,6 +110,8 @@ export const getCreateVisitAvailableCareWorkerCards = ({
       serviceTypeId,
       page,
       size,
+      ...(keyword && String(keyword).trim() ? { keyword: String(keyword).trim() } : {}), 
+      sort,
     },
   })
 

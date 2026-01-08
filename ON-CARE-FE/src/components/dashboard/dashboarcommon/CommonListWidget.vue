@@ -65,6 +65,7 @@ const getTypeStyle = (type) => {
   flex-direction: column;
   position: relative;
   transition: box-shadow 0.3s ease;
+  box-sizing: border-box;
 }
 .common-widget:hover {
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
