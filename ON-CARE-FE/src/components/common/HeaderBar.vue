@@ -56,7 +56,45 @@
             <span>로그아웃</span>
           </button>
         </div>
+
+        <!-- 모바일 메뉴 토글 버튼 -->
+        <button class="mobile-menu-btn" @click="toggleMobileMenu">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#111827" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+          </svg>
+        </button>
       </div>
+      
+      <!-- 모바일 메뉴 오버레이 -->
+      <transition name="fade">
+        <div v-if="isMobileMenuOpen" class="mobile-menu-overlay" @click="toggleMobileMenu">
+          <nav class="mobile-menu-content" @click.stop>
+            <div class="mobile-menu-header">
+              <span class="mobile-menu-title">메뉴</span>
+              <button class="close-btn" @click="toggleMobileMenu">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" stroke="#111827" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              </button>
+            </div>
+            <div class="mobile-menu-list">
+              <RouterLink
+                v-for="item in menuList"
+                :key="item.key"
+                :to="{ name: item.routeName }"
+                class="mobile-menu-item"
+                :class="{ active: isActive(item) }"
+                @click="handleMobileMenuClick(item)"
+              >
+                <div class="mobile-item-icon">
+                  <img :src="item.icon" :alt="item.label" />
+                </div>
+                <span class="mobile-item-label">{{ item.label }}</span>
+              </RouterLink>
+            </div>
+          </nav>
+        </div>
+      </transition>
     </header>
   </template>
   
@@ -71,8 +109,8 @@
   import NotificationList from '@/components/common/NotificationList.vue'
   import { markAsRead } from '@/api/alarm/alarmApi'
   
-  // 공통 로고
-  import logoIcon from '@/assets/img/common/oncareIcon.png'
+  /* 공통 로고 */
+  import logoIcon from '@/assets/img/common/oncareIconletter.png'
   
   // 대시보드/메뉴 아이콘
   import businessIcon from '@/assets/img/dashboard/businessManagement.png'
@@ -92,6 +130,20 @@
   const route = useRoute()
   const userStore = useUserStore()
   const notificationStore = useNotificationStore()
+
+  /* --- [추가] 모바일 메뉴 상태 및 토글 --- */
+  const isMobileMenuOpen = ref(false)
+  const toggleMobileMenu = () => {
+    isMobileMenuOpen.value = !isMobileMenuOpen.value
+  }
+
+  // 메뉴 클릭 시 닫기
+  const handleMobileMenuClick = (item) => {
+    if (item.routeName && item.routeName.startsWith('http')) {
+       // link logic if needed
+    }
+    isMobileMenuOpen.value = false
+  }
 
   // --- [수정] 알림 관련 로직 (스토어 연동) ---
   const isNotificationOpen = ref(false)
@@ -159,8 +211,8 @@ const handleItemClick = async (alarm) => {
   // 역할별 메뉴 정의
   const MENU_CONFIG = {
     ROLE_CENTER_MANAGER: [
-      { key: 'schedule', label: '일정 관리', routeName: 'schedule-calendar', icon: scheduleIcon },
       { key: 'employees', label: '직원 관리', routeName: 'employees', icon: employeeIcon },
+      { key: 'schedule', label: '일정 관리', routeName: 'schedule-calendar', icon: scheduleIcon },
       { key: 'recipient', label: '수급자 관리', routeName: 'recipient-list', icon: recipientIcon },
       { key: 'inquiry', label: '고객 관리', routeName: 'inquiry-consult', icon: inquiryIcon },
       { key: 'product', label: '용품 관리', routeName: 'product-master', icon: suppliesIcon },
@@ -278,7 +330,7 @@ const isActive = (item) => {
     align-items: center;
     justify-content: space-between;
     height: 64px;
-    padding: 0 32px;
+    padding: 0 10px;
     background: #ffffff;
     border-radius: 0;
     border-bottom: 1px solid #e5e7eb;
@@ -292,8 +344,8 @@ const isActive = (item) => {
   }
   
   .logo-icon {
-    width: 36px;
-    height: 36px;
+    width: auto;
+    height: 30px;
     border-radius: 12px;
     display: flex;
     align-items: center;
@@ -320,12 +372,12 @@ const isActive = (item) => {
   }
 
   .role-text {
-    font-size: 12px;
+    font-size: 15px;
     color: #64748b;
   }
 
   .name-text {
-    font-size: 12px;
+    font-size: 15px;
     font-weight: 600;
     color: #111827;
   }
@@ -439,4 +491,136 @@ const isActive = (item) => {
   display: flex;
   align-items: center;
 }
-  </style>
+
+/* --- 모바일 메뉴 버튼 (기본 숨김) --- */
+.mobile-menu-btn {
+  display: none;
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  margin-left: 8px;
+}
+
+/* --- 모바일 메뉴 오버레이 --- */
+.mobile-menu-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.mobile-menu-content {
+  width: 280px;
+  height: 100%;
+  background: white;
+  padding: 24px;
+  box-shadow: -4px 0 16px rgba(0,0,0,0.1);
+  display: flex;
+  flex-direction: column;
+}
+
+.mobile-menu-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.mobile-menu-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+}
+
+.mobile-menu-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+}
+
+.mobile-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  text-decoration: none;
+  color: #64748b;
+  font-size: 15px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.mobile-menu-item:hover {
+  background-color: #f8fafc;
+  color: #1e293b;
+}
+
+.mobile-menu-item.active {
+  background-color: #dcfce7; /* green-100 */
+  color: #166534; /* green-800 */
+  font-weight: 600;
+}
+
+.mobile-item-icon {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mobile-item-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* Transition */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+/* --- 반응형 미디어 쿼리 --- */
+@media (max-width: 1024px) {
+  /* 가운데 메뉴 숨김 */
+  .header-center {
+    display: none;
+  }
+
+  /* 햄버거 버튼 표시 */
+  .mobile-menu-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 768px) {
+  .global-header {
+    padding: 0 16px; 
+  }
+}
+</style>
