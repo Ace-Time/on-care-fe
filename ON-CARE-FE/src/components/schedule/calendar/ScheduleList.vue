@@ -70,224 +70,257 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue'
-import { getScheduleDayList } from '@/api/schedule/scheduleApi'
-import { getConfirmedScheduleDayList } from '@/api/schedule/confirmedScheduleApi'
-
-const props = defineProps({
-  selectedDate: { type: String, default: '' },
-  keyword: { type: String, default: '' },
-  searchScope: { type: String, default: 'ALL' },
-  serviceTypeId: { type: Number, default: null }, // 추가: null | 1 | 2 | 3
-  refreshKey: { type: Number, default: 0 },
-})
-
-const emit = defineEmits(['select-schedule'])
-
-const weekdays = ['일', '월', '화', '수', '목', '금', '토']
-const selectedKey = ref(null)
-
-const loading = ref(false)
-const error = ref('')
-
-const dailySchedules = ref([])
-const total = ref(0)
-
-const page = ref(1)
-const pageSize = 5
-
-const headerTitle = computed(() => {
-  if (!props.selectedDate) return '일정을 선택해주세요'
-  const d = new Date(props.selectedDate)
-  if (Number.isNaN(d.getTime())) return '일정을 선택해주세요'
-  const month = d.getMonth() + 1
-  const date = d.getDate()
-  const weekday = weekdays[d.getDay()]
-  return `${month}월 ${date}일 (${weekday}) 일정`
-})
-
-const totalPages = computed(() => {
-  const t = Number(total.value)
-  if (!Number.isFinite(t) || t <= 0) return 1
-  return Math.max(1, Math.ceil(t / pageSize))
-})
-
-const summary = computed(() => {
-  const result = { care: 0, bath: 0, nurse: 0 }
-  dailySchedules.value.forEach((item) => {
-    if (item.serviceTypeId === 1) result.care += 1
-    if (item.serviceTypeId === 2) result.bath += 1
-    if (item.serviceTypeId === 3) result.nurse += 1
+  import { computed, ref, watch } from 'vue'
+  import { getScheduleDayList } from '@/api/schedule/scheduleApi'
+  import { getConfirmedScheduleDayList } from '@/api/schedule/confirmedScheduleApi'
+  
+  const props = defineProps({
+    selectedDate: { type: String, default: '' },
+    keyword: { type: String, default: '' },
+    searchScope: { type: String, default: 'ALL' },
+    serviceTypeId: { type: Number, default: null }, // null | 1 | 2 | 3
+    refreshKey: { type: Number, default: 0 },
   })
-  return result
-})
-
-const formatTimeHM = (t) => {
-  const s = String(t ?? '')
-  if (!s) return ''
-  if (s.includes('T')) {
-    const timePart = s.split('T')[1] || ''
-    return timePart.slice(0, 5)
+  
+  const emit = defineEmits(['select-schedule'])
+  
+  const weekdays = ['일', '월', '화', '수', '목', '금', '토']
+  const selectedKey = ref(null)
+  
+  const loading = ref(false)
+  const error = ref('')
+  
+  const dailySchedules = ref([])
+  const total = ref(0)
+  
+  const page = ref(1)
+  const pageSize = 5
+  
+  // 전체(해당 날짜 전체 페이지) 기준 집계 값
+  const summaryTotal = ref({ care: 0, bath: 0, nurse: 0 })
+  
+  const headerTitle = computed(() => {
+    if (!props.selectedDate) return '일정을 선택해주세요'
+    const d = new Date(props.selectedDate)
+    if (Number.isNaN(d.getTime())) return '일정을 선택해주세요'
+    const month = d.getMonth() + 1
+    const date = d.getDate()
+    const weekday = weekdays[d.getDay()]
+    return `${month}월 ${date}일 (${weekday}) 일정`
+  })
+  
+  const totalPages = computed(() => {
+    const t = Number(total.value)
+    if (!Number.isFinite(t) || t <= 0) return 1
+    return Math.max(1, Math.ceil(t / pageSize))
+  })
+  
+  // 템플릿은 그대로 summary.care / bath / nurse 쓰게 유지
+  const summary = computed(() => summaryTotal.value)
+  
+  const formatTimeHM = (t) => {
+    const s = String(t ?? '')
+    if (!s) return ''
+    if (s.includes('T')) {
+      const timePart = s.split('T')[1] || ''
+      return timePart.slice(0, 5)
+    }
+    return s.slice(0, 5)
   }
-  return s.slice(0, 5)
-}
-
-const formatDuration = (minutes) => {
-  const m = Number(minutes)
-  if (!Number.isFinite(m) || m <= 0) return '0분'
-  const h = Math.floor(m / 60)
-  const r = m % 60
-  if (h <= 0) return `${r}분`
-  if (r === 0) return `${h}시간`
-  return `${h}시간 ${r}분`
-}
-
-const today = new Date()
-const monthIndex = (y, m) => y * 12 + m
-
-const getDayListFetcherBySelectedDate = (selectedDateStr) => {
-  if (!selectedDateStr) return getScheduleDayList
-
-  const d = new Date(selectedDateStr)
-  if (Number.isNaN(d.getTime())) return getScheduleDayList
-
-  const base = monthIndex(today.getFullYear(), today.getMonth())
-  const view = monthIndex(d.getFullYear(), d.getMonth())
-
-  if (view <= base - 1) return getConfirmedScheduleDayList
-
-  const isBefore25 = today.getDate() < 25
-
-  if (isBefore25) {
-    if (view === base) return getConfirmedScheduleDayList
-    if (view === base + 1) return getScheduleDayList
-  } else {
-    if (view === base || view === base + 1) return getConfirmedScheduleDayList
-    if (view === base + 2) return getScheduleDayList
+  
+  const formatDuration = (minutes) => {
+    const m = Number(minutes)
+    if (!Number.isFinite(m) || m <= 0) return '0분'
+    const h = Math.floor(m / 60)
+    const r = m % 60
+    if (h <= 0) return `${r}분`
+    if (r === 0) return `${h}시간`
+    return `${h}시간 ${r}분`
   }
-
-  return getScheduleDayList
-}
-
-const isConfirmedMonthBySelectedDate = (selectedDateStr) => {
-  if (!selectedDateStr) return false
-
-  const d = new Date(selectedDateStr)
-  if (Number.isNaN(d.getTime())) return false
-
-  const base = monthIndex(today.getFullYear(), today.getMonth())
-  const view = monthIndex(d.getFullYear(), d.getMonth())
-
-  if (view <= base - 1) return true
-
-  const isBefore25 = today.getDate() < 25
-
-  if (isBefore25) {
-    if (view === base) return true
-    if (view === base + 1) return false
-  } else {
-    if (view === base || view === base + 1) return true
-    if (view === base + 2) return false
+  
+  const today = new Date()
+  const monthIndex = (y, m) => y * 12 + m
+  
+  const getDayListFetcherBySelectedDate = (selectedDateStr) => {
+    if (!selectedDateStr) return getScheduleDayList
+  
+    const d = new Date(selectedDateStr)
+    if (Number.isNaN(d.getTime())) return getScheduleDayList
+  
+    const base = monthIndex(today.getFullYear(), today.getMonth())
+    const view = monthIndex(d.getFullYear(), d.getMonth())
+  
+    if (view <= base - 1) return getConfirmedScheduleDayList
+  
+    const isBefore25 = today.getDate() < 25
+  
+    if (isBefore25) {
+      if (view === base) return getConfirmedScheduleDayList
+      if (view === base + 1) return getScheduleDayList
+    } else {
+      if (view === base || view === base + 1) return getConfirmedScheduleDayList
+      if (view === base + 2) return getScheduleDayList
+    }
+  
+    return getScheduleDayList
   }
-
-  return false
-}
-
-const normalizePageResponse = (res) => {
-  const items = Array.isArray(res?.items)
-    ? res.items
-    : Array.isArray(res?.content)
-      ? res.content
-      : Array.isArray(res)
-        ? res
-        : []
-
-  const t =
-    Number(res?.total) ||
-    Number(res?.totalElements) ||
-    Number(res?.totalCount) ||
-    (Array.isArray(items) ? items.length : 0)
-
-  return { items, total: Number.isFinite(t) ? t : items.length }
-}
-
-const loadDay = async () => {
-  selectedKey.value = null
-  error.value = ''
-  loading.value = true
-
-  dailySchedules.value = []
-  total.value = 0
-
-  if (!props.selectedDate) {
-    loading.value = false
-    return
+  
+  const isConfirmedMonthBySelectedDate = (selectedDateStr) => {
+    if (!selectedDateStr) return false
+  
+    const d = new Date(selectedDateStr)
+    if (Number.isNaN(d.getTime())) return false
+  
+    const base = monthIndex(today.getFullYear(), today.getMonth())
+    const view = monthIndex(d.getFullYear(), d.getMonth())
+  
+    if (view <= base - 1) return true
+  
+    const isBefore25 = today.getDate() < 25
+  
+    if (isBefore25) {
+      if (view === base) return true
+      if (view === base + 1) return false
+    } else {
+      if (view === base || view === base + 1) return true
+      if (view === base + 2) return false
+    }
+  
+    return false
   }
-
-  const searchField =
-    props.searchScope && props.searchScope !== 'ALL' ? props.searchScope : null
-
-  const fetcher = getDayListFetcherBySelectedDate(props.selectedDate)
-
-  try {
-    const res = await fetcher({
+  
+  const normalizePageResponse = (res) => {
+    const items = Array.isArray(res?.items)
+      ? res.items
+      : Array.isArray(res?.content)
+        ? res.content
+        : Array.isArray(res)
+          ? res
+          : []
+  
+    const t =
+      Number(res?.total) ||
+      Number(res?.totalElements) ||
+      Number(res?.totalCount) ||
+      (Array.isArray(items) ? items.length : 0)
+  
+    return { items, total: Number.isFinite(t) ? t : items.length }
+  }
+  
+  //  집계 유틸
+  const countSummary = (items) => {
+    const result = { care: 0, bath: 0, nurse: 0 }
+    items.forEach((item) => {
+      if (item.serviceTypeId === 1) result.care += 1
+      if (item.serviceTypeId === 2) result.bath += 1
+      if (item.serviceTypeId === 3) result.nurse += 1
+    })
+    return result
+  }
+  
+  // 전체 페이지를 돌며 “요약만” 집계 (테이블은 그대로 5개씩)
+  const fetchAllItemsForSummary = async (fetcher, baseParams, totalCount) => {
+    const maxPage = Math.max(1, Math.ceil(totalCount / pageSize))
+    let p = 0
+    let all = []
+  
+    while (p < maxPage) {
+      const r = await fetcher({ ...baseParams, page: p, size: pageSize })
+      const n = normalizePageResponse(r)
+      all = all.concat(n.items || [])
+      p += 1
+    }
+  
+    return all
+  }
+  
+  const loadDay = async () => {
+    selectedKey.value = null
+    error.value = ''
+    loading.value = true
+  
+    dailySchedules.value = []
+    total.value = 0
+    summaryTotal.value = { care: 0, bath: 0, nurse: 0 }
+  
+    if (!props.selectedDate) {
+      loading.value = false
+      return
+    }
+  
+    const searchField =
+      props.searchScope && props.searchScope !== 'ALL' ? props.searchScope : null
+  
+    const fetcher = getDayListFetcherBySelectedDate(props.selectedDate)
+  
+    const baseParams = {
       date: props.selectedDate,
-      page: Math.max(0, page.value - 1),
-      size: pageSize,
       keyword: props.keyword,
       searchField,
-      ...(props.serviceTypeId != null ? { serviceTypeId: props.serviceTypeId } : {}), // ✅ 추가
-    })
+      ...(props.serviceTypeId != null ? { serviceTypeId: props.serviceTypeId } : {}),
+    }
+  
+    try {
+      // 1) 현재 페이지 데이터
+      const res = await fetcher({
+        ...baseParams,
+        page: Math.max(0, page.value - 1),
+        size: pageSize,
+      })
+  
+      const normalized = normalizePageResponse(res)
+      dailySchedules.value = normalized.items
+      total.value = normalized.total
+  
+      if (page.value > totalPages.value) page.value = totalPages.value
+  
 
-    const normalized = normalizePageResponse(res)
-    dailySchedules.value = normalized.items
-    total.value = normalized.total
-
-    if (page.value > totalPages.value) page.value = totalPages.value
-  } catch (e) {
-    error.value = e?.response?.data?.message || '일정 목록을 불러오지 못했습니다.'
-  } finally {
-    loading.value = false
+      const allItems = await fetchAllItemsForSummary(fetcher, baseParams, total.value)
+      summaryTotal.value = countSummary(allItems)
+    } catch (e) {
+      error.value = e?.response?.data?.message || '일정 목록을 불러오지 못했습니다.'
+    } finally {
+      loading.value = false
+    }
   }
-}
-
-const prevPage = async () => {
-  if (page.value <= 1) return
-  page.value -= 1
-  await loadDay()
-}
-
-const nextPage = async () => {
-  if (page.value >= totalPages.value) return
-  page.value += 1
-  await loadDay()
-}
-
-let timer = null
-watch(
-  () => [props.selectedDate, props.keyword, props.searchScope, props.serviceTypeId, props.refreshKey],
-  () => {
-    clearTimeout(timer)
-    page.value = 1
-    timer = setTimeout(loadDay, 250)
-  },
-  { immediate: true }
-)
-
-watch(
-  () => page.value,
-  () => loadDay()
-)
-
-const onRowClick = (item) => {
-  selectedKey.value = item.matchingId ?? item.vsId ?? null
-  const confirmed = isConfirmedMonthBySelectedDate(props.selectedDate)
-
-  emit('select-schedule', {
-    ...item,
-    source: confirmed ? 'CONFIRMED' : 'NORMAL',
-  })
-}
+  
+  const prevPage = async () => {
+    if (page.value <= 1) return
+    page.value -= 1
+    await loadDay()
+  }
+  
+  const nextPage = async () => {
+    if (page.value >= totalPages.value) return
+    page.value += 1
+    await loadDay()
+  }
+  
+  let timer = null
+  watch(
+    () => [props.selectedDate, props.keyword, props.searchScope, props.serviceTypeId, props.refreshKey],
+    () => {
+      clearTimeout(timer)
+      page.value = 1
+      timer = setTimeout(loadDay, 250)
+    },
+    { immediate: true }
+  )
+  
+  watch(
+    () => page.value,
+    () => loadDay()
+  )
+  
+  const onRowClick = (item) => {
+    selectedKey.value = item.matchingId ?? item.vsId ?? null
+    const confirmed = isConfirmedMonthBySelectedDate(props.selectedDate)
+  
+    emit('select-schedule', {
+      ...item,
+      source: confirmed ? 'CONFIRMED' : 'NORMAL',
+    })
+  }
 </script>
 
 <style scoped>
