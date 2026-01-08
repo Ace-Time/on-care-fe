@@ -163,8 +163,8 @@ const handleLogin = async() => {
 }
 
 .logo-image {
-  width: 60px;
-  height: 60px;
+  width: 100px;
+  height: 100px;
   margin-bottom: 12px;
 }
 

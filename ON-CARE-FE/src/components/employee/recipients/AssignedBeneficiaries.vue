@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue';
 import { getAssignedBeneficiaries } from '@/api/employee/employeeApi';
-import axios from 'axios';
+import api from '@/lib/api';
 import BeneficiaryDetailModal from './BeneficiaryDetailModal.vue';
 import { Icon } from '@iconify/vue';
 
@@ -46,7 +46,7 @@ const openDetailModal = async (person) => {
   try {
     // 백엔드 상세 조회 API 호출
     // (설정된 proxy가 있다면 '/api/beneficiaries/...' 로 줄여도 됨)
-    const response = await axios.get(`http://localhost:5000/api/beneficiaries/${person.beneficiaryId}`);
+    const response = await api.get(`/api/beneficiaries/${person.beneficiaryId}`);
     
     // 받아온 상세 데이터를 모달용 변수에 저장
     selectedBeneficiary.value = response.data;
@@ -100,10 +100,6 @@ onMounted(() => {
             <span v-else class="birthdate">{{ person.birthDate ? person.birthDate : '정보 없음' }}</span>
           </div>
         </div>
-
-        <button class="detail-link">
-          클릭하여 상세정보 보기 <Icon icon="line-md:arrow-right" width="16" height="16" style="vertical-align: middle;" />
-        </button>
       </div>
     </div>
 
@@ -194,15 +190,6 @@ onMounted(() => {
 .info-sub {
   font-size: 14px;
   color: #475569;
-}
-
-.detail-link {
-  font-size: 13px;
-  color: #22c55e;
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-weight: 500;
 }
 
 .detail-link:hover {
