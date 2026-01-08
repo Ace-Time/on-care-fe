@@ -305,11 +305,7 @@ const isActive = (item) => {
   
   
   const goHome = () => {
-    if (currentRole.value.authority === 'ROLE_CAREGIVER') {
-      router.push({ name: 'home' })
-    } else {
-      router.push({ name: 'dashboard' })
-    }
+    router.push({ name: 'dashboard' })
   }
   
   const onLogout = () => {
