@@ -41,9 +41,9 @@
             </p>
           </div>
           <div class="card-actions">
-            <!-- <button class="action-btn primary" @click="sendChurnRiskNotification" :disabled="actionLoading">
+            <button class="action-btn primary" @click="sendChurnRiskNotification" :disabled="actionLoading">
               {{ actionLoading ? '발송 중...' : '상담 요청 알림 발송' }}
-            </button> -->
+            </button>
           </div>
         </div>
 
@@ -73,7 +73,7 @@
               </div>
             </div>
             <p class="card-solution">
-              <strong>💡 Solution:</strong> 불만 사항에 대한 후속 조치를 진행해 주세요.
+              <strong>💡 Solution:</strong> 불만 사항에 대해 주의 알림을 보내요.
             </p>
           </div>
           <div class="card-actions">
@@ -84,13 +84,9 @@
                 class="followup-input"
               ></textarea>
             </div> -->
-            <!-- <button 
-              class="action-btn primary" 
-              @click="submitComplaintFollowUp"
-              :disabled="actionLoading || !complaintFollowUp.trim()"
-            >
-              {{ actionLoading ? '등록 중...' : '후속조치 등록 및 알림 발송' }}
-            </button> -->
+            <button class="action-btn primary" @click="sendComplainNotification" :disabled="actionLoading">
+              {{ actionLoading ? '발송 중...' : '상담 요청 알림 발송' }}
+            </button>
           </div>
         </div>
 
@@ -121,31 +117,11 @@
           </div>
           
           <!-- 해지일 미등록 시 등록 폼 -->
-          <!-- <div class="card-actions" v-if="!manageDetail.plannedTerminationDate">
-            <div class="input-group">
-              <label>해지 예정일</label>
-              <input 
-                type="date" 
-                v-model="terminationDate" 
-                class="date-input"
-                :min="minTerminationDate"
-              />
-            </div>
-            <div class="input-group">
-              <textarea 
-                v-model="terminationReason" 
-                placeholder="해지 사유를 입력하세요..."
-                class="followup-input"
-              ></textarea>
-            </div>
-            <button 
-              class="action-btn warning" 
-              @click="submitTermination"
-              :disabled="actionLoading || !terminationDate"
-            >
-              {{ actionLoading ? '등록 중...' : '해지 예정일 등록' }}
+          <div class="card-actions" v-if="!manageDetail.plannedTerminationDate">
+            <button class="action-btn primary" @click="sendTerminationNotification" :disabled="actionLoading">
+              {{ actionLoading ? '발송 중...' : '상담 요청 알림 발송' }}
             </button>
-          </div> -->
+          </div>
         </div>
       </div>
 
@@ -218,9 +194,9 @@
             </p>
           </div>
           <div class="card-actions">
-            <!-- <button class="action-btn success" @click="sendRentalNotification" :disabled="actionLoading">
-              {{ actionLoading ? '발송 중...' : '요양보호사에게 렌탈 안내 알림 발송' }}
-            </button> -->
+            <button class="action-btn primary" @click="sendRentalNotification" :disabled="actionLoading">
+              {{ actionLoading ? '발송 중...' : '상담 요청 알림 발송' }}
+            </button>
           </div>
         </div>
       </div>
@@ -238,10 +214,12 @@
 <script setup>
 import { ref, computed } from 'vue';
 import { 
-  sendChurnRiskNotification as sendChurnRiskApi,
-  registerComplaintFollowUp,
-  registerTermination,
+  sendChurnRiskBeneficiariesNotification as sendChurnRiskApi,
+  sendComplainNotification as sendComplainApi,
+  sendTerminationNotification as sendTerminationApi,
+  sendExpirationNotification as sendExpirationApi,
   sendRentalNotification as sendRentalApi
+
 } from '@/api/customer/customerManageApi';
 import { useToast } from '@/lib/toast.js';
 
@@ -262,10 +240,6 @@ const toast = useToast();
 const loading = ref(false);
 const actionLoading = ref(false);
 
-// 폼 데이터
-const complaintFollowUp = ref('');
-const terminationDate = ref('');
-const terminationReason = ref('');
 
 // 최소 해지일 (오늘 이후)
 const minTerminationDate = computed(() => {
@@ -308,9 +282,10 @@ const formatDate = (dateStr) => {
 const sendChurnRiskNotification = async () => {
   actionLoading.value = true;
   try {
-    const { data } = await sendChurnRiskApi(props.beneficiaryId);
-    if (data.success) {
-      toast.success(data.message || '상담 요청 알림이 발송되었습니다.');
+    const { data } = await sendChurnRiskApi(props.beneficiaryId);  // 객체가 아닌 값 직접 전달
+    
+    if (data.message && !data.message.includes('존재하지 않는')) {
+      toast.success(data.message);
       emit('action-complete');
     } else {
       toast.error(data.message || '알림 발송에 실패했습니다.');
@@ -324,74 +299,13 @@ const sendChurnRiskNotification = async () => {
 };
 
 // 불만상담 후속조치 등록
-const submitComplaintFollowUp = async () => {
-  if (!complaintFollowUp.value.trim()) {
-    toast.error('후속조치 내용을 입력해 주세요.');
-    return;
-  }
-
+const sendComplainNotification = async () => {
   actionLoading.value = true;
   try {
-    const { data } = await registerComplaintFollowUp({
-      beneficiaryId: props.beneficiaryId,
-      counselId: props.manageDetail?.latestComplaint?.counselId,
-      followUpContent: complaintFollowUp.value,
-      actionType: 'COMPLAINT_RESOLVE'
-    });
-    
-    if (data.success) {
-      toast.success(data.message || '후속조치가 등록되었습니다.');
-      complaintFollowUp.value = '';
-      emit('action-complete');
-    } else {
-      toast.error(data.message || '등록에 실패했습니다.');
-    }
-  } catch (e) {
-    console.error('후속조치 등록 실패:', e);
-    toast.error('후속조치 등록에 실패했습니다.');
-  } finally {
-    actionLoading.value = false;
-  }
-};
+    const { data } = await sendComplainApi(props.beneficiaryId);  // 객체가 아닌 값 직접 전달
 
-// 해지 등록
-const submitTermination = async () => {
-  if (!terminationDate.value) {
-    toast.error('해지 예정일을 선택해 주세요.');
-    return;
-  }
-
-  actionLoading.value = true;
-  try {
-    const { data } = await registerTermination({
-      beneficiaryId: props.beneficiaryId,
-      plannedTerminationDate: terminationDate.value,
-      terminationReason: terminationReason.value
-    });
-    
-    if (data.success) {
-      toast.success(data.message || '해지가 등록되었습니다.');
-      terminationDate.value = '';
-      terminationReason.value = '';
-      emit('action-complete');
-    } else {
-      toast.error(data.message || '등록에 실패했습니다.');
-    }
-  } catch (e) {
-    console.error('해지 등록 실패:', e);
-    toast.error('해지 등록에 실패했습니다.');
-  } finally {
-    actionLoading.value = false;
-  }
-};
-
-// 렌탈 알림 발송
-const sendRentalNotification = async () => {
-  actionLoading.value = true;
-  try {
-    const { data } = await sendRentalApi(props.beneficiaryId);
-    if (data.success) {
-      toast.success(data.message || '렌탈 안내 알림이 발송되었습니다.');
+    if (data.message && !data.message.includes('존재하지 않는')) {
+      toast.success(data.message);
       emit('action-complete');
     } else {
       toast.error(data.message || '알림 발송에 실패했습니다.');
@@ -403,6 +317,67 @@ const sendRentalNotification = async () => {
     actionLoading.value = false;
   }
 };
+
+// 해지 등록
+const sendTerminationNotification = async () => {
+  actionLoading.value = true;
+  try {
+    const { data } = await sendTerminationApi(props.beneficiaryId);  // 객체가 아닌 값 직접 전달
+
+    if (data.message && !data.message.includes('존재하지 않는')) {
+      toast.success(data.message);
+      emit('action-complete');
+    } else {
+      toast.error(data.message || '알림 발송에 실패했습니다.');
+    }
+  } catch (e) {
+    console.error('알림 발송 실패:', e);
+    toast.error('알림 발송에 실패했습니다.');
+  } finally {
+    actionLoading.value = false;
+  }
+};
+
+// 렌탈 알림 발송
+const sendRentalNotification = async () => {
+  actionLoading.value = true;
+  try {
+    const { data } = await sendRentalApi(props.beneficiaryId);  // 객체가 아닌 값 직접 전달
+    
+    if (data.message && !data.message.includes('존재하지 않는')) {
+      toast.success(data.message);
+      emit('action-complete');
+    } else {
+      toast.error(data.message || '알림 발송에 실패했습니다.');
+    }
+  } catch (e) {
+    console.error('알림 발송 실패:', e);
+    toast.error('알림 발송에 실패했습니다.');
+  } finally {
+    actionLoading.value = false;
+  }
+};
+
+// 계약만료 알림 발송
+const sendExpirationNotification = async () => {
+  actionLoading.value = true;
+  try {
+    const { data } = await sendExpirationApi(props.beneficiaryId);  // 객체가 아닌 값 직접 전달
+
+    if (data.message && !data.message.includes('존재하지 않는')) {
+      toast.success(data.message);
+      emit('action-complete');
+    } else {
+      toast.error(data.message || '알림 발송에 실패했습니다.');
+    }
+  } catch (e) {
+    console.error('알림 발송 실패:', e);
+    toast.error('알림 발송에 실패했습니다.');
+  } finally {
+    actionLoading.value = false;
+  }
+};
+
 </script>
 
 <style scoped>
