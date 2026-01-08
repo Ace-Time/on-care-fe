@@ -44,30 +44,32 @@ export const terminateBeneficiaryContract = (beneficiaryId, data) => {
   return api.post(`/api/customer-manage/${beneficiaryId}/contract/terminate`, data);
 };
 
-/**
- * 이탈위험 알림 발송
- */
-export const sendChurnRiskNotification = (beneficiaryId) => {
-  return api.post(`/api/customer-manage/${beneficiaryId}/notification/churn-risk`);
-};
+
 
 /**
- * 불만 후속조치 등록
+ * 이탈 위험 수급자 알림 발송
  */
-export const registerComplaintFollowUp = (beneficiaryId, data) => {
-  return api.post(`/api/customer-manage/${beneficiaryId}/complaint/follow-up`, data);
+export const sendChurnRiskBeneficiariesNotification = (beneficiaryId) => {
+  // 예: /api/customer-manage/notify/churn-risk/12345
+  return api.post(`/api/customer-manage/notify/churn-risk/${beneficiaryId}`);
 };
 
-/**
- * 해지 등록
- */
-export const registerTermination = (beneficiaryId, data) => {
-  return api.post(`/api/customer-manage/${beneficiaryId}/termination`, data);
+export const sendComplainNotification = (beneficiaryId) => {
+  // 예: /api/customer-manage/notify/complain/12345
+  return api.post(`/api/customer-manage/notify/complain/${beneficiaryId}`);
 };
 
-/**
- * 렌탈 알림 발송
- */
+export const sendTerminationNotification = (beneficiaryId) => {
+  // 예: /api/customer-manage/notify/termination/12345
+  return api.post(`/api/customer-manage/notify/termination/${beneficiaryId}`);
+};
+
+export const sendExpirationNotification = (beneficiaryId) => {
+  // 예: /api/customer-manage/notify/expiration/12345
+  return api.post(`/api/customer-manage/notify/expiration/${beneficiaryId}`);
+};
+
 export const sendRentalNotification = (beneficiaryId) => {
-  return api.post(`/api/customer-manage/${beneficiaryId}/notification/rental`);
+  // 예: /api/customer-manage/notify/rental/12345
+  return api.post(`/api/customer-manage/notify/rental/${beneficiaryId}`);
 };
