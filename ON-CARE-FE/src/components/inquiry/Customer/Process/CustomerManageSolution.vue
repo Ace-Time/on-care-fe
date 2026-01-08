@@ -42,7 +42,7 @@
           </div>
           <div class="card-actions">
             <button class="action-btn primary" @click="sendChurnRiskNotification" :disabled="actionLoading">
-              {{ actionLoading ? '발송 중...' : '상담 요청 알림 발송' }}
+              {{ actionLoading ? '발송 중...' : '이탈 위험 알림 발송' }}
             </button>
           </div>
         </div>
@@ -85,7 +85,7 @@
               ></textarea>
             </div> -->
             <button class="action-btn primary" @click="sendComplainNotification" :disabled="actionLoading">
-              {{ actionLoading ? '발송 중...' : '상담 요청 알림 발송' }}
+              {{ actionLoading ? '발송 중...' : '불만 상담 알림 발송' }}
             </button>
           </div>
         </div>
@@ -119,7 +119,7 @@
           <!-- 해지일 미등록 시 등록 폼 -->
           <div class="card-actions" v-if="!manageDetail.plannedTerminationDate">
             <button class="action-btn primary" @click="sendTerminationNotification" :disabled="actionLoading">
-              {{ actionLoading ? '발송 중...' : '상담 요청 알림 발송' }}
+              {{ actionLoading ? '발송 중...' : '해지 상담 알림 발송' }}
             </button>
           </div>
         </div>
@@ -162,6 +162,11 @@
               <strong>💡 Solution:</strong> 계약 갱신이 필요합니다. 계약 연장 상담을 진행해 주세요.
             </p>
           </div>
+          <div class="card-actions">
+            <button class="action-btn primary" @click="sendExpirationNotification" :disabled="actionLoading">
+              {{ actionLoading ? '발송 중...' : '계약 만료 알림 발송' }}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -195,7 +200,7 @@
           </div>
           <div class="card-actions">
             <button class="action-btn primary" @click="sendRentalNotification" :disabled="actionLoading">
-              {{ actionLoading ? '발송 중...' : '상담 요청 알림 발송' }}
+              {{ actionLoading ? '발송 중...' : '렌탈 요청 알림 발송' }}
             </button>
           </div>
         </div>
