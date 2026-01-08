@@ -234,6 +234,9 @@
     return all
   }
   
+  // 늦게 도착한 응답이 최신 상태를 덮어쓰지 않게 하는 토큰
+  let reqSeq = 0
+  
   const loadDay = async () => {
     selectedKey.value = null
     error.value = ''
@@ -247,6 +250,8 @@
       loading.value = false
       return
     }
+  
+    const mySeq = ++reqSeq
   
     const searchField =
       props.searchScope && props.searchScope !== 'ALL' ? props.searchScope : null
@@ -267,6 +272,7 @@
         page: Math.max(0, page.value - 1),
         size: pageSize,
       })
+      if (mySeq !== reqSeq) return
   
       const normalized = normalizePageResponse(res)
       dailySchedules.value = normalized.items
@@ -274,23 +280,29 @@
   
       if (page.value > totalPages.value) page.value = totalPages.value
   
-
+      // 2) 요약은 전체 페이지 기준으로 집계
       const allItems = await fetchAllItemsForSummary(fetcher, baseParams, total.value)
+      if (mySeq !== reqSeq) return
+  
       summaryTotal.value = countSummary(allItems)
     } catch (e) {
+      if (mySeq !== reqSeq) return
       error.value = e?.response?.data?.message || '일정 목록을 불러오지 못했습니다.'
     } finally {
+      if (mySeq !== reqSeq) return
       loading.value = false
     }
   }
   
   const prevPage = async () => {
+    clearTimeout(timer)
     if (page.value <= 1) return
     page.value -= 1
     await loadDay()
   }
   
   const nextPage = async () => {
+    clearTimeout(timer)
     if (page.value >= totalPages.value) return
     page.value += 1
     await loadDay()
@@ -302,14 +314,11 @@
     () => {
       clearTimeout(timer)
       page.value = 1
-      timer = setTimeout(loadDay, 250)
+      timer = setTimeout(() => {
+        loadDay()
+      }, 250)
     },
     { immediate: true }
-  )
-  
-  watch(
-    () => page.value,
-    () => loadDay()
   )
   
   const onRowClick = (item) => {
