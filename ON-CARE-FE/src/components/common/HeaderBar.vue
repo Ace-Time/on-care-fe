@@ -616,7 +616,21 @@ const isActive = (item) => {
 
 @media (max-width: 768px) {
   .global-header {
-    padding: 0 16px; 
+    padding: 0 12px; 
   }
+  
+  /* 모바일에서 로그아웃 텍스트 숨김 (아이콘만 표시) */
+  .logout-button span:not(.logout-icon) {
+    display: none;
+  }
+  
+  /* 이름/직책 폰트 사이즈 조정 */
+  .role-text { font-size: 13px; }
+  .name-text { font-size: 14px; }
+}
+
+/* 텍스트 줄바꿈 방지 */
+.logo-text, .role-text, .name-text, .logout-button {
+  white-space: nowrap;
 }
 </style>

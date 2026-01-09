@@ -183,6 +183,18 @@ const openAdd = () => {
   flex-wrap: wrap;
   gap: 1rem;
 }
+@media (max-width: 640px) {
+  .calendar-controls {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+  .view-toggles, .date-navigator, .right-actions {
+    justify-content: center;
+    width: 100%;
+    display: flex;
+  }
+}
 .view-toggles button {
   padding: 0.5rem 1rem;
   border: 1px solid #e5e7eb;
@@ -246,8 +258,49 @@ const openAdd = () => {
 
 /* 반응형: 모바일에서는 높이/폰트 축소 */
 @media (max-width: 768px) {
-  .date-cell { min-height: 80px; padding: 0.25rem; }
-  .schedule-item { font-size: 0.7rem; padding: 0.1rem 0.25rem; }
-  .time { display: none; /* 공간 부족 시 시간 숨김 */ }
+  .calendar-container { padding: 0.5rem; }
+  
+  /* [수정] 월간 바디에 가로 스크롤 적용 */
+  .month-view-body { 
+    border: none; 
+    overflow-x: auto; /* 가로 스크롤 켜기 */
+  }
+
+  /* [추가] 그리드 최소 너비 설정하여 스크롤 유도 */
+  .weekday-header, .date-grid {
+    min-width: 600px; /* 충분한 너비 확보 */
+  }
+
+  /* 폰트/패딩은 그대로 유지하되 셀 높이는 확보 */
+  .weekday { padding: 0.5rem; font-size: 13px; }
+
+  .date-cell {
+    min-height: 80px; 
+    padding: 2px;
+  }
+  .date-number { font-size: 13px; margin-bottom: 4px; padding-left: 4px; }
+  .today-circle { width: 20px; height: 20px; line-height: 20px; font-size: 12px; }
+
+  .schedule-item {
+    font-size: 12px;
+    padding: 2px 4px;
+    margin-bottom: 2px;
+    height: auto; 
+    border-radius: 4px;
+    display: flex; 
+    align-items: center;
+  }
+  
+  /* 스크롤이 되므로 시간 다시 표시 (선택 사항) - 여기서는 유지 */
+  .time { display: none; }
+
+  .recipient {
+    display: block;
+    width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.3;
+  }
 }
 </style>
