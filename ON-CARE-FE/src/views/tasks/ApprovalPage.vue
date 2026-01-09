@@ -55,7 +55,7 @@
           <div class="title-row">
             <span class="title">{{ item.title }}</span>
             <span class="badge category">{{ item.categoryName }}</span>
-            <span class="badge priority" :class="getPriorityClass(item.priority)">{{ item.priority }}</span>
+            <span class="badge priority" :class="getPriorityClass(item.priority)">{{ getPriorityLabel(item.priority) }}</span>
           </div>
           <div class="info-row">
             <span class="username">{{ item.drafterName }}</span>
@@ -324,9 +324,16 @@ const handleReject = async (id) => {
 };
 
 // 스타일 헬퍼
+const getPriorityLabel = (p) => {
+  if (p === 0 || p === '0' || p === '긴급' || p === 'HIGH') return '긴급';
+  if (p === 1 || p === '1' || p === '보통' || p === 'NORMAL') return '보통';
+  if (p === 2 || p === '2' || p === '낮음' || p === 'LOW') return '낮음';
+  return p;
+}
+
 const getPriorityClass = (p) => {
-  if(p === '긴급' || p === 'HIGH') return 'p-high'; 
-  if(p === '보통' || p === 'MEDIUM') return 'p-medium';
+  if(p === 0 || p === '0' || p === '긴급' || p === 'HIGH') return 'p-high'; 
+  if(p === 1 || p === '1' || p === '보통' || p === 'MEDIUM') return 'p-medium';
   return 'p-low';
 }
 const getStatusClass = (s) => {
