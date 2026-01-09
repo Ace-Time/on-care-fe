@@ -281,7 +281,27 @@ const openAdd = () => {
 .calendar-container { background: white; border-radius: 0.75rem; padding: 1.5rem; height: 100%; display: flex; flex-direction: column; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
 
 /* 컨트롤바(공통) */
-.calendar-controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+/* 컨트롤바(공통) */
+.calendar-controls { 
+  display: flex; 
+  justify-content: space-between; 
+  align-items: center; 
+  margin-bottom: 1.5rem; 
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+@media (max-width: 640px) {
+  .calendar-controls {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+  .view-toggles, .date-navigator, .right-actions {
+    justify-content: center;
+    width: 100%;
+    display: flex;
+  }
+}
 .view-toggles button { padding: 0.5rem 1rem; border: 1px solid #e5e7eb; background: white; color: #6b7280; cursor: pointer; }
 .view-toggles button:first-child { border-top-left-radius: 0.5rem; border-bottom-left-radius: 0.5rem; }
 .view-toggles button:last-child { border-top-right-radius: 0.5rem; border-bottom-right-radius: 0.5rem; }

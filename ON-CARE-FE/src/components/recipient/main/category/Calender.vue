@@ -487,4 +487,22 @@ const nextMonth = () => {
     min-height: 60px;
   }
 }
+
+/* 모바일 전용 스타일 */
+@media (max-width: 640px) {
+  .calendar-wrap {
+    overflow-x: auto; /* 가로 스크롤 허용 */
+  }
+  .calendar {
+    min-width: 500px; /* 최소 너비 확보로 찌그러짐 방지 */
+  }
+  .calendar-cell {
+    min-height: 60px;
+  }
+  /* 일정 시간/제목 줄바꿈 처리 등 */
+  .event-pill {
+    padding: 2px 6px;
+    font-size: 10px;
+  }
+}
 </style>
