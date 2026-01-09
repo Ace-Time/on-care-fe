@@ -40,7 +40,7 @@
           <div class="info-row">
             <span class="label">우선순위:</span>
             <span class="badge priority" :class="getPriorityClass(item.priority)">
-              {{ item.priority }}
+              {{ getPriorityLabel(item.priority) }}
             </span>
           </div>
           <div class="info-row">
@@ -156,13 +156,22 @@ onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown);
 });
 
+const getPriorityLabel = (priority) => {
+  if (priority === undefined || priority === null) return '-';
+  const p = String(priority).toUpperCase();
+  if (['0', '긴급', 'HIGH', 'URGENT'].includes(p)) return '긴급';
+  if (['1', '보통', 'MEDIUM', 'NORMAL'].includes(p)) return '보통';
+  if (['2', '낮음', 'LOW'].includes(p)) return '낮음';
+  return priority;
+};
+
 // (스타일링용 유틸 함수)
 const getPriorityClass = (priority) => {
-  if (!priority) return '';
-  const p = priority.toUpperCase();
-  if (['긴급', 'HIGH', 'URGENT'].includes(p)) return 'p-high';
-  if (['보통', 'MEDIUM', 'NORMAL'].includes(p)) return 'p-medium';
-  if (['낮음', 'LOW'].includes(p)) return 'p-low';
+  if (priority === undefined || priority === null) return '';
+  const p = String(priority).toUpperCase();
+  if (['0', '긴급', 'HIGH', 'URGENT'].includes(p)) return 'p-high';
+  if (['1', '보통', 'MEDIUM', 'NORMAL'].includes(p)) return 'p-medium';
+  if (['2', '낮음', 'LOW'].includes(p)) return 'p-low';
   return '';
 };
 

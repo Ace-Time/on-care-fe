@@ -41,9 +41,9 @@
             <div class="form-group half">
               <label>우선순위 <span class="required">*</span></label>
               <select v-model="form.priority" class="form-select">
+                <option :value="0">긴급</option>
                 <option :value="1">보통</option>
-                <option :value="2">긴급</option>
-                <option :value="0">낮음</option>
+                <option :value="2">낮음</option>
               </select>
             </div>
           </div>
